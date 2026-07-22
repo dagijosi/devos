@@ -44,7 +44,7 @@ export function ProjectScanner({ onSelect, onClose }: Props) {
         <input value={path} onChange={(e) => setPath(e.target.value)} placeholder="Enter root folder path..."
           className="flex-1 px-3 py-2 bg-theme-background border border-theme-border/30 rounded-xl text-sm text-theme-text placeholder-theme-text/40 focus:outline-none focus:border-theme-icon/50" />
         <button onClick={handleScan} disabled={scanning}
-          className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity">
+          className="px-4 py-2 text-sm font-medium text-white bg-theme-icon rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity">
           {scanning ? 'Scanning...' : 'Scan'}
         </button>
       </div>
@@ -72,7 +72,7 @@ export function ProjectScanner({ onSelect, onClose }: Props) {
                   ))}
                   <button
                     onClick={() => onSelect({ name: dir.name, description: '', tags: dir.technologies, repository_url: '', local_path: dir.path, status: 'active' })}
-                    className="px-3 py-1.5 text-xs font-medium text-white bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg hover:opacity-90 transition-opacity"
+                    className="px-3 py-1.5 text-xs font-medium text-white bg-theme-icon rounded-lg hover:opacity-90 transition-opacity"
                   >
                     Import
                   </button>

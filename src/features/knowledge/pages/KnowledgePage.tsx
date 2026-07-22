@@ -184,19 +184,19 @@ export function KnowledgePage() {
 
           {tab === 'notes' && (
             <button onClick={handleCreateNote}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl hover:opacity-90 transition-opacity">
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-theme-icon rounded-xl hover:opacity-90 transition-opacity">
               <FaPlus className="w-3 h-3" /> New Note
             </button>
           )}
           {tab === 'snippets' && (
             <button onClick={() => setShowSnippetForm(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl hover:opacity-90 transition-opacity">
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-theme-icon rounded-xl hover:opacity-90 transition-opacity">
               <FaPlus className="w-3 h-3" /> New Snippet
             </button>
           )}
           {tab === 'bugs' && (
             <button onClick={() => setShowBugForm(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-gradient-to-r from-red-500 to-purple-600 rounded-xl hover:opacity-90 transition-opacity">
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-theme-error rounded-xl hover:opacity-90 transition-opacity">
               <FaPlus className="w-3 h-3" /> Report Bug
             </button>
           )}

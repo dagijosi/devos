@@ -1,10 +1,10 @@
 import { FaTerminal, FaDatabase, FaCode, FaWrench } from 'react-icons/fa';
 
 const tools = [
-  { name: 'Terminal', description: 'Integrated command line', icon: FaTerminal, color: 'from-gray-500 to-gray-600' },
-  { name: 'Database Browser', description: 'Browse and query SQLite', icon: FaDatabase, color: 'from-blue-500 to-blue-600' },
-  { name: 'JSON Formatter', description: 'Format and validate JSON', icon: FaCode, color: 'from-green-500 to-green-600' },
-  { name: 'RegEx Tester', description: 'Test regular expressions', icon: FaWrench, color: 'from-purple-500 to-purple-600' },
+  { name: 'Terminal', description: 'Integrated command line', icon: FaTerminal },
+  { name: 'Database Browser', description: 'Browse and query SQLite', icon: FaDatabase },
+  { name: 'JSON Formatter', description: 'Format and validate JSON', icon: FaCode },
+  { name: 'RegEx Tester', description: 'Test regular expressions', icon: FaWrench },
 ];
 
 export function ToolboxPage() {
@@ -19,7 +19,7 @@ export function ToolboxPage() {
         {tools.map((tool) => (
           <div key={tool.name} className="bg-theme-surface border border-theme-border/30 rounded-2xl p-5 hover:border-theme-border/60 transition-colors cursor-pointer group">
             <div className="flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${tool.color} flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform`}>
+              <div className="w-12 h-12 rounded-xl bg-theme-icon flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
                 <tool.icon className="w-5 h-5 text-white" />
               </div>
               <div>

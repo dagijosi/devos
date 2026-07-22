@@ -89,7 +89,7 @@ export function BugForm({ open, onClose, onSave }: Props) {
                 <button type="button" onClick={onClose}
                   className="px-4 py-2 text-sm text-theme-text/60 hover:text-theme-text transition-colors">Cancel</button>
                 <button type="submit"
-                  className="px-5 py-2 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-purple-600 rounded-xl hover:opacity-90 transition-opacity">
+                  className="px-5 py-2 text-sm font-medium text-white bg-theme-error rounded-xl hover:opacity-90 transition-opacity">
                   Report Bug
                 </button>
               </div>

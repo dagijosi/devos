@@ -26,15 +26,15 @@ export function DashboardPage() {
   }, []);
 
   const quickActions = [
-    { label: 'New Project', icon: FaFolder, color: 'from-blue-500 to-blue-600', desc: 'Create a new project', action: () => navigate(`${PROJECTS}?new=true`) },
-    { label: 'New Note', icon: FaStickyNote, color: 'from-green-500 to-green-600', desc: 'Quick note capture' },
-    { label: 'View Projects', icon: FaFolder, color: 'from-purple-500 to-purple-600', desc: 'Browse all projects', action: () => navigate(PROJECTS) },
-    { label: 'Open Terminal', icon: FaCode, color: 'from-gray-500 to-gray-600', desc: 'Command line' },
+    { label: 'New Project', icon: FaFolder, desc: 'Create a new project', action: () => navigate(`${PROJECTS}?new=true`) },
+    { label: 'New Note', icon: FaStickyNote, desc: 'Quick note capture' },
+    { label: 'View Projects', icon: FaFolder, desc: 'Browse all projects', action: () => navigate(PROJECTS) },
+    { label: 'Open Terminal', icon: FaCode, desc: 'Command line' },
   ];
 
   return (
     <div className="space-y-6 max-w-6xl">
-      <div className="bg-gradient-to-br from-blue-500/10 via-purple-500/5 to-transparent border border-blue-500/20 rounded-2xl p-6">
+      <div className="bg-theme-surface border border-theme-border/30 rounded-2xl p-6">
         <h1 className="text-2xl font-bold text-theme-text">Welcome back</h1>
         <p className="text-sm text-theme-text/60 mt-1 max-w-lg">
           {stats.active} active project{stats.active !== 1 ? 's' : ''}, {stats.completed} completed
@@ -62,7 +62,7 @@ export function DashboardPage() {
           {quickActions.map((action) => (
             <button key={action.label} onClick={action.action}
               className="bg-theme-surface border border-theme-border/30 rounded-xl p-4 hover:border-theme-border/60 transition-colors text-left group">
-              <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${action.color} flex items-center justify-center mb-2 group-hover:scale-105 transition-transform`}>
+              <div className="w-10 h-10 rounded-lg bg-theme-icon flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
                 <action.icon className="w-4 h-4 text-white" />
               </div>
               <p className="text-sm font-medium text-theme-text">{action.label}</p>
@@ -88,7 +88,7 @@ export function DashboardPage() {
               {recentProjects.map((p) => (
                 <div key={p.id} onClick={() => navigate(`${PROJECTS}/${p.id}`)}
                   className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-theme-background/30 transition-colors cursor-pointer">
-                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
+                  <div className="w-9 h-9 rounded-lg bg-theme-icon flex items-center justify-center flex-shrink-0">
                     <FaFolder className="w-4 h-4 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">

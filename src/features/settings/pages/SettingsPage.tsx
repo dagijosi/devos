@@ -112,7 +112,7 @@ export function SettingsPage() {
               <h3 className="text-sm font-semibold text-theme-text mb-1">Database Size</h3>
               <p className="text-xs text-theme-text/40 mb-3">Current storage usage</p>
               <div className="h-2 bg-theme-background/50 rounded-full overflow-hidden">
-                <div className="h-full w-1/4 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full" />
+                <div className="h-full w-1/4 bg-theme-icon rounded-full" />
               </div>
               <p className="text-xs text-theme-text/40 mt-1">2.4 MB / 10 MB</p>
             </div>
@@ -158,8 +158,8 @@ export function SettingsPage() {
 
         {activeTab === 'about' && (
           <div className="space-y-6">
-            <div className="flex items-center gap-4 p-4 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-2xl border border-blue-500/10">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+            <div className="flex items-center gap-4 p-4 bg-theme-surface rounded-2xl border border-theme-border/30">
+              <div className="w-14 h-14 rounded-2xl bg-theme-icon flex items-center justify-center flex-shrink-0">
                 <FaInfoCircle className="w-6 h-6 text-white" />
               </div>
               <div>

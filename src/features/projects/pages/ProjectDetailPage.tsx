@@ -74,10 +74,10 @@ export function ProjectDetailPage() {
         Back to Projects
       </button>
 
-      <div className="bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-transparent border border-theme-border/30 rounded-2xl p-6 md:p-8">
+      <div className="bg-theme-surface border border-theme-border/30 rounded-2xl p-6 md:p-8">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-4 min-w-0">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
+            <div className="w-14 h-14 rounded-2xl bg-theme-icon flex items-center justify-center flex-shrink-0">
               <FaFolder className="w-6 h-6 text-white" />
             </div>
             <div className="min-w-0">

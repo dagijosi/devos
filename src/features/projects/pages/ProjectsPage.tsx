@@ -39,7 +39,7 @@ export function ProjectsPage() {
             <span className="hidden sm:inline">Import</span>
           </button>
           <button onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl hover:opacity-90 transition-opacity">
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-theme-icon rounded-xl hover:opacity-90 transition-opacity">
             <FaPlus className="w-3.5 h-3.5" />
             New Project
           </button>

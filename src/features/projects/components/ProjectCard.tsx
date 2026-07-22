@@ -22,7 +22,7 @@ export function ProjectCard({ project, onToggleFavorite, onTogglePinned, onDelet
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-theme-icon flex items-center justify-center flex-shrink-0">
             <FaFolder className="w-4 h-4 text-white" />
           </div>
           <div className="min-w-0">
