@@ -17,7 +17,16 @@ export const PROJECTS_TABLE = `CREATE TABLE IF NOT EXISTS projects (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
   description TEXT DEFAULT '',
-  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'archived', 'completed')),
+  status TEXT NOT NULL DEFAULT 'active',
+  tags TEXT DEFAULT '[]',
+  technology TEXT DEFAULT '[]',
+  favorite INTEGER DEFAULT 0,
+  pinned INTEGER DEFAULT 0,
+  repository_url TEXT DEFAULT '',
+  local_path TEXT DEFAULT '',
+  scripts TEXT DEFAULT '{}',
+  environment TEXT DEFAULT '{}',
+  last_opened DATETIME,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );`;
@@ -42,12 +51,20 @@ export const RECENT_ACTIVITY_TABLE = `CREATE TABLE IF NOT EXISTS recent_activity
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );`;
 
+export const TAGS_TABLE = `CREATE TABLE IF NOT EXISTS tags (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  color TEXT DEFAULT '#6366f1',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);`;
+
 export const ALL_MIGRATIONS = [
   SETTINGS_TABLE,
   NOTIFICATIONS_TABLE,
   PROJECTS_TABLE,
   NOTES_TABLE,
   RECENT_ACTIVITY_TABLE,
+  TAGS_TABLE,
 ];
 
 export const SETTINGS_QUERIES = {
@@ -71,25 +88,21 @@ export const NOTIFICATION_QUERIES = {
 export const PROJECT_QUERIES = {
   getAll: `SELECT * FROM projects ORDER BY updated_at DESC`,
   getById: `SELECT * FROM projects WHERE id = ?`,
-  insert: `INSERT INTO projects (name, description) VALUES (?, ?)`,
-  update: `UPDATE projects SET name = ?, description = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  insert: `INSERT INTO projects (name, description, tags, technology, repository_url, local_path) VALUES (?, ?, ?, ?, ?, ?)`,
+  update: `UPDATE projects SET name = ?, description = ?, status = ?, tags = ?, technology = ?, favorite = ?, pinned = ?, repository_url = ?, local_path = ?, scripts = ?, environment = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  updateLastOpened: `UPDATE projects SET last_opened = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  toggleFavorite: `UPDATE projects SET favorite = CASE WHEN favorite = 1 THEN 0 ELSE 1 END, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  togglePinned: `UPDATE projects SET pinned = CASE WHEN pinned = 1 THEN 0 ELSE 1 END, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
   delete: `DELETE FROM projects WHERE id = ?`,
-  getRecent: `SELECT * FROM projects ORDER BY updated_at DESC LIMIT ?`,
-};
-
-export const NOTE_QUERIES = {
-  getAll: `SELECT * FROM notes ORDER BY updated_at DESC`,
-  getById: `SELECT * FROM notes WHERE id = ?`,
-  insert: `INSERT INTO notes (title, content, project_id) VALUES (?, ?, ?)`,
-  update: `UPDATE notes SET title = ?, content = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-  delete: `DELETE FROM notes WHERE id = ?`,
-  getRecent: `SELECT * FROM notes ORDER BY updated_at DESC LIMIT ?`,
-  getByProject: `SELECT * FROM notes WHERE project_id = ? ORDER BY updated_at DESC`,
+  getRecent: `SELECT * FROM projects ORDER BY last_opened DESC NULLS LAST, updated_at DESC LIMIT ?`,
+  getFavorites: `SELECT * FROM projects WHERE favorite = 1 ORDER BY updated_at DESC`,
+  getPinned: `SELECT * FROM projects WHERE pinned = 1 ORDER BY updated_at DESC`,
+  search: `SELECT * FROM projects WHERE name LIKE ? OR description LIKE ? ORDER BY updated_at DESC`,
 };
 
 export const ACTIVITY_QUERIES = {
   insert: `INSERT INTO recent_activity (entity_type, entity_id, action, description) VALUES (?, ?, ?, ?)`,
   getRecent: `SELECT * FROM recent_activity ORDER BY created_at DESC LIMIT ?`,
-  getAll: `SELECT * FROM recent_activity ORDER BY created_at DESC`,
+  getByEntity: `SELECT * FROM recent_activity WHERE entity_type = ? AND entity_id = ? ORDER BY created_at DESC`,
   deleteOld: `DELETE FROM recent_activity WHERE created_at < datetime('now', '-30 days')`,
 };

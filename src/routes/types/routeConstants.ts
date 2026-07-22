@@ -1,6 +1,7 @@
 export const HOME = "/";
 export const DASHBOARD = "/dashboard";
 export const PROJECTS = "/projects";
+export const PROJECT_DETAIL = "/projects/:id";
 export const KNOWLEDGE = "/knowledge";
 export const TOOLBOX = "/toolbox";
 export const AUTOMATION = "/automation";

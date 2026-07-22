@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { CATCH_ALL, DASHBOARD, SETTING, PROJECTS, KNOWLEDGE, TOOLBOX, AUTOMATION } from './types/routeConstants';
+import { CATCH_ALL, DASHBOARD, SETTING, PROJECTS, PROJECT_DETAIL, KNOWLEDGE, TOOLBOX, AUTOMATION } from './types/routeConstants';
 import { createRoute } from './types/createRoute';
 import { AppLayout } from '../components/layout/AppLayout';
 
@@ -14,6 +14,10 @@ const SettingsPage = React.lazy(() =>
 
 const ProjectsPage = React.lazy(() =>
   import('../features/projects/pages/ProjectsPage').then((m) => ({ default: m.ProjectsPage }))
+);
+
+const ProjectDetailPage = React.lazy(() =>
+  import('../features/projects/pages/ProjectDetailPage').then((m) => ({ default: m.ProjectDetailPage }))
 );
 
 const KnowledgePage = React.lazy(() =>
@@ -35,6 +39,7 @@ const routes = [
   createRoute(DASHBOARD, DashboardPage, { layout: AppLayout }),
   createRoute(SETTING, SettingsPage, { layout: AppLayout }),
   createRoute(PROJECTS, ProjectsPage, { layout: AppLayout }),
+  createRoute(PROJECT_DETAIL, ProjectDetailPage, { layout: AppLayout }),
   createRoute(KNOWLEDGE, KnowledgePage, { layout: AppLayout }),
   createRoute(TOOLBOX, ToolboxPage, { layout: AppLayout }),
   createRoute(AUTOMATION, AutomationPage, { layout: AppLayout }),
