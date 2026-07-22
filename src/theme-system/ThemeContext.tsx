@@ -32,21 +32,24 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty('--color-text', currentTheme.colors.text);
-    root.style.setProperty('--color-icon', currentTheme.colors.icon);
-    root.style.setProperty('--color-border', currentTheme.colors.border);
-    root.style.setProperty('--color-surface', currentTheme.colors.surface);
+    const c = currentTheme.colors;
 
-    const mutedColor = currentTheme.colors.muted || currentTheme.colors.text + 'b3';
-    root.style.setProperty('--color-muted', mutedColor);
+    root.style.setProperty('--color-background', c.background);
+    root.style.setProperty('--color-text', c.text);
+    root.style.setProperty('--color-textSecondary', c.textSecondary || c.text);
+    root.style.setProperty('--color-muted', c.muted || c.text + 'b3');
+    root.style.setProperty('--color-icon', c.icon);
+    root.style.setProperty('--color-accent', c.accent || c.icon);
+    root.style.setProperty('--color-border', c.border);
+    root.style.setProperty('--color-surface', c.surface);
+    root.style.setProperty('--color-dropdown', c.dropdown || c.surface);
+    root.style.setProperty('--color-hover', c.hover || c.surface);
+    root.style.setProperty('--color-success', c.success || '#22C55E');
+    root.style.setProperty('--color-warning', c.warning || '#F59E0B');
+    root.style.setProperty('--color-error', c.error || '#EF4444');
+    root.style.setProperty('--color-info', c.info || '#38BDF8');
+    root.style.setProperty('--color-secondary', c.secondary || c.icon);
 
-    const accentColor = currentTheme.colors.accent || currentTheme.colors.icon;
-    root.style.setProperty('--color-accent', accentColor);
-
-    const dropdownColor = currentTheme.colors.dropdown || currentTheme.colors.surface;
-    root.style.setProperty('--color-dropdown', dropdownColor);
-
-    root.style.setProperty('--color-background', currentTheme.colors.background);
     root.style.setProperty('--background-image', 'none');
     root.style.setProperty('--background-blend-mode', 'normal');
     root.style.setProperty('--background-size', 'cover');

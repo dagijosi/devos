@@ -1,19 +1,26 @@
 export interface Theme {
   id: string;
   name: string;
-  description?: string; // Brief description of the theme
+  description?: string;
   type: 'solid' | 'gradient' | 'pattern';
   mode: 'light' | 'dark';
   colors: {
     background: string;
     text: string;
-    muted?: string; // Secondary/muted text color
+    textSecondary?: string;
+    muted?: string;
     icon: string;
-    accent?: string; // Primary accent color (defaults to icon if not set)
+    accent?: string;
     border: string;
-    surface: string; // for cards/panels
-    dropdown?: string; // for dropdowns/overlays that need solid backgrounds
+    surface: string;
+    dropdown?: string;
+    hover?: string;
+    success?: string;
+    warning?: string;
+    error?: string;
+    info?: string;
+    secondary?: string;
   };
-  patternImage?: string; // URL for pattern image
-  backgroundSize?: string; // Optional background size property
+  patternImage?: string;
+  backgroundSize?: string;
 }
