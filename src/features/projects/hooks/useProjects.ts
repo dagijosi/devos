@@ -50,14 +50,14 @@ export function useProjects() {
   }, [projects]);
 
   const toggleFavorite = useCallback(async (id: number): Promise<void> => {
-    await database.toggleFavorite(id);
+    await database.toggleProjectFavorite(id);
     setProjects((prev) =>
       prev.map((p) => (p.id === id ? { ...p, favorite: !p.favorite, updated_at: new Date().toISOString() } : p))
     );
   }, []);
 
   const togglePinned = useCallback(async (id: number): Promise<void> => {
-    await database.togglePinned(id);
+    await database.toggleProjectPinned(id);
     setProjects((prev) =>
       prev.map((p) => (p.id === id ? { ...p, pinned: !p.pinned, updated_at: new Date().toISOString() } : p))
     );

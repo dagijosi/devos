@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { FaPalette, FaDatabase, FaFolderOpen, FaInfoCircle } from 'react-icons/fa';
+import { FaPalette, FaDatabase, FaFolderOpen, FaInfoCircle, FaDownload, FaUpload } from 'react-icons/fa';
 import { ThemeSettings } from '../components/ThemeSettings';
+import { database } from '../../../database';
+import { toast } from 'sonner';
 
 const tabs = [
   { id: 'theme' as const, label: 'Theme', icon: FaPalette },
@@ -13,6 +15,39 @@ type SettingsTab = 'theme' | 'database' | 'backup' | 'about';
 
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('theme');
+
+  const handleExport = async () => {
+    try {
+      const data = await database.exportAllData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `devos-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Data exported successfully');
+    } catch (error) {
+      toast.error('Failed to export data');
+      console.error(error);
+    }
+  };
+
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      await database.importAllData(data);
+      toast.success('Data imported successfully. Reloading...');
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (error) {
+      toast.error('Failed to import data');
+      console.error(error);
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -51,6 +86,25 @@ export function SettingsPage() {
                 <code className="text-sm text-theme-text/60 font-mono truncate">
                   ~/.developer-os/data/developer_os.db
                 </code>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-theme-text mb-1">Data Sync</h3>
+              <p className="text-xs text-theme-text/40 mb-3">Export or import data to sync between web dev and Tauri app</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleExport}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-theme-icon bg-theme-icon/10 border border-theme-icon/30 rounded-xl hover:bg-theme-icon/20 transition-colors"
+                >
+                  <FaDownload className="w-4 h-4" />
+                  Export Data
+                </button>
+                <label className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-theme-icon bg-theme-icon/10 border border-theme-icon/30 rounded-xl hover:bg-theme-icon/20 transition-colors cursor-pointer">
+                  <FaUpload className="w-4 h-4" />
+                  Import Data
+                  <input type="file" accept=".json" onChange={handleImport} className="hidden" />
+                </label>
               </div>
             </div>
 

@@ -5,7 +5,6 @@ import { useAppStore } from '../../stores/app.store';
 import { NotificationCenter } from '../../features/notifications/components/NotificationCenter';
 import { ThemeSwitcher } from '../../theme-system';
 import { DASHBOARD, PROJECTS, KNOWLEDGE, TOOLBOX, AUTOMATION, SETTING } from '../../routes/types/routeConstants';
-import type { BreadcrumbItem } from '../ui';
 
 interface TopbarProps {
   sidebarOpen: boolean;
@@ -26,7 +25,7 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   const navigate = useNavigate();
   const toggleCommandPalette = useAppStore((s) => s.toggleCommandPalette);
 
-  const getBreadcrumbs = (): BreadcrumbItem[] => {
+  const getBreadcrumbs = (): { name: string; path: string }[] => {
     const pathname = location.pathname;
     if (pathname === DASHBOARD || !breadcrumbMap[pathname]) {
       return [{ name: 'Dashboard', path: DASHBOARD }];
@@ -84,15 +83,6 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
 
         <ThemeSwitcher />
         <NotificationCenter />
-
-        <div className="flex items-center gap-2 sm:gap-3 cursor-pointer group px-2 py-1.5 sm:px-3 sm:py-2 rounded-xl hover:bg-theme-surface/60 hover:shadow-lg transition-all duration-300 border border-theme-border/20 hover:border-theme-border/40 bg-theme-surface/20">
-          <div className="relative shrink-0">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-theme-icon to-purple-500 overflow-hidden shrink-0 ring-2 ring-theme-border/30 group-hover:ring-theme-icon/50 transition-all duration-300 flex items-center justify-center">
-              <span className="text-xs font-bold text-white">U</span>
-            </div>
-            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-theme-background" />
-          </div>
-        </div>
       </div>
     </div>
   );

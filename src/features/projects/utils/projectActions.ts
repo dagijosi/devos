@@ -4,10 +4,12 @@ function isWindows(): boolean {
   return navigator.userAgent.includes('Windows');
 }
 
+const TAURI_SHELL = '@tauri-apps/plugin-shell';
+const TAURI_OPENER = '@tauri-apps/plugin-opener';
+
 async function tryTauriShell(): Promise<any> {
   try {
-    // @ts-ignore - optional Tauri plugin
-    const mod = await import('@tauri-apps/plugin-shell');
+    const mod = await import(TAURI_SHELL);
     return mod;
   } catch {
     return null;
@@ -16,8 +18,7 @@ async function tryTauriShell(): Promise<any> {
 
 async function tryTauriOpener(): Promise<any> {
   try {
-    // @ts-ignore - optional Tauri plugin
-    const mod = await import('@tauri-apps/plugin-opener');
+    const mod = await import(TAURI_OPENER);
     return mod;
   } catch {
     return null;

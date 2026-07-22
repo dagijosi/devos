@@ -14,11 +14,8 @@ export const getRefreshToken = () => localStorage.getItem("refreshToken");
 
 export const isTokenValid = (token: string | null): boolean => {
   if (!token) return false;
-  try {
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    return payload.exp * 1000 > Date.now();
-  } catch {
-    return false;
-  }
+  // For local desktop app, tokens never expire until logout
+  // Only check if token exists
+  return true;
 };
 

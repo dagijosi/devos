@@ -6,11 +6,25 @@ import { ThemeProvider } from './theme-system';
 import { CommandPalette } from './features/command-palette';
 import { useEffect } from 'react';
 import { database } from './database';
+import { useAuthStore } from './store/authStore';
 
 function App() {
+  const setAuth = useAuthStore((state) => state.setAuth);
+
   useEffect(() => {
-    database.initialize();
-  }, []);
+    const initApp = async () => {
+      await database.initialize();
+      await database.ensureDefaultUser();
+      
+      // Get the default user and set auth
+      const user = await database.getUserByEmail('developer@localhost');
+      if (user) {
+        setAuth('local_token', user);
+      }
+    };
+    
+    initApp();
+  }, [setAuth]);
 
   return (
     <ThemeProvider>

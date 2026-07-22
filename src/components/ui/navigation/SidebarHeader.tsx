@@ -21,7 +21,7 @@ const SidebarHeader: React.FC<SidebarHeaderProps> = ({
     <div className="flex items-center h-16 sm:h-20 border-b border-theme-border/50 relative px-4 overflow-hidden">
       <div className="flex items-center text-theme-icon h-full relative">
         {/* Logo Container - Stays left-aligned */}
-        <SidebarTooltip content="DAGI" show={!isOpen && !isMobile && isHovered}>
+        <SidebarTooltip content="DevOS" show={!isOpen && !isMobile && isHovered}>
           <motion.div 
             className={`shrink-0 text-theme-icon transition-all duration-500 z-10 ${!isOpen ? 'drop-shadow-[0_0_8px_rgba(var(--color-icon-rgb),0.4)]' : ''}`}
             onMouseEnter={() => setIsHovered(true)}
@@ -53,10 +53,10 @@ const SidebarHeader: React.FC<SidebarHeaderProps> = ({
               className="flex flex-col ml-3 overflow-hidden whitespace-nowrap"
             >
               <span className="text-base sm:text-lg font-bold tracking-tight text-theme-text">
-                DAGI
+                DevOS
               </span>
               <span className="text-[10px] font-bold text-theme-text/50 uppercase tracking-widest">
-                The Best Template
+                Developer OS
               </span>
             </motion.div>
           )}

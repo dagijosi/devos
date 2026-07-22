@@ -20,7 +20,7 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
 }) => {
   const location = useLocation();
   const currentPath = location.pathname;
-  const { can, isPlatformMode } = useAbility();
+  const { can } = useAbility();
   const { isModuleEnabled } = useBusinessModules();
 
   // Recursively filter links and check permissions
@@ -58,12 +58,8 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
     return link.href ? currentPath === link.href : false;
   };
 
-  // Filter categories and links based on user permissions, roles, entitlements, and platform mode
-  const categoriesToRender = isPlatformMode
-    ? navigationCategories.filter((category) =>
-        ["Platform", "Overview"].includes(category.name),
-      )
-    : navigationCategories.filter((category) => isModuleEnabled(category.module));
+  // Filter categories and links based on user permissions, roles, and entitlements
+  const categoriesToRender = navigationCategories.filter((category) => isModuleEnabled(category.module));
 
   const visibleCategories = categoriesToRender
     .map((category) => ({

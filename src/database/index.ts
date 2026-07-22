@@ -4,8 +4,15 @@ import {
   NOTIFICATION_QUERIES,
   PROJECT_QUERIES,
   ACTIVITY_QUERIES,
+  NOTE_QUERIES,
+  FOLDER_QUERIES,
+  SNIPPET_QUERIES,
+  BUG_QUERIES,
+  ATTACHMENT_QUERIES,
+  USER_QUERIES,
 } from './schema';
 import type { Project } from '../features/projects/types';
+import type { Note, Folder, CodeSnippet, Bug, Attachment } from '../features/knowledge/types';
 
 type Row = Record<string, unknown>;
 type DatabaseInstance = {
@@ -16,7 +23,7 @@ type DatabaseInstance = {
 let db: DatabaseInstance | null = null;
 let useLocalFallback = false;
 
-// ── localStorage fallback ───────────────────────────────────────────
+// ── localStorage helpers ───────────────────────────────────────────
 function lsGet<T>(key: string): T[] {
   try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; }
 }
@@ -39,6 +46,79 @@ function parseProject(row: Row): Project {
   } as Project;
 }
 
+function parseTags(val: unknown): string[] {
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') { try { return JSON.parse(val); } catch { return []; } }
+  return [];
+}
+
+function toNote(row: Row): Note {
+  return {
+    id: Number(row.id),
+    title: String(row.title ?? ''),
+    content: String(row.content ?? ''),
+    folder_id: row.folder_id ? Number(row.folder_id) : null,
+    tags: parseTags(row.tags),
+    favorite: Boolean(row.favorite),
+    pinned: Boolean(row.pinned),
+    project_id: row.project_id ? Number(row.project_id) : null,
+    last_opened: row.last_opened ? String(row.last_opened) : null,
+    created_at: String(row.created_at ?? ''),
+    updated_at: String(row.updated_at ?? ''),
+  };
+}
+
+function toFolder(row: Row): Folder {
+  return {
+    id: Number(row.id),
+    name: String(row.name ?? ''),
+    parent_id: row.parent_id ? Number(row.parent_id) : null,
+    icon: String(row.icon ?? 'folder'),
+    created_at: String(row.created_at ?? ''),
+  };
+}
+
+function toSnippet(row: Row): CodeSnippet {
+  return {
+    id: Number(row.id),
+    title: String(row.title ?? ''),
+    code: String(row.code ?? ''),
+    language: String(row.language ?? ''),
+    description: String(row.description ?? ''),
+    tags: parseTags(row.tags),
+    favorite: Boolean(row.favorite),
+    project_id: row.project_id ? Number(row.project_id) : null,
+    created_at: String(row.created_at ?? ''),
+    updated_at: String(row.updated_at ?? ''),
+  };
+}
+
+function toBug(row: Row): Bug {
+  return {
+    id: Number(row.id),
+    title: String(row.title ?? ''),
+    problem: String(row.problem ?? ''),
+    solution: String(row.solution ?? ''),
+    tags: parseTags(row.tags),
+    project_id: row.project_id ? Number(row.project_id) : null,
+    status: String(row.status ?? 'open'),
+    created_at: String(row.created_at ?? ''),
+    updated_at: String(row.updated_at ?? ''),
+  };
+}
+
+function toAttachment(row: Row): Attachment {
+  return {
+    id: Number(row.id),
+    note_id: Number(row.note_id),
+    name: String(row.name ?? ''),
+    file_path: String(row.file_path ?? ''),
+    file_size: row.file_size ? Number(row.file_size) : null,
+    mime_type: String(row.mime_type ?? ''),
+    created_at: String(row.created_at ?? ''),
+  };
+}
+
 function sortBy<T>(rows: T[], key: keyof T, dir: 'asc' | 'desc' = 'desc'): T[] {
   return [...rows].sort((a, b) => {
     const va = String(a[key] ?? '');
@@ -47,6 +127,7 @@ function sortBy<T>(rows: T[], key: keyof T, dir: 'asc' | 'desc' = 'desc'): T[] {
   });
 }
 
+// ── LocalStorage Database ──────────────────────────────────────────
 class LocalDatabase {
   async execute(_sql: string, bind?: unknown[]): Promise<void> {
     const sql = _sql.trim().toUpperCase();
@@ -88,39 +169,25 @@ class LocalDatabase {
       const rows = lsGet<Row>('_db_projects');
       rows.push({
         id: nextId(rows as { id?: number }[]),
-        name: bind?.[0] ?? '',
-        description: bind?.[1] ?? '',
-        tags: bind?.[2] ?? '[]',
-        technology: bind?.[3] ?? '[]',
-        repository_url: bind?.[4] ?? '',
-        local_path: bind?.[5] ?? '',
-        status: 'active',
-        favorite: 0, pinned: 0,
-        scripts: '{}', environment: '{}',
-        last_opened: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        name: bind?.[0] ?? '', description: bind?.[1] ?? '',
+        tags: bind?.[2] ?? '[]', technology: bind?.[3] ?? '[]',
+        repository_url: bind?.[4] ?? '', local_path: bind?.[5] ?? '',
+        status: 'active', favorite: 0, pinned: 0,
+        scripts: '{}', environment: '{}', last_opened: null,
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       });
       lsSet('_db_projects', rows);
       return;
     }
     if (sql.startsWith('UPDATE PROJECTS SET NAME = ?')) {
       const rows = lsGet<Row>('_db_projects');
-      const id = bind?.[11]; // last bind is WHERE id = ?
+      const id = bind?.[11];
       const found = rows.find((r) => r.id === id);
       if (found) {
-        found.name = bind?.[0];
-        found.description = bind?.[1];
-        found.status = bind?.[2];
-        found.tags = bind?.[3];
-        found.technology = bind?.[4];
-        found.favorite = bind?.[5];
-        found.pinned = bind?.[6];
-        found.repository_url = bind?.[7];
-        found.local_path = bind?.[8];
-        found.scripts = bind?.[9];
-        found.environment = bind?.[10];
-        found.updated_at = new Date().toISOString();
+        found.name = bind?.[0]; found.description = bind?.[1]; found.status = bind?.[2];
+        found.tags = bind?.[3]; found.technology = bind?.[4]; found.favorite = bind?.[5];
+        found.pinned = bind?.[6]; found.repository_url = bind?.[7]; found.local_path = bind?.[8];
+        found.scripts = bind?.[9]; found.environment = bind?.[10]; found.updated_at = new Date().toISOString();
       }
       lsSet('_db_projects', rows);
       return;
@@ -129,6 +196,11 @@ class LocalDatabase {
       const rows = lsGet<Row>('_db_projects');
       const found = rows.find((r) => r.id === bind?.[0]);
       if (found) { found.last_opened = new Date().toISOString(); found.updated_at = new Date().toISOString(); }
+      // Also handle notes last_opened
+      const noteRows = lsGet<Row>('_db_notes');
+      const note = noteRows.find((r) => r.id === bind?.[0]);
+      if (note) { note.last_opened = new Date().toISOString(); note.updated_at = new Date().toISOString(); }
+      lsSet('_db_notes', noteRows);
       lsSet('_db_projects', rows);
       return;
     }
@@ -158,8 +230,143 @@ class LocalDatabase {
     // Notes
     if (sql.startsWith('INSERT INTO NOTES')) {
       const rows = lsGet<Row>('_db_notes');
-      rows.push({ id: nextId(rows as { id?: number }[]), title: bind?.[0], content: bind?.[1] ?? '', project_id: bind?.[2] ?? null, starred: 0, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+      rows.push({
+        id: nextId(rows as { id?: number }[]),
+        title: bind?.[0], content: bind?.[1] ?? '',
+        folder_id: bind?.[2] ?? null, tags: bind?.[3] ?? '[]',
+        favorite: bind?.[4] ?? 0, pinned: bind?.[5] ?? 0,
+        project_id: bind?.[6] ?? null, last_opened: null,
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      });
       lsSet('_db_notes', rows);
+      return;
+    }
+    if (sql.startsWith('UPDATE NOTES SET TITLE = ?')) {
+      const rows = lsGet<Row>('_db_notes');
+      const id = bind?.[7];
+      const found = rows.find((r) => r.id === id);
+      if (found) {
+        found.title = bind?.[0]; found.content = bind?.[1]; found.folder_id = bind?.[2];
+        found.tags = bind?.[3]; found.favorite = bind?.[4]; found.pinned = bind?.[5];
+        found.project_id = bind?.[6]; found.updated_at = new Date().toISOString();
+      }
+      lsSet('_db_notes', rows);
+      return;
+    }
+    if (sql.startsWith('DELETE FROM NOTES WHERE ID = ?')) {
+      if (bind?.length) lsSet('_db_notes', lsGet<Row>('_db_notes').filter((r) => r.id !== bind[0]));
+      else lsSet('_db_notes', []);
+      return;
+    }
+    // Note favorite/pinned toggle (same CASE patterns as projects)
+    if (sql.includes('NOTES SET FAVORITE = CASE')) {
+      const rows = lsGet<Row>('_db_notes');
+      const found = rows.find((r) => r.id === bind?.[0]);
+      if (found) { found.favorite = found.favorite === 1 ? 0 : 1; found.updated_at = new Date().toISOString(); }
+      lsSet('_db_notes', rows);
+      return;
+    }
+    if (sql.includes('NOTES SET PINNED = CASE')) {
+      const rows = lsGet<Row>('_db_notes');
+      const found = rows.find((r) => r.id === bind?.[0]);
+      if (found) { found.pinned = found.pinned === 1 ? 0 : 1; found.updated_at = new Date().toISOString(); }
+      lsSet('_db_notes', rows);
+      return;
+    }
+    // Folders
+    if (sql.startsWith('INSERT INTO FOLDERS')) {
+      const rows = lsGet<Row>('_db_folders');
+      rows.push({ id: nextId(rows as { id?: number }[]), name: bind?.[0], parent_id: bind?.[1] ?? null, icon: bind?.[2] ?? 'folder', created_at: new Date().toISOString() });
+      lsSet('_db_folders', rows);
+      return;
+    }
+    if (sql.startsWith('UPDATE FOLDERS SET NAME = ?')) {
+      const rows = lsGet<Row>('_db_folders');
+      const found = rows.find((r) => r.id === bind?.[2]);
+      if (found) { found.name = bind?.[0]; found.icon = bind?.[1]; }
+      lsSet('_db_folders', rows);
+      return;
+    }
+    if (sql.startsWith('DELETE FROM FOLDERS')) {
+      if (bind?.length) lsSet('_db_folders', lsGet<Row>('_db_folders').filter((r) => r.id !== bind[0]));
+      else lsSet('_db_folders', []);
+      return;
+    }
+    // Snippets
+    if (sql.startsWith('INSERT INTO CODE_SNIPPETS')) {
+      const rows = lsGet<Row>('_db_snippets');
+      rows.push({
+        id: nextId(rows as { id?: number }[]),
+        title: bind?.[0], code: bind?.[1], language: bind?.[2],
+        description: bind?.[3] ?? '', tags: bind?.[4] ?? '[]',
+        favorite: bind?.[5] ?? 0, project_id: bind?.[6] ?? null,
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      });
+      lsSet('_db_snippets', rows);
+      return;
+    }
+    if (sql.startsWith('UPDATE CODE_SNIPPETS SET TITLE = ?')) {
+      const rows = lsGet<Row>('_db_snippets');
+      const id = bind?.[7];
+      const found = rows.find((r) => r.id === id);
+      if (found) {
+        found.title = bind?.[0]; found.code = bind?.[1]; found.language = bind?.[2];
+        found.description = bind?.[3]; found.tags = bind?.[4]; found.favorite = bind?.[5];
+        found.project_id = bind?.[6]; found.updated_at = new Date().toISOString();
+      }
+      lsSet('_db_snippets', rows);
+      return;
+    }
+    if (sql.startsWith('DELETE FROM CODE_SNIPPETS')) {
+      if (bind?.length) lsSet('_db_snippets', lsGet<Row>('_db_snippets').filter((r) => r.id !== bind[0]));
+      else lsSet('_db_snippets', []);
+      return;
+    }
+    if (sql.includes('CODE_SNIPPETS SET FAVORITE = CASE')) {
+      const rows = lsGet<Row>('_db_snippets');
+      const found = rows.find((r) => r.id === bind?.[0]);
+      if (found) { found.favorite = found.favorite === 1 ? 0 : 1; found.updated_at = new Date().toISOString(); }
+      lsSet('_db_snippets', rows);
+      return;
+    }
+    // Bugs
+    if (sql.startsWith('INSERT INTO BUGS')) {
+      const rows = lsGet<Row>('_db_bugs');
+      rows.push({
+        id: nextId(rows as { id?: number }[]),
+        title: bind?.[0], problem: bind?.[1], solution: bind?.[2] ?? '',
+        tags: bind?.[3] ?? '[]', project_id: bind?.[4] ?? null, status: bind?.[5] ?? 'open',
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      });
+      lsSet('_db_bugs', rows);
+      return;
+    }
+    if (sql.startsWith('UPDATE BUGS SET TITLE = ?')) {
+      const rows = lsGet<Row>('_db_bugs');
+      const id = bind?.[6];
+      const found = rows.find((r) => r.id === id);
+      if (found) {
+        found.title = bind?.[0]; found.problem = bind?.[1]; found.solution = bind?.[2];
+        found.tags = bind?.[3]; found.project_id = bind?.[4]; found.status = bind?.[5];
+        found.updated_at = new Date().toISOString();
+      }
+      lsSet('_db_bugs', rows);
+      return;
+    }
+    if (sql.startsWith('DELETE FROM BUGS')) {
+      if (bind?.length) lsSet('_db_bugs', lsGet<Row>('_db_bugs').filter((r) => r.id !== bind[0]));
+      else lsSet('_db_bugs', []);
+      return;
+    }
+    // Attachments
+    if (sql.startsWith('INSERT INTO ATTACHMENTS')) {
+      const rows = lsGet<Row>('_db_attachments');
+      rows.push({ id: nextId(rows as { id?: number }[]), note_id: bind?.[0], name: bind?.[1], file_path: bind?.[2], file_size: bind?.[3] ?? null, mime_type: bind?.[4] ?? '', created_at: new Date().toISOString() });
+      lsSet('_db_attachments', rows);
+      return;
+    }
+    if (sql.startsWith('DELETE FROM ATTACHMENTS')) {
+      if (bind?.length) lsSet('_db_attachments', lsGet<Row>('_db_attachments').filter((r) => r.id !== bind[0]));
       return;
     }
     // Activity
@@ -177,8 +384,8 @@ class LocalDatabase {
       lsSet('_db_tags', rows);
       return;
     }
-    // Generic CREATE TABLE IF NOT EXISTS / ALTER
-    if (sql.includes('CREATE TABLE IF NOT EXISTS') || sql.startsWith('ALTER')) return;
+    // Generic CREATE TABLE IF NOT EXISTS / ALTER / DDL
+    if (sql.includes('CREATE TABLE') || sql.startsWith('ALTER') || sql.startsWith('CREATE TRIGGER') || sql.startsWith('CREATE VIRTUAL')) return;
   }
 
   async select<T = Row>(_sql: string, bind?: unknown[]): Promise<T[]> {
@@ -229,17 +436,92 @@ class LocalDatabase {
       return (bind?.length ? rows.slice(0, bind[0] as number) : rows).map(parseProject) as T[];
     }
     // Notes
+    if (sql.startsWith('SELECT * FROM NOTES WHERE FAVORITE = 1')) {
+      return lsGet<Row>('_db_notes').filter((r) => r.favorite === 1).map(toNote) as T[];
+    }
+    if (sql.startsWith('SELECT * FROM NOTES WHERE PINNED = 1')) {
+      return lsGet<Row>('_db_notes').filter((r) => r.pinned === 1).map(toNote) as T[];
+    }
+    if (sql.startsWith('SELECT * FROM NOTES WHERE ID = ?')) {
+      const found = lsGet<Row>('_db_notes').find((r) => r.id === bind?.[0]);
+      return (found ? [toNote(found)] : []) as T[];
+    }
+    if (sql.startsWith('SELECT * FROM NOTES WHERE FOLDER_ID = ?')) {
+      return lsGet<Row>('_db_notes').filter((r) => r.folder_id === bind?.[0]).map(toNote) as T[];
+    }
+    if (sql.startsWith('SELECT * FROM NOTES WHERE TITLE LIKE ?')) {
+      const q = String(bind?.[0] ?? '').replace(/%/g, '').toLowerCase();
+      return lsGet<Row>('_db_notes').filter((r) => String(r.title).toLowerCase().includes(q) || String(r.content).toLowerCase().includes(q)).map(toNote) as T[];
+    }
+    if (sql.startsWith('SELECT * FROM NOTES ORDER BY LAST_OPENED DESC')) {
+      const rows = lsGet<Row>('_db_notes').sort((a, b) => {
+        const la = a.last_opened ? new Date(String(a.last_opened)).getTime() : 0;
+        const lb = b.last_opened ? new Date(String(b.last_opened)).getTime() : 0;
+        return lb - la || String(b.updated_at).localeCompare(String(a.updated_at));
+      });
+      return (bind?.length ? rows.slice(0, bind[0] as number) : rows).map(toNote) as T[];
+    }
     if (sql.startsWith('SELECT * FROM NOTES ORDER BY UPDATED_AT DESC')) {
       const rows = sortBy(lsGet<Row>('_db_notes'), 'updated_at');
-      return (bind?.length ? rows.slice(0, bind[0] as number) : rows) as T[];
+      return (bind?.length ? rows.slice(0, bind[0] as number) : rows).map(toNote) as T[];
+    }
+    // Folders
+    if (sql.startsWith('SELECT * FROM FOLDERS WHERE ID = ?')) {
+      const found = lsGet<Row>('_db_folders').find((r) => r.id === bind?.[0]);
+      return (found ? [toFolder(found)] : []) as T[];
+    }
+    if (sql.startsWith('SELECT * FROM FOLDERS WHERE PARENT_ID = ?')) {
+      return lsGet<Row>('_db_folders').filter((r) => r.parent_id === bind?.[0]).map(toFolder) as T[];
+    }
+    if (sql.startsWith('SELECT * FROM FOLDERS WHERE PARENT_ID IS NULL ORDER BY NAME')) {
+      return lsGet<Row>('_db_folders').filter((r) => r.parent_id === null || r.parent_id === undefined).map(toFolder) as T[];
+    }
+    if (sql.startsWith('SELECT * FROM FOLDERS ORDER BY NAME')) {
+      return sortBy(lsGet<Row>('_db_folders'), 'name', 'asc').map(toFolder) as T[];
+    }
+    // Snippets
+    if (sql.startsWith('SELECT * FROM CODE_SNIPPETS WHERE FAVORITE = 1')) {
+      return lsGet<Row>('_db_snippets').filter((r) => r.favorite === 1).map(toSnippet) as T[];
+    }
+    if (sql.startsWith('SELECT * FROM CODE_SNIPPETS WHERE ID = ?')) {
+      const found = lsGet<Row>('_db_snippets').find((r) => r.id === bind?.[0]);
+      return (found ? [toSnippet(found)] : []) as T[];
+    }
+    if (sql.startsWith('SELECT * FROM CODE_SNIPPETS WHERE LANGUAGE = ?')) {
+      return lsGet<Row>('_db_snippets').filter((r) => r.language === bind?.[0]).map(toSnippet) as T[];
+    }
+    if (sql.startsWith('SELECT * FROM CODE_SNIPPETS WHERE TITLE LIKE ?')) {
+      const q = String(bind?.[0] ?? '').replace(/%/g, '').toLowerCase();
+      return lsGet<Row>('_db_snippets').filter((r) => String(r.title).toLowerCase().includes(q) || String(r.description).toLowerCase().includes(q) || String(r.code).toLowerCase().includes(q)).map(toSnippet) as T[];
+    }
+    if (sql.startsWith('SELECT * FROM CODE_SNIPPETS ORDER BY UPDATED_AT DESC')) {
+      return sortBy(lsGet<Row>('_db_snippets'), 'updated_at').map(toSnippet) as T[];
+    }
+    // Bugs
+    if (sql.startsWith('SELECT * FROM BUGS WHERE ID = ?')) {
+      const found = lsGet<Row>('_db_bugs').find((r) => r.id === bind?.[0]);
+      return (found ? [toBug(found)] : []) as T[];
+    }
+    if (sql.startsWith('SELECT * FROM BUGS WHERE PROJECT_ID = ?')) {
+      return lsGet<Row>('_db_bugs').filter((r) => r.project_id === bind?.[0]).map(toBug) as T[];
+    }
+    if (sql.startsWith('SELECT * FROM BUGS WHERE TITLE LIKE ?')) {
+      const q = String(bind?.[0] ?? '').replace(/%/g, '').toLowerCase();
+      return lsGet<Row>('_db_bugs').filter((r) => String(r.title).toLowerCase().includes(q) || String(r.problem).toLowerCase().includes(q) || String(r.solution).toLowerCase().includes(q)).map(toBug) as T[];
+    }
+    if (sql.startsWith('SELECT * FROM BUGS ORDER BY UPDATED_AT DESC')) {
+      return sortBy(lsGet<Row>('_db_bugs'), 'updated_at').map(toBug) as T[];
+    }
+    // Attachments
+    if (sql.startsWith('SELECT * FROM ATTACHMENTS WHERE NOTE_ID = ?')) {
+      return lsGet<Row>('_db_attachments').filter((r) => r.note_id === bind?.[0]).map(toAttachment) as T[];
     }
     // Activity
     if (sql.startsWith('SELECT * FROM RECENT_ACTIVITY WHERE ENTITY_TYPE = ? AND ENTITY_ID = ?')) {
       return sortBy(lsGet<Row>('_db_activity').filter((r) => r.entity_type === bind?.[0] && r.entity_id === bind?.[1]), 'created_at') as T[];
     }
     if (sql.startsWith('SELECT * FROM RECENT_ACTIVITY ORDER BY CREATED_AT DESC')) {
-      const rows = sortBy(lsGet<Row>('_db_activity'), 'created_at');
-      return (bind?.length ? rows.slice(0, bind[0] as number) : rows) as T[];
+      return sortBy(lsGet<Row>('_db_activity'), 'created_at') as T[];
     }
     // Tags
     if (sql.startsWith('SELECT * FROM TAGS')) {
@@ -249,20 +531,59 @@ class LocalDatabase {
   }
 }
 
-// ── Database resolution ──────────────────────────────────────────────
+// ── Database resolution ────────────────────────────────────────────
 async function getDatabase(): Promise<DatabaseInstance | null> {
   if (db) return db;
   try {
+    // Try Tauri SQLite first (desktop app)
     const Database = (await import('@tauri-apps/plugin-sql')).default;
     db = await Database.load('sqlite:developer_os.db');
     return db;
   } catch {
-    if (!useLocalFallback) {
-      useLocalFallback = true;
-      console.log('[DB] Using localStorage fallback (Tauri SQLite unavailable)');
+    try {
+      // Fall back to sql.js for web dev (browser)
+      const initSqlJs = (await import('sql.js')).default;
+      const SQL = await initSqlJs();
+      
+      // Try to load from localStorage persistence
+      const savedDb = localStorage.getItem('devos_sqlite_db');
+      let sqlDb: any;
+      if (savedDb) {
+        const uint8Array = new Uint8Array(JSON.parse(savedDb));
+        sqlDb = new SQL.Database(uint8Array);
+      } else {
+        sqlDb = new SQL.Database();
+      }
+      
+      // Create a wrapper that matches our DatabaseInstance interface
+      db = {
+        async execute(sql: string, bind?: unknown[]): Promise<void> {
+          sqlDb.run(sql, bind as any);
+          // Persist after each write
+          const data = sqlDb.export();
+          const arr = Array.from(data);
+          localStorage.setItem('devos_sqlite_db', JSON.stringify(arr));
+        },
+        async select<T = Row>(sql: string, bind?: unknown[]): Promise<T[]> {
+          const stmt = sqlDb.prepare(sql);
+          stmt.bind(bind as any);
+          const results: T[] = [];
+          while (stmt.step()) {
+            results.push(stmt.getAsObject() as T);
+          }
+          stmt.free();
+          return results;
+        },
+      };
+      return db;
+    } catch {
+      if (!useLocalFallback) {
+        useLocalFallback = true;
+        console.log('[DB] Using localStorage fallback (SQLite unavailable)');
+      }
+      db = new LocalDatabase();
+      return db;
     }
-    db = new LocalDatabase();
-    return db;
   }
 }
 
@@ -347,7 +668,7 @@ export const database = {
     return rows[0]?.count ?? 0;
   },
 
-  // ── Projects ──────────────────────────────────────────────────────
+  // ── Projects ────────────────────────────────────────────────────
   async getProjects(): Promise<Project[]> {
     const inst = await getDatabase();
     if (!inst) return [];
@@ -430,19 +751,337 @@ export const database = {
     await inst.execute(PROJECT_QUERIES.updateLastOpened, [id]);
   },
 
-  async toggleFavorite(id: number): Promise<void> {
+  async toggleProjectFavorite(id: number): Promise<void> {
     const inst = await getDatabase();
     if (!inst) return;
     await inst.execute(PROJECT_QUERIES.toggleFavorite, [id]);
   },
 
-  async togglePinned(id: number): Promise<void> {
+  async toggleProjectPinned(id: number): Promise<void> {
     const inst = await getDatabase();
     if (!inst) return;
     await inst.execute(PROJECT_QUERIES.togglePinned, [id]);
   },
 
-  // ── Activity ──────────────────────────────────────────────────────
+  // ── Notes ────────────────────────────────────────────────────────
+  async getNotes(): Promise<Note[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(NOTE_QUERIES.getAll);
+    return rows.map(toNote);
+  },
+
+  async getNote(id: number): Promise<Note | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    const rows = await inst.select<Row>(NOTE_QUERIES.getById, [id]);
+    return rows.length ? toNote(rows[0]) : null;
+  },
+
+  async getNotesByFolder(folderId: number): Promise<Note[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(NOTE_QUERIES.getByFolder, [folderId]);
+    return rows.map(toNote);
+  },
+
+  async createNote(data: { title: string; content?: string; folder_id?: number | null; tags?: string; favorite?: number; pinned?: number; project_id?: number | null }): Promise<Note | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    await inst.execute(NOTE_QUERIES.insert, [
+      data.title, data.content ?? '',
+      data.folder_id ?? null, data.tags ?? '[]',
+      data.favorite ?? 0, data.pinned ?? 0,
+      data.project_id ?? null,
+    ]);
+    const rows = await inst.select<Row>(NOTE_QUERIES.getAll);
+    return rows.length ? toNote(rows[0]) : null;
+  },
+
+  async updateNote(id: number, data: Partial<Note>): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    const existing = await this.getNote(id);
+    if (!existing) return;
+    const merged = { ...existing, ...data };
+    await inst.execute(NOTE_QUERIES.update, [
+      merged.title, merged.content,
+      merged.folder_id, JSON.stringify(merged.tags),
+      merged.favorite ? 1 : 0, merged.pinned ? 1 : 0,
+      merged.project_id, id,
+    ]);
+  },
+
+  async deleteNote(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(NOTE_QUERIES.delete, [id]);
+  },
+
+  async getFavoriteNotes(): Promise<Note[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(NOTE_QUERIES.getFavorites);
+    return rows.map(toNote);
+  },
+
+  async getPinnedNotes(): Promise<Note[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(NOTE_QUERIES.getPinned);
+    return rows.map(toNote);
+  },
+
+  async getRecentNotes(limit = 5): Promise<Note[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(NOTE_QUERIES.getRecent, [limit]);
+    return rows.map(toNote);
+  },
+
+  async searchNotes(query: string): Promise<Note[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    try {
+      const rows = await inst.select<Row>(NOTE_QUERIES.searchFts, [query]);
+      if (rows.length) return rows.map(toNote);
+    } catch { /* FTS not available, fall through */ }
+    const rows = await inst.select<Row>(NOTE_QUERIES.search, [`%${query}%`, `%${query}%`]);
+    return rows.map(toNote);
+  },
+
+  async toggleNoteFavorite(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(NOTE_QUERIES.toggleFavorite, [id]);
+  },
+
+  async toggleNotePinned(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(NOTE_QUERIES.togglePinned, [id]);
+  },
+
+  // ── Folders ──────────────────────────────────────────────────────
+  async getFolders(): Promise<Folder[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(FOLDER_QUERIES.getAll);
+    return rows.map(toFolder);
+  },
+
+  async getFolder(id: number): Promise<Folder | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    const rows = await inst.select<Row>(FOLDER_QUERIES.getById, [id]);
+    return rows.length ? toFolder(rows[0]) : null;
+  },
+
+  async getRootFolders(): Promise<Folder[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(FOLDER_QUERIES.getRoot);
+    return rows.map(toFolder);
+  },
+
+  async getChildFolders(parentId: number): Promise<Folder[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(FOLDER_QUERIES.getChildren, [parentId]);
+    return rows.map(toFolder);
+  },
+
+  async createFolder(data: { name: string; parent_id?: number | null; icon?: string }): Promise<Folder | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    await inst.execute(FOLDER_QUERIES.insert, [data.name, data.parent_id ?? null, data.icon ?? 'folder']);
+    const rows = await inst.select<Row>(FOLDER_QUERIES.getAll);
+    return rows.length ? toFolder(rows[rows.length - 1]) : null;
+  },
+
+  async updateFolder(id: number, data: { name?: string; icon?: string }): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    const existing = await this.getFolder(id);
+    if (!existing) return;
+    await inst.execute(FOLDER_QUERIES.update, [data.name ?? existing.name, data.icon ?? existing.icon, id]);
+  },
+
+  async deleteFolder(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(FOLDER_QUERIES.delete, [id]);
+  },
+
+  // ── Code Snippets ────────────────────────────────────────────────
+  async getSnippets(): Promise<CodeSnippet[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(SNIPPET_QUERIES.getAll);
+    return rows.map(toSnippet);
+  },
+
+  async getSnippet(id: number): Promise<CodeSnippet | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    const rows = await inst.select<Row>(SNIPPET_QUERIES.getById, [id]);
+    return rows.length ? toSnippet(rows[0]) : null;
+  },
+
+  async getSnippetsByLanguage(language: string): Promise<CodeSnippet[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(SNIPPET_QUERIES.getByLanguage, [language]);
+    return rows.map(toSnippet);
+  },
+
+  async createSnippet(data: { title: string; code: string; language: string; description?: string; tags?: string; favorite?: number; project_id?: number | null }): Promise<CodeSnippet | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    await inst.execute(SNIPPET_QUERIES.insert, [
+      data.title, data.code, data.language,
+      data.description ?? '', data.tags ?? '[]',
+      data.favorite ?? 0, data.project_id ?? null,
+    ]);
+    const rows = await inst.select<Row>(SNIPPET_QUERIES.getAll);
+    return rows.length ? toSnippet(rows[0]) : null;
+  },
+
+  async updateSnippet(id: number, data: Partial<CodeSnippet>): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    const existing = await this.getSnippet(id);
+    if (!existing) return;
+    const merged = { ...existing, ...data };
+    await inst.execute(SNIPPET_QUERIES.update, [
+      merged.title, merged.code, merged.language,
+      merged.description, JSON.stringify(merged.tags),
+      merged.favorite ? 1 : 0, merged.project_id, id,
+    ]);
+  },
+
+  async deleteSnippet(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(SNIPPET_QUERIES.delete, [id]);
+  },
+
+  async getFavoriteSnippets(): Promise<CodeSnippet[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(SNIPPET_QUERIES.getFavorites);
+    return rows.map(toSnippet);
+  },
+
+  async toggleSnippetFavorite(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(SNIPPET_QUERIES.toggleFavorite, [id]);
+  },
+
+  async searchSnippets(query: string): Promise<CodeSnippet[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(SNIPPET_QUERIES.search, [`%${query}%`, `%${query}%`, `%${query}%`]);
+    return rows.map(toSnippet);
+  },
+
+  // ── Bugs ─────────────────────────────────────────────────────────
+  async getBugs(): Promise<Bug[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(BUG_QUERIES.getAll);
+    return rows.map(toBug);
+  },
+
+  async getBug(id: number): Promise<Bug | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    const rows = await inst.select<Row>(BUG_QUERIES.getById, [id]);
+    return rows.length ? toBug(rows[0]) : null;
+  },
+
+  async getBugsByProject(projectId: number): Promise<Bug[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(BUG_QUERIES.getByProject, [projectId]);
+    return rows.map(toBug);
+  },
+
+  async createBug(data: { title: string; problem: string; solution?: string; tags?: string; project_id?: number | null; status?: string }): Promise<Bug | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    await inst.execute(BUG_QUERIES.insert, [
+      data.title, data.problem, data.solution ?? '',
+      data.tags ?? '[]', data.project_id ?? null, data.status ?? 'open',
+    ]);
+    const rows = await inst.select<Row>(BUG_QUERIES.getAll);
+    return rows.length ? toBug(rows[0]) : null;
+  },
+
+  async updateBug(id: number, data: Partial<Bug>): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    const existing = await this.getBug(id);
+    if (!existing) return;
+    const merged = { ...existing, ...data };
+    await inst.execute(BUG_QUERIES.update, [
+      merged.title, merged.problem, merged.solution,
+      JSON.stringify(merged.tags), merged.project_id, merged.status, id,
+    ]);
+  },
+
+  async deleteBug(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(BUG_QUERIES.delete, [id]);
+  },
+
+  async searchBugs(query: string): Promise<Bug[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(BUG_QUERIES.search, [`%${query}%`, `%${query}%`, `%${query}%`]);
+    return rows.map(toBug);
+  },
+
+  // ── Attachments ──────────────────────────────────────────────────
+  async getAttachments(noteId: number): Promise<Attachment[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(ATTACHMENT_QUERIES.getByNote, [noteId]);
+    return rows.map(toAttachment);
+  },
+
+  async createAttachment(data: { note_id: number; name: string; file_path: string; file_size?: number; mime_type?: string }): Promise<Attachment | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    await inst.execute(ATTACHMENT_QUERIES.insert, [
+      data.note_id, data.name, data.file_path,
+      data.file_size ?? null, data.mime_type ?? '',
+    ]);
+    return { id: 0, ...data, file_size: data.file_size ?? null, mime_type: data.mime_type ?? '', created_at: new Date().toISOString() };
+  },
+
+  async deleteAttachment(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(ATTACHMENT_QUERIES.delete, [id]);
+  },
+
+  // ── Tags ─────────────────────────────────────────────────────────
+  async getTags(): Promise<{ id: number; name: string; color: string }[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select('SELECT * FROM tags');
+  },
+
+  async createTag(name: string, color = '#6366f1'): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute('INSERT INTO tags (name, color) VALUES (?, ?)', [name, color]);
+  },
+
+  // ── Activity ─────────────────────────────────────────────────────
   async addActivity(entityType: string, entityId: number | null, action: string, description: string): Promise<void> {
     const inst = await getDatabase();
     if (!inst) return;
@@ -459,5 +1098,169 @@ export const database = {
     const inst = await getDatabase();
     if (!inst) return [];
     return inst.select(ACTIVITY_QUERIES.getByEntity, [entityType, entityId]);
+  },
+
+  // ── Users ─────────────────────────────────────────────────────────
+  async getUsers() {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(USER_QUERIES.getAll);
+    return rows.map(row => ({
+      id: String(row.id),
+      name: String(row.name),
+      email: String(row.email),
+      role: String(row.role),
+      permissions: typeof row.permissions === 'string' ? JSON.parse(row.permissions) : row.permissions ?? ['all'],
+      businessModules: typeof row.business_modules === 'string' ? JSON.parse(row.business_modules) : row.business_modules ?? ['Workspace', 'Utilities'],
+      avatar: row.avatar ? String(row.avatar) : undefined,
+    }));
+  },
+
+  async getUserByEmail(email: string) {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    const rows = await inst.select<Row>(USER_QUERIES.getByEmail, [email]);
+    if (!rows.length) return null;
+    const row = rows[0];
+    return {
+      id: String(row.id),
+      name: String(row.name),
+      email: String(row.email),
+      role: String(row.role),
+      permissions: typeof row.permissions === 'string' ? JSON.parse(row.permissions) : row.permissions ?? ['all'],
+      businessModules: typeof row.business_modules === 'string' ? JSON.parse(row.business_modules) : row.business_modules ?? ['Workspace', 'Utilities'],
+      avatar: row.avatar ? String(row.avatar) : undefined,
+    };
+  },
+
+  async createUser(data: { id: string; name: string; email: string; role?: string; permissions?: string[]; businessModules?: string[]; avatar?: string }) {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(USER_QUERIES.insert, [
+      data.id,
+      data.name,
+      data.email,
+      data.role ?? 'Administrator',
+      JSON.stringify(data.permissions ?? ['all']),
+      JSON.stringify(data.businessModules ?? ['Workspace', 'Utilities']),
+      data.avatar ?? null,
+    ]);
+  },
+
+  async ensureDefaultUser() {
+    const users = await this.getUsers();
+    if (users.length === 0) {
+      await this.createUser({
+        id: 'user_001',
+        name: 'Developer',
+        email: 'developer@localhost',
+        role: 'Administrator',
+        permissions: ['all'],
+        businessModules: ['Workspace', 'Utilities'],
+      });
+    }
+  },
+
+  // ── Data Export/Import for syncing between environments ──────────────
+  async exportAllData() {
+    return {
+      projects: await this.getProjects(),
+      notes: await this.getNotes(),
+      folders: await this.getFolders(),
+      snippets: await this.getSnippets(),
+      bugs: await this.getBugs(),
+      tags: await this.getTags(),
+      settings: await this.getAllSettings(),
+      notifications: await this.getNotifications(),
+      users: await this.getUsers(),
+    };
+  },
+
+  async importAllData(data: any) {
+    const inst = await getDatabase();
+    if (!inst) return;
+
+    // Clear existing data
+    await inst.execute('DELETE FROM projects');
+    await inst.execute('DELETE FROM notes');
+    await inst.execute('DELETE FROM folders');
+    await inst.execute('DELETE FROM code_snippets');
+    await inst.execute('DELETE FROM bugs');
+    await inst.execute('DELETE FROM tags');
+    await inst.execute('DELETE FROM settings');
+    await inst.execute('DELETE FROM notifications');
+    await inst.execute('DELETE FROM users');
+
+    // Import projects
+    for (const project of data.projects || []) {
+      await inst.execute(PROJECT_QUERIES.insert, [
+        project.name, project.description,
+        JSON.stringify(project.tags), JSON.stringify(project.technology),
+        project.repository_url, project.local_path,
+      ]);
+      const rows = await inst.select<Row>(PROJECT_QUERIES.getAll);
+      const imported = rows[rows.length - 1];
+      await inst.execute(PROJECT_QUERIES.update, [
+        project.name, project.description, project.status,
+        JSON.stringify(project.tags), JSON.stringify(project.technology),
+        project.favorite ? 1 : 0, project.pinned ? 1 : 0,
+        project.repository_url, project.local_path,
+        JSON.stringify(project.scripts), JSON.stringify(project.environment),
+        imported.id,
+      ]);
+    }
+
+    // Import folders
+    for (const folder of data.folders || []) {
+      await inst.execute(FOLDER_QUERIES.insert, [folder.name, folder.parent_id, folder.icon]);
+    }
+
+    // Import notes
+    for (const note of data.notes || []) {
+      await inst.execute(NOTE_QUERIES.insert, [
+        note.title, note.content, note.folder_id,
+        JSON.stringify(note.tags), note.favorite ? 1 : 0, note.pinned ? 1 : 0, note.project_id,
+      ]);
+    }
+
+    // Import snippets
+    for (const snippet of data.snippets || []) {
+      await inst.execute(SNIPPET_QUERIES.insert, [
+        snippet.title, snippet.code, snippet.language,
+        snippet.description, JSON.stringify(snippet.tags),
+        snippet.favorite ? 1 : 0, snippet.project_id,
+      ]);
+    }
+
+    // Import bugs
+    for (const bug of data.bugs || []) {
+      await inst.execute(BUG_QUERIES.insert, [
+        bug.title, bug.problem, bug.solution,
+        JSON.stringify(bug.tags), bug.project_id, bug.status,
+      ]);
+    }
+
+    // Import tags
+    for (const tag of data.tags || []) {
+      await inst.execute('INSERT INTO tags (name, color) VALUES (?, ?)', [tag.name, tag.color]);
+    }
+
+    // Import settings
+    for (const setting of data.settings || []) {
+      await inst.execute(SETTINGS_QUERIES.set, [setting.key, setting.value]);
+    }
+
+    // Import notifications
+    for (const notification of data.notifications || []) {
+      await inst.execute(NOTIFICATION_QUERIES.insert, [notification.title, notification.message, notification.type]);
+    }
+
+    // Import users
+    for (const user of data.users || []) {
+      await inst.execute(USER_QUERIES.insert, [
+        user.id, user.name, user.email, user.role,
+        JSON.stringify(user.permissions), JSON.stringify(user.businessModules), user.avatar,
+      ]);
+    }
   },
 };

@@ -6,7 +6,8 @@ export const useBusinessModules = () => {
   return {
     isModuleEnabled: (moduleName?: string) => {
       if (!moduleName) return true;
-      if (!user) return false;
+      // For Tauri desktop app, allow all modules if no user is authenticated
+      if (!user) return true;
       
       // Administrators have access to everything
       if (user.role === 'Administrator' || user.permissions.includes('all')) return true;

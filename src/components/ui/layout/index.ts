@@ -1,1 +1,1 @@
-export { default as Card } from './Card';
+// No active layout components

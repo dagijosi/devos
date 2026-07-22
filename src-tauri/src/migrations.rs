@@ -1,6 +1,7 @@
 use tauri_plugin_sql::{Migration, MigrationKind};
 
-pub const MIGRATIONS: &[Migration] = &[
+pub fn migrations() -> Vec<Migration> {
+    vec![
     Migration {
         version: 1,
         description: "create developer_os tables",
@@ -47,4 +48,5 @@ pub const MIGRATIONS: &[Migration] = &[
         ",
         kind: MigrationKind::Up,
     },
-];
+    ]
+}

@@ -35,12 +35,81 @@ export const NOTES_TABLE = `CREATE TABLE IF NOT EXISTS notes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   title TEXT NOT NULL,
   content TEXT DEFAULT '',
+  folder_id INTEGER,
+  tags TEXT DEFAULT '[]',
+  favorite INTEGER DEFAULT 0,
+  pinned INTEGER DEFAULT 0,
   project_id INTEGER,
-  starred INTEGER DEFAULT 0,
+  last_opened DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
+);`;
+
+export const FOLDERS_TABLE = `CREATE TABLE IF NOT EXISTS folders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  parent_id INTEGER,
+  icon TEXT DEFAULT 'folder',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (parent_id) REFERENCES folders(id) ON DELETE CASCADE
+);`;
+
+export const CODE_SNIPPETS_TABLE = `CREATE TABLE IF NOT EXISTS code_snippets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  code TEXT NOT NULL,
+  language TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  tags TEXT DEFAULT '[]',
+  favorite INTEGER DEFAULT 0,
+  project_id INTEGER,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
 );`;
+
+export const BUGS_TABLE = `CREATE TABLE IF NOT EXISTS bugs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  problem TEXT NOT NULL,
+  solution TEXT DEFAULT '',
+  tags TEXT DEFAULT '[]',
+  project_id INTEGER,
+  status TEXT DEFAULT 'open',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
+);`;
+
+export const ATTACHMENTS_TABLE = `CREATE TABLE IF NOT EXISTS attachments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  note_id INTEGER,
+  name TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  file_size INTEGER,
+  mime_type TEXT DEFAULT '',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE
+);`;
+
+export const NOTES_FTS_TABLE = `CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
+  title, content, tags, content='notes', content_rowid='id'
+);`;
+
+export const NOTES_FTS_TRIGGER_INSERT = `CREATE TRIGGER IF NOT EXISTS notes_ai AFTER INSERT ON notes BEGIN
+  INSERT INTO notes_fts(rowid, title, content, tags) VALUES (new.id, new.title, new.content, new.tags);
+END;`;
+
+export const NOTES_FTS_TRIGGER_DELETE = `CREATE TRIGGER IF NOT EXISTS notes_ad AFTER DELETE ON notes BEGIN
+  INSERT INTO notes_fts(notes_fts, rowid, title, content, tags) VALUES('delete', old.id, old.title, old.content, old.tags);
+END;`;
+
+export const NOTES_FTS_TRIGGER_UPDATE = `CREATE TRIGGER IF NOT EXISTS notes_au AFTER UPDATE ON notes BEGIN
+  INSERT INTO notes_fts(notes_fts, rowid, title, content, tags) VALUES('delete', old.id, old.title, old.content, old.tags);
+  INSERT INTO notes_fts(rowid, title, content, tags) VALUES (new.id, new.title, new.content, new.tags);
+END;`;
 
 export const RECENT_ACTIVITY_TABLE = `CREATE TABLE IF NOT EXISTS recent_activity (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,14 +127,37 @@ export const TAGS_TABLE = `CREATE TABLE IF NOT EXISTS tags (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );`;
 
+export const USERS_TABLE = `CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE,
+  role TEXT NOT NULL DEFAULT 'Administrator',
+  permissions TEXT DEFAULT '["all"]',
+  business_modules TEXT DEFAULT '["Workspace", "Utilities"]',
+  avatar TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);`;
+
 export const ALL_MIGRATIONS = [
   SETTINGS_TABLE,
   NOTIFICATIONS_TABLE,
+  FOLDERS_TABLE,
   PROJECTS_TABLE,
   NOTES_TABLE,
+  CODE_SNIPPETS_TABLE,
+  BUGS_TABLE,
+  ATTACHMENTS_TABLE,
   RECENT_ACTIVITY_TABLE,
   TAGS_TABLE,
+  USERS_TABLE,
+  // FTS - will silently fail in localStorage mode
+  NOTES_FTS_TABLE,
+  NOTES_FTS_TRIGGER_INSERT,
+  NOTES_FTS_TRIGGER_DELETE,
+  NOTES_FTS_TRIGGER_UPDATE,
 ];
+
+// ── Query constants ────────────────────────────────────────────────────
 
 export const SETTINGS_QUERIES = {
   get: `SELECT value FROM settings WHERE key = ?`,
@@ -105,4 +197,70 @@ export const ACTIVITY_QUERIES = {
   getRecent: `SELECT * FROM recent_activity ORDER BY created_at DESC LIMIT ?`,
   getByEntity: `SELECT * FROM recent_activity WHERE entity_type = ? AND entity_id = ? ORDER BY created_at DESC`,
   deleteOld: `DELETE FROM recent_activity WHERE created_at < datetime('now', '-30 days')`,
+};
+
+// ── Knowledge queries ──────────────────────────────────────────────────
+
+export const NOTE_QUERIES = {
+  getAll: `SELECT * FROM notes ORDER BY updated_at DESC`,
+  getById: `SELECT * FROM notes WHERE id = ?`,
+  getByFolder: `SELECT * FROM notes WHERE folder_id = ? ORDER BY updated_at DESC`,
+  insert: `INSERT INTO notes (title, content, folder_id, tags, favorite, pinned, project_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  update: `UPDATE notes SET title = ?, content = ?, folder_id = ?, tags = ?, favorite = ?, pinned = ?, project_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  updateLastOpened: `UPDATE notes SET last_opened = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  toggleFavorite: `UPDATE notes SET favorite = CASE WHEN favorite = 1 THEN 0 ELSE 1 END, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  togglePinned: `UPDATE notes SET pinned = CASE WHEN pinned = 1 THEN 0 ELSE 1 END, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  delete: `DELETE FROM notes WHERE id = ?`,
+  getFavorites: `SELECT * FROM notes WHERE favorite = 1 ORDER BY updated_at DESC`,
+  getPinned: `SELECT * FROM notes WHERE pinned = 1 ORDER BY updated_at DESC`,
+  getRecent: `SELECT * FROM notes ORDER BY last_opened DESC NULLS LAST, updated_at DESC LIMIT ?`,
+  search: `SELECT * FROM notes WHERE title LIKE ? OR content LIKE ? ORDER BY updated_at DESC`,
+  searchFts: `SELECT n.* FROM notes n INNER JOIN notes_fts f ON n.id = f.rowid WHERE notes_fts MATCH ? ORDER BY rank`,
+};
+
+export const FOLDER_QUERIES = {
+  getAll: `SELECT * FROM folders ORDER BY name ASC`,
+  getById: `SELECT * FROM folders WHERE id = ?`,
+  getChildren: `SELECT * FROM folders WHERE parent_id = ? ORDER BY name ASC`,
+  getRoot: `SELECT * FROM folders WHERE parent_id IS NULL ORDER BY name ASC`,
+  insert: `INSERT INTO folders (name, parent_id, icon) VALUES (?, ?, ?)`,
+  update: `UPDATE folders SET name = ?, icon = ? WHERE id = ?`,
+  delete: `DELETE FROM folders WHERE id = ?`,
+};
+
+export const SNIPPET_QUERIES = {
+  getAll: `SELECT * FROM code_snippets ORDER BY updated_at DESC`,
+  getById: `SELECT * FROM code_snippets WHERE id = ?`,
+  getByLanguage: `SELECT * FROM code_snippets WHERE language = ? ORDER BY updated_at DESC`,
+  insert: `INSERT INTO code_snippets (title, code, language, description, tags, favorite, project_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  update: `UPDATE code_snippets SET title = ?, code = ?, language = ?, description = ?, tags = ?, favorite = ?, project_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  toggleFavorite: `UPDATE code_snippets SET favorite = CASE WHEN favorite = 1 THEN 0 ELSE 1 END, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  delete: `DELETE FROM code_snippets WHERE id = ?`,
+  getFavorites: `SELECT * FROM code_snippets WHERE favorite = 1 ORDER BY updated_at DESC`,
+  search: `SELECT * FROM code_snippets WHERE title LIKE ? OR description LIKE ? OR code LIKE ? ORDER BY updated_at DESC`,
+};
+
+export const BUG_QUERIES = {
+  getAll: `SELECT * FROM bugs ORDER BY updated_at DESC`,
+  getById: `SELECT * FROM bugs WHERE id = ?`,
+  getByProject: `SELECT * FROM bugs WHERE project_id = ? ORDER BY updated_at DESC`,
+  insert: `INSERT INTO bugs (title, problem, solution, tags, project_id, status) VALUES (?, ?, ?, ?, ?, ?)`,
+  update: `UPDATE bugs SET title = ?, problem = ?, solution = ?, tags = ?, project_id = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  delete: `DELETE FROM bugs WHERE id = ?`,
+  search: `SELECT * FROM bugs WHERE title LIKE ? OR problem LIKE ? OR solution LIKE ? ORDER BY updated_at DESC`,
+};
+
+export const ATTACHMENT_QUERIES = {
+  getByNote: `SELECT * FROM attachments WHERE note_id = ? ORDER BY created_at DESC`,
+  insert: `INSERT INTO attachments (note_id, name, file_path, file_size, mime_type) VALUES (?, ?, ?, ?, ?)`,
+  delete: `DELETE FROM attachments WHERE id = ?`,
+};
+
+export const USER_QUERIES = {
+  getAll: `SELECT * FROM users`,
+  getById: `SELECT * FROM users WHERE id = ?`,
+  getByEmail: `SELECT * FROM users WHERE email = ?`,
+  insert: `INSERT INTO users (id, name, email, role, permissions, business_modules, avatar) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  update: `UPDATE users SET name = ?, email = ?, role = ?, permissions = ?, business_modules = ?, avatar = ? WHERE id = ?`,
+  delete: `DELETE FROM users WHERE id = ?`,
 };

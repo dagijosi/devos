@@ -5,7 +5,8 @@ export const useAbility = () => {
 
   return {
     can: (params: { permission?: string[]; role?: string[]; entitlement?: string }) => {
-      if (!user) return false;
+      // For Tauri desktop app, allow all access if no user is authenticated
+      if (!user) return true;
       
       // If user has 'all' permission, they can do everything
       if (user.permissions.includes('all')) return true;
