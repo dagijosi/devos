@@ -1,0 +1,39 @@
+@import "tailwindcss";
+@import "./theme-system/styles.css";
+
+:root {
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Space Grotesk', sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* Shimmer effect for skeleton loaders */
+.shimmer {
+  background-color: var(--base-color, #e0e0e0); /* Default light grey */
+  background-image: linear-gradient(
+    to right,
+    var(--base-color, #e0e0e0) 0%,
+    var(--highlight-color, #f0f0f0) 50%, /* Default lighter grey */
+    var(--base-color, #e0e0e0) 100%
+  );
+  background-repeat: no-repeat;
+  background-size: 200% 100%;
+  display: inline-block;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+@keyframes bounce-horizontal {
+  0%, 100% { transform: translateX(-25%); animation-timing-function: cubic-bezier(0.8, 0, 1, 1); }
+  50% { transform: translateX(0); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+}

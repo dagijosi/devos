@@ -1,0 +1,82 @@
+@theme {
+    --color-theme-background: var(--color-background);
+    --color-theme-surface: var(--color-surface);
+    --color-theme-dropdown: var(--color-dropdown);
+    --color-theme-text: var(--color-text);
+    --color-theme-icon: var(--color-icon);
+    --color-theme-border: var(--color-border);
+}
+
+/* Dropdown background utility */
+.bg-theme-dropdown {
+    background-color: var(--color-dropdown);
+}
+
+:root {
+    /* Default Values (will be overridden by JS) */
+    --color-background: #ffffff;
+    --color-text: #000000;
+    --color-icon: #4f46e5;
+    --color-border: #e5e7eb;
+    --color-surface: #ffffff;
+    --color-dropdown: #ffffff;
+
+    --background-image: none;
+    --background-blend-mode: normal;
+    --background-size: cover;
+}
+
+body {
+    background-color: var(--color-background);
+    background-image: var(--background-image);
+    background-blend-mode: var(--background-blend-mode);
+    background-attachment: fixed;
+    /* Optional: keeps gradient/pattern fixed on scroll */
+    background-size: var(--background-size);
+    /* Ensures gradients cover. Patterns might need 'auto' or 'repeat' if they are tiles. */
+    background-repeat: repeat;
+    /* For patterns */
+
+    color: var(--color-text);
+    transition: background-color 0.3s ease, color 0.3s ease;
+    min-height: 100vh;
+}
+
+/* Thin scrollbar for sidebar */
+.sidebar-scrollbar::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--color-icon);
+    opacity: 0.2;
+    border-radius: 10px;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--color-icon);
+    opacity: 0.5;
+}
+
+/* Optional: Custom scrollbar using theme vars */
+::-webkit-scrollbar {
+    width: 12px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--color-surface);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--color-icon);
+    border-radius: 6px;
+    border: 3px solid var(--color-surface);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text);
+}
