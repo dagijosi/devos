@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaTimes, FaFolderOpen } from 'react-icons/fa';
+import { Portal } from '../../../components/ui/overlays';
 import type { Project, ProjectFormData } from '../types';
 
 interface Props {
@@ -14,6 +15,7 @@ export function ProjectForm({ open, onClose, onSave, project }: Props) {
   const [name, setName] = useState(project?.name ?? '');
   const [description, setDescription] = useState(project?.description ?? '');
   const [tagsInput, setTagsInput] = useState(project?.tags.join(', ') ?? '');
+  const [technologyInput, setTechnologyInput] = useState(project?.technology.join(', ') ?? '');
   const [repositoryUrl, setRepositoryUrl] = useState(project?.repository_url ?? '');
   const [localPath, setLocalPath] = useState(project?.local_path ?? '');
   const [status, setStatus] = useState<'active' | 'archived' | 'completed'>(project?.status ?? 'active');
@@ -27,13 +29,16 @@ export function ProjectForm({ open, onClose, onSave, project }: Props) {
       name: name.trim(),
       description: description.trim(),
       tags: tagsInput.split(',').map((t) => t.trim()).filter(Boolean),
+      technology: technologyInput.split(',').map((t) => t.trim()).filter(Boolean),
       repository_url: repositoryUrl.trim(),
       local_path: localPath.trim(),
       status,
     });
   };
 
-  return (
+  if (!open) return null;
+
+  const content = (
     <AnimatePresence>
       {open && (
         <>
@@ -73,6 +78,12 @@ export function ProjectForm({ open, onClose, onSave, project }: Props) {
                 <div>
                   <label className="block text-sm font-medium text-theme-text mb-1">Tags (comma-separated)</label>
                   <input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="e.g. frontend, react, typescript"
+                    className="w-full px-3 py-2 bg-theme-background border border-theme-border/30 rounded-xl text-sm text-theme-text placeholder-theme-text/40 focus:outline-none focus:border-theme-icon/50" />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-theme-text mb-1">Technologies (comma-separated)</label>
+                  <input value={technologyInput} onChange={(e) => setTechnologyInput(e.target.value)} placeholder="e.g. React, Node.js, TypeScript"
                     className="w-full px-3 py-2 bg-theme-background border border-theme-border/30 rounded-xl text-sm text-theme-text placeholder-theme-text/40 focus:outline-none focus:border-theme-icon/50" />
                 </div>
 
@@ -119,4 +130,6 @@ export function ProjectForm({ open, onClose, onSave, project }: Props) {
       )}
     </AnimatePresence>
   );
+
+  return <Portal>{content}</Portal>;
 }

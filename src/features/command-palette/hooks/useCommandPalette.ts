@@ -1,7 +1,10 @@
 import { useEffect, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../../stores/app.store';
+import { database } from '../../../database';
 import { DASHBOARD, PROJECTS, KNOWLEDGE, TOOLBOX, AUTOMATION, SETTING } from '../../../routes/types/routeConstants';
+import type { Project } from '../../projects/types';
+import type { Note } from '../../knowledge/types';
 
 interface Command {
   id: string;
@@ -17,8 +20,22 @@ export function useCommandPalette() {
   const navigate = useNavigate();
   const { commandPaletteOpen, setCommandPaletteOpen, toggleCommandPalette } = useAppStore();
   const [query, setQuery] = useState('');
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
 
-  const commands: Command[] = [
+  useEffect(() => {
+    const loadData = async () => {
+      const [loadedProjects, loadedNotes] = await Promise.all([
+        database.getProjects(),
+        database.getNotes(),
+      ]);
+      setProjects(loadedProjects);
+      setNotes(loadedNotes);
+    };
+    loadData();
+  }, []);
+
+  const baseCommands: Command[] = [
     { id: 'go-dashboard', label: 'Go to Dashboard', description: 'Navigate to the dashboard', category: 'Navigation', action: () => navigate(DASHBOARD) },
     { id: 'go-projects', label: 'Go to Projects', description: 'View and manage projects', category: 'Navigation', action: () => navigate(PROJECTS) },
     { id: 'go-knowledge', label: 'Go to Knowledge', description: 'Browse documentation and guides', category: 'Navigation', action: () => navigate(KNOWLEDGE) },
@@ -33,6 +50,27 @@ export function useCommandPalette() {
       window.location.reload();
     }},
   ];
+
+  const projectCommands: Command[] = projects.map((p) => ({
+    id: `project-${p.id}`,
+    label: p.name,
+    description: `Project • ${p.status}`,
+    category: 'Projects',
+    action: () => navigate(`${PROJECTS}/${p.id}`),
+  }));
+
+  const noteCommands: Command[] = notes.map((n) => ({
+    id: `note-${n.id}`,
+    label: n.title,
+    description: 'Note',
+    category: 'Knowledge',
+    action: () => {
+      navigate(KNOWLEDGE);
+      // Could add logic to select the specific note
+    },
+  }));
+
+  const commands = [...baseCommands, ...projectCommands, ...noteCommands];
 
   const filteredCommands = query
     ? commands.filter(

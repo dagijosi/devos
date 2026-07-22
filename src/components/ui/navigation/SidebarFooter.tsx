@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { FaCog, FaUser, FaChevronRight } from "react-icons/fa";
-import { SidebarFooterFlyout } from "../overlays";
-import { SETTING } from "../../../routes/types/routeConstants";
+import { FaUser, FaChevronRight } from "react-icons/fa";
+import { Portal, SidebarFooterFlyout } from "../overlays";
+import { PROFILE } from "../../../routes/types/routeConstants";
 
 interface MenuItem {
   id: string;
@@ -30,7 +30,9 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({
   const location = useLocation();
   const [isHoveredUser, setIsHoveredUser] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [menuCoords, setMenuCoords] = useState({ top: 0, left: 0, width: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -42,21 +44,25 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showMenu]);
 
-  const handleSettings = () => {
-    navigate(SETTING);
-    setShowMenu(false);
-    if (isMobile && onLinkClick) onLinkClick();
-  };
+  useEffect(() => {
+    if (showMenu && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setMenuCoords({
+        top: rect.top,
+        left: rect.left,
+        width: rect.width,
+      });
+    }
+  }, [showMenu]);
 
   const handleProfile = () => {
-    navigate("/settings");
+    navigate(PROFILE);
     setShowMenu(false);
     if (isMobile && onLinkClick) onLinkClick();
   };
 
   const menuItems: MenuItem[] = [
-    { id: "profile", icon: FaUser, label: "Profile", onClick: handleProfile },
-    { id: "settings", icon: FaCog, label: "Settings", href: SETTING, onClick: handleSettings },
+    { id: "profile", icon: FaUser, label: "Profile", href: PROFILE, onClick: handleProfile },
   ];
 
   const userAvatar = (
@@ -73,33 +79,42 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({
   return (
     <div className={`mt-auto transition-all duration-300 ${isOpen ? "p-2.5" : "p-2"}`}>
       {isOpen ? (
-        <div className="relative" ref={menuRef}>
-          <AnimatePresence>
-            {showMenu && (
-              <motion.div
-                initial={{ opacity: 0, y: 8, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                className="absolute bottom-full left-0 w-full mb-2.5 p-1 bg-theme-surface border border-theme-border/50 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-20 space-y-0.5 backdrop-blur-xl"
-              >
-                {menuItems.map((item) => {
-                  const isActive = item.href && location.pathname === item.href;
-                  return (
-                    <button key={item.id}
-                      className={`w-full flex items-center h-10 px-3 rounded-lg transition-all duration-200 group ${
-                        isActive ? "bg-theme-icon/10 text-theme-icon shadow-sm" : "text-theme-text/70 hover:bg-theme-text/5 hover:text-theme-icon"
-                      }`}
-                      onClick={item.onClick}>
-                      <item.icon className="w-4 h-4 mr-2.5" />
-                      <span className="font-medium whitespace-nowrap text-sm">{item.label}</span>
-                    </button>
-                  );
-                })}
-              </motion.div>
-            )}
-          </AnimatePresence>
+        <>
+          <Portal>
+            <AnimatePresence>
+              {showMenu && (
+                <motion.div
+                  ref={menuRef}
+                  initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                  style={{
+                    position: 'fixed',
+                    bottom: window.innerHeight - menuCoords.top + 10,
+                    left: menuCoords.left,
+                    width: menuCoords.width,
+                  }}
+                  className="p-1 bg-theme-surface border border-theme-border/50 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-[9999] space-y-0.5 backdrop-blur-xl"
+                >
+                  {menuItems.map((item) => {
+                    const isActive = item.href && location.pathname === item.href;
+                    return (
+                      <button key={item.id}
+                        className={`w-full flex items-center h-10 px-3 rounded-lg transition-all duration-200 group ${
+                          isActive ? "bg-theme-icon/10 text-theme-icon shadow-sm" : "text-theme-text/70 hover:bg-theme-text/5 hover:text-theme-icon"
+                        }`}
+                        onClick={item.onClick}>
+                        <item.icon className="w-4 h-4 mr-2.5" />
+                        <span className="font-medium whitespace-nowrap text-sm">{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </Portal>
 
-          <motion.button whileTap={{ scale: 0.98 }} onClick={() => setShowMenu(!showMenu)}
+          <motion.button ref={buttonRef} whileTap={{ scale: 0.98 }} onClick={() => setShowMenu(!showMenu)}
             className={`w-full flex items-center p-2 rounded-xl transition-all duration-300 border group ${
               showMenu ? "bg-theme-icon/5 border-theme-icon/20" : "bg-theme-text/[0.03] border-theme-border/20 hover:border-theme-border/50"
             }`}>
@@ -115,7 +130,7 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({
             </AnimatePresence>
             {isOpen && <FaChevronRight size={10} className={`text-theme-text/30 transition-transform ml-3 ${showMenu ? 'rotate-90' : ''}`} />}
           </motion.button>
-        </div>
+        </>
       ) : (
         <div className="flex flex-col items-center">
           {!isMobile ? (

@@ -1,20 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FaArrowLeft, FaFolder, FaStar, FaRegStar, FaThumbtack, FaTrash, FaEdit, FaCalendarAlt, FaMapMarkerAlt, FaLink, FaTerminal } from 'react-icons/fa';
+import { FaArrowLeft, FaFolder, FaStar, FaRegStar, FaThumbtack, FaTrash, FaEdit, FaCalendarAlt, FaMapMarkerAlt, FaLink, FaTerminal, FaKey } from 'react-icons/fa';
 import { useProjects } from '../hooks/useProjects';
 import { ProjectActions } from '../components/ProjectActions';
 import { TechnologyBadge } from '../components/TechnologyBadge';
-import { ProjectForm } from '../components/ProjectForm';
-import type { Project, ProjectFormData } from '../types';
-import { PROJECTS } from '../../../routes/types/routeConstants';
+import type { Project } from '../types';
+import { PROJECTS, PROJECT_EDIT } from '../../../routes/types/routeConstants';
 
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getProject, updateProject, deleteProject, toggleFavorite, togglePinned, updateLastOpened, refresh } = useProjects();
+  const { getProject, deleteProject, toggleFavorite, togglePinned, updateLastOpened } = useProjects();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -26,23 +24,20 @@ export function ProjectDetailPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const handleUpdate = async (data: ProjectFormData) => {
-    if (!project) return;
-    await updateProject(project.id, data);
-    setEditing(false);
-    load();
-    refresh();
-  };
-
   const handleDelete = async () => {
     if (!project) return;
     await deleteProject(project.id);
     navigate(PROJECTS);
   };
 
+  const handleEdit = () => {
+    if (!project) return;
+    navigate(PROJECT_EDIT.replace(':id', String(project.id)));
+  };
+
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto space-y-6 animate-pulse">
+      <div className="w-full space-y-6 animate-pulse">
         <div className="h-8 w-48 rounded-lg bg-theme-background/50" />
         <div className="bg-theme-surface border border-theme-border/30 rounded-2xl p-8">
           <div className="space-y-4">
@@ -57,7 +52,7 @@ export function ProjectDetailPage() {
 
   if (!project) {
     return (
-      <div className="text-center py-16 max-w-4xl mx-auto">
+      <div className="text-center py-16 w-full">
         <FaFolder className="w-16 h-16 text-theme-text/20 mx-auto mb-4" />
         <p className="text-lg text-theme-text/40">Project not found</p>
         <button onClick={() => navigate(PROJECTS)} className="mt-4 text-sm text-theme-icon/70 hover:text-theme-icon underline underline-offset-2">
@@ -68,13 +63,13 @@ export function ProjectDetailPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="w-full py-6 px-4 space-y-6">
       <button onClick={() => navigate(PROJECTS)} className="flex items-center gap-2 text-sm text-theme-text/50 hover:text-theme-text transition-colors">
         <FaArrowLeft className="w-3.5 h-3.5" />
         Back to Projects
       </button>
 
-      <div className="bg-theme-surface border border-theme-border/30 rounded-2xl p-6 md:p-8">
+      <div className="bg-theme-surface border border-theme-border/30 rounded-2xl p-6">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-4 min-w-0">
             <div className="w-14 h-14 rounded-2xl bg-theme-icon flex items-center justify-center flex-shrink-0">
@@ -109,7 +104,7 @@ export function ProjectDetailPage() {
               className={`p-2 rounded-lg transition-colors ${project.pinned ? 'text-yellow-400 bg-yellow-400/10' : 'text-theme-text/30 hover:text-yellow-400 hover:bg-yellow-400/10'}`} title="Pin">
               <FaThumbtack className="w-4 h-4" />
             </button>
-            <button onClick={() => setEditing(true)}
+            <button onClick={handleEdit}
               className="p-2 rounded-lg text-theme-text/30 hover:text-blue-400 hover:bg-blue-400/10 transition-colors" title="Edit">
               <FaEdit className="w-4 h-4" />
             </button>
@@ -127,14 +122,14 @@ export function ProjectDetailPage() {
         )}
       </div>
 
-      <div className="bg-theme-surface border border-theme-border/30 rounded-2xl p-5">
-        <h2 className="text-sm font-semibold text-theme-text mb-3">Quick Actions</h2>
+      <div className="bg-theme-surface border border-theme-border/30 rounded-2xl p-6">
+        <h2 className="text-sm font-semibold text-theme-text mb-4">Quick Actions</h2>
         <ProjectActions project={project} onOpen={updateLastOpened} />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-theme-surface border border-theme-border/30 rounded-2xl p-5">
-          <h2 className="text-sm font-semibold text-theme-text mb-4">Details</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-theme-surface border border-theme-border/30 rounded-2xl p-6">
+          <h2 className="text-sm font-semibold text-theme-text mb-4">Project Details</h2>
           <div className="space-y-3">
             <div className="flex items-center gap-3 text-sm">
               <FaCalendarAlt className="w-4 h-4 text-theme-text/30" />
@@ -171,19 +166,19 @@ export function ProjectDetailPage() {
           </div>
         </div>
 
-        <div className="bg-theme-surface border border-theme-border/30 rounded-2xl p-5">
-          <h2 className="text-sm font-semibold text-theme-text mb-4">Scripts</h2>
-          {Object.keys(project.scripts).length === 0 ? (
-            <p className="text-sm text-theme-text/40">No scripts defined</p>
+        <div className="bg-theme-surface border border-theme-border/30 rounded-2xl p-6">
+          <h2 className="text-sm font-semibold text-theme-text mb-4">Environment Variables</h2>
+          {Object.keys(project.environment).length === 0 ? (
+            <p className="text-sm text-theme-text/40">No environment variables set</p>
           ) : (
             <div className="space-y-2">
-              {Object.entries(project.scripts).map(([name, cmd], i) => (
+              {Object.entries(project.environment).map(([key, value], i) => (
                 <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-theme-background/30 border border-theme-border/10">
                   <div className="flex items-center gap-3 min-w-0">
-                    <FaTerminal className="w-3.5 h-3.5 text-theme-text/30 flex-shrink-0" />
+                    <FaKey className="w-3.5 h-3.5 text-theme-text/30 flex-shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-sm text-theme-text truncate">{name}</p>
-                      <p className="text-[11px] text-theme-text/40 truncate">{cmd}</p>
+                      <p className="text-sm text-theme-text truncate">{key}</p>
+                      <p className="text-[11px] text-theme-text/40 truncate">{value}</p>
                     </div>
                   </div>
                 </div>
@@ -193,7 +188,26 @@ export function ProjectDetailPage() {
         </div>
       </div>
 
-      <ProjectForm open={editing} onClose={() => setEditing(false)} onSave={handleUpdate} project={project} />
+      <div className="bg-theme-surface border border-theme-border/30 rounded-2xl p-6">
+        <h2 className="text-sm font-semibold text-theme-text mb-4">Scripts</h2>
+        {Object.keys(project.scripts).length === 0 ? (
+          <p className="text-sm text-theme-text/40">No scripts defined</p>
+        ) : (
+          <div className="space-y-2">
+            {Object.entries(project.scripts).map(([name, cmd], i) => (
+              <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-theme-background/30 border border-theme-border/10">
+                <div className="flex items-center gap-3 min-w-0">
+                  <FaTerminal className="w-3.5 h-3.5 text-theme-text/30 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm text-theme-text truncate">{name}</p>
+                    <p className="text-[11px] text-theme-text/40 truncate">{cmd}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

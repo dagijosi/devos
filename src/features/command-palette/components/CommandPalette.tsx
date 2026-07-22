@@ -1,11 +1,54 @@
 import { useCommandPalette } from '../hooks/useCommandPalette';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Portal } from '../../../components/ui/overlays';
+import { useEffect, useRef, useState } from 'react';
 
 export function CommandPalette() {
   const { isOpen, query, setQuery, filteredCommands, executeCommand, close } =
     useCommandPalette();
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const listRef = useRef<HTMLDivElement>(null);
 
-  return (
+  // Reset selected index when query changes
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [query]);
+
+  // Handle keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isOpen) return;
+      
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedIndex((prev: number) => Math.min(prev + 1, filteredCommands.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedIndex((prev: number) => Math.max(prev - 1, 0));
+      } else if (e.key === 'Enter' && filteredCommands.length > 0) {
+        e.preventDefault();
+        executeCommand(filteredCommands[selectedIndex]);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, filteredCommands, selectedIndex, executeCommand]);
+
+  // Scroll selected item into view
+  useEffect(() => {
+    if (listRef.current && selectedIndex > 0) {
+      const items = listRef.current.querySelectorAll('button');
+      const selectedItem = items[selectedIndex] as HTMLElement;
+      if (selectedItem) {
+        selectedItem.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }, [selectedIndex]);
+
+  if (!isOpen) return null;
+
+  const content = (
     <AnimatePresence>
       {isOpen && (
         <>
@@ -41,18 +84,20 @@ export function CommandPalette() {
                 </kbd>
               </div>
 
-              <div className="max-h-80 overflow-y-auto p-2">
+              <div className="max-h-80 overflow-y-auto p-2" ref={listRef}>
                 {filteredCommands.length === 0 ? (
                   <div className="text-center py-8 text-theme-text/40 text-sm">
                     No results found
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    {filteredCommands.map((cmd) => (
+                    {filteredCommands.map((cmd, index) => (
                       <button
                         key={cmd.id}
                         onClick={() => executeCommand(cmd)}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left hover:bg-theme-background/50 transition-colors group"
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors group ${
+                          index === selectedIndex ? 'bg-theme-background/50' : 'hover:bg-theme-background/50'
+                        }`}
                       >
                         <div className="w-8 h-8 rounded-lg bg-theme-background/50 border border-theme-border/20 flex items-center justify-center text-theme-text/40 group-hover:text-theme-text transition-colors flex-shrink-0">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -78,11 +123,11 @@ export function CommandPalette() {
 
               <div className="px-4 py-2 border-t border-theme-border/20 bg-theme-background/50 flex items-center gap-4 text-xs text-theme-text/40">
                 <span className="flex items-center gap-1">
-                  <kbd className="px-1.5 py-0.5 bg-theme-surface rounded border border-theme-border/20">\u2191\u2193</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-theme-surface rounded border border-theme-border/20">↑↓</kbd>
                   Navigate
                 </span>
                 <span className="flex items-center gap-1">
-                  <kbd className="px-1.5 py-0.5 bg-theme-surface rounded border border-theme-border/20">\u21b5</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-theme-surface rounded border border-theme-border/20">↵</kbd>
                   Open
                 </span>
                 <span className="flex items-center gap-1">
@@ -96,4 +141,6 @@ export function CommandPalette() {
       )}
     </AnimatePresence>
   );
+
+  return <Portal>{content}</Portal>;
 }

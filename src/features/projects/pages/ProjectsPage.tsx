@@ -1,29 +1,20 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FaPlus, FaSearch, FaTimes, FaFileImport } from 'react-icons/fa';
 import { useProjects } from '../hooks/useProjects';
 import { ProjectCard } from '../components/ProjectCard';
-import { ProjectForm } from '../components/ProjectForm';
 import { ProjectScanner } from '../components/ProjectScanner';
-import type { ProjectFormData } from '../types';
+import { PROJECT_FORM } from '../../../routes/types/routeConstants';
 
 export function ProjectsPage() {
-  const { projects, loading, createProject, deleteProject, toggleFavorite, togglePinned } = useProjects();
-  const [showForm, setShowForm] = useState(false);
+  const navigate = useNavigate();
+  const { projects, loading, deleteProject, toggleFavorite, togglePinned } = useProjects();
   const [showScanner, setShowScanner] = useState(false);
   const [search, setSearch] = useState('');
 
   const filtered = search.trim()
     ? projects.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()) || p.description?.toLowerCase().includes(search.toLowerCase()))
     : projects;
-
-  const handleSave = useCallback(async (data: ProjectFormData) => {
-    await createProject(data);
-    setShowForm(false);
-  }, [createProject]);
-
-  const handleImport = useCallback(async (data: ProjectFormData) => {
-    await createProject(data);
-  }, [createProject]);
 
   return (
     <div className="space-y-6 max-w-6xl">
@@ -38,7 +29,7 @@ export function ProjectsPage() {
             <FaFileImport className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Import</span>
           </button>
-          <button onClick={() => setShowForm(true)}
+          <button onClick={() => navigate(PROJECT_FORM)}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-theme-icon rounded-xl hover:opacity-90 transition-opacity">
             <FaPlus className="w-3.5 h-3.5" />
             New Project
@@ -47,7 +38,7 @@ export function ProjectsPage() {
       </div>
 
       {showScanner && (
-        <ProjectScanner onSelect={handleImport} onClose={() => setShowScanner(false)} />
+        <ProjectScanner onClose={() => setShowScanner(false)} />
       )}
 
       <div className="relative">
@@ -79,7 +70,7 @@ export function ProjectsPage() {
         <div className="text-center py-16">
           <FaSearch className="w-12 h-12 text-theme-text/20 mx-auto mb-4" />
           <p className="text-theme-text/40 text-sm">No projects found</p>
-          <button onClick={() => setShowForm(true)} className="mt-4 text-sm text-theme-icon/70 hover:text-theme-icon transition-colors underline underline-offset-2">
+          <button onClick={() => navigate(PROJECT_FORM)} className="mt-4 text-sm text-theme-icon/70 hover:text-theme-icon transition-colors underline underline-offset-2">
             Create your first project
           </button>
         </div>
@@ -96,8 +87,6 @@ export function ProjectsPage() {
           ))}
         </div>
       )}
-
-      <ProjectForm open={showForm} onClose={() => setShowForm(false)} onSave={handleSave} />
     </div>
   );
 }

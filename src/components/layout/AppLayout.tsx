@@ -45,7 +45,7 @@ export function AppLayout() {
           />
         </header>
 
-        <main className="flex-1 relative z-10 p-3 sm:p-4 lg:p-6 pt-[76px] sm:pt-20 lg:pt-[88px] pb-[76px] md:pb-4 lg:pb-6 print:overflow-visible print:h-auto">
+        <main className="flex-1 relative z-10 p-3 sm:p-4 lg:p-6 pt-[56px] sm:pt-16 lg:pt-[72px] pb-[56px] md:pb-4 lg:pb-6 print:overflow-visible print:h-auto">
           <Outlet key={location.pathname} />
         </main>
       </div>

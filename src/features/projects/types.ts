@@ -20,9 +20,12 @@ export interface ProjectFormData {
   name: string;
   description: string;
   tags: string[];
+  technology: string[];
   repository_url: string;
   local_path: string;
   status: 'active' | 'archived' | 'completed';
+  scripts?: Record<string, string>;
+  environment?: Record<string, string>;
 }
 
 export interface DetectedTechnology {

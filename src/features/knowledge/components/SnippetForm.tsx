@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaTimes } from 'react-icons/fa';
+import { Portal } from '../../../components/ui/overlays';
 import { SNIPPET_LANGUAGES } from '../types';
 
 interface Props {
@@ -23,7 +24,9 @@ export function SnippetForm({ open, onClose, onSave }: Props) {
     onClose();
   };
 
-  return (
+  if (!open) return null;
+
+  const content = (
     <AnimatePresence>
       {open && (
         <>
@@ -84,4 +87,6 @@ export function SnippetForm({ open, onClose, onSave }: Props) {
       )}
     </AnimatePresence>
   );
+
+  return <Portal>{content}</Portal>;
 }

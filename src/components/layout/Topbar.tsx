@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../stores/app.store';
 import { NotificationCenter } from '../../features/notifications/components/NotificationCenter';
 import { ThemeSwitcher } from '../../theme-system';
-import { DASHBOARD, PROJECTS, KNOWLEDGE, TOOLBOX, AUTOMATION, SETTING } from '../../routes/types/routeConstants';
+import { DASHBOARD, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, TOOLBOX, AUTOMATION, SETTING } from '../../routes/types/routeConstants';
 
 interface TopbarProps {
   sidebarOpen: boolean;
@@ -27,13 +27,33 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
 
   const getBreadcrumbs = (): { name: string; path: string }[] => {
     const pathname = location.pathname;
-    if (pathname === DASHBOARD || !breadcrumbMap[pathname]) {
+
+    if (pathname === DASHBOARD) {
       return [{ name: 'Dashboard', path: DASHBOARD }];
     }
-    return [
-      { name: 'Dashboard', path: DASHBOARD },
-      { name: breadcrumbMap[pathname], path: pathname },
-    ];
+
+    if (pathname.startsWith(PROJECTS)) {
+      const breadcrumbs = [{ name: 'Dashboard', path: DASHBOARD }, { name: 'Projects', path: PROJECTS }];
+
+      if (pathname.startsWith(PROJECT_DETAIL)) {
+        breadcrumbs.push({ name: 'Project Details', path: pathname });
+      } else if (pathname.startsWith(PROJECT_FORM)) {
+        breadcrumbs.push({ name: 'New Project', path: pathname });
+      } else if (pathname.startsWith(PROJECT_EDIT)) {
+        breadcrumbs.push({ name: 'Edit Project', path: pathname });
+      }
+
+      return breadcrumbs;
+    }
+
+    if (breadcrumbMap[pathname]) {
+      return [
+        { name: 'Dashboard', path: DASHBOARD },
+        { name: breadcrumbMap[pathname], path: pathname },
+      ];
+    }
+
+    return [{ name: 'Dashboard', path: DASHBOARD }];
   };
 
   const breadcrumbs = getBreadcrumbs();

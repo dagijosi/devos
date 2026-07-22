@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaTimes } from 'react-icons/fa';
+import { Portal } from '../../../components/ui/overlays';
 
 interface Props {
   open: boolean;
@@ -29,7 +30,9 @@ export function BugForm({ open, onClose, onSave }: Props) {
     onClose();
   };
 
-  return (
+  if (!open) return null;
+
+  const content = (
     <AnimatePresence>
       {open && (
         <>
@@ -99,4 +102,6 @@ export function BugForm({ open, onClose, onSave }: Props) {
       )}
     </AnimatePresence>
   );
+
+  return <Portal>{content}</Portal>;
 }

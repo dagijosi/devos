@@ -543,7 +543,8 @@ async function getDatabase(): Promise<DatabaseInstance | null> {
     try {
       // Fall back to sql.js for web dev (browser)
       const initSqlJs = (await import('sql.js')).default;
-      const SQL = await initSqlJs();
+      // Use the memory-only version to avoid WASM loading issues
+      const SQL = await initSqlJs({ locateFile: () => 'https://sql.js.org/dist/sql-wasm.wasm' });
       
       // Try to load from localStorage persistence
       const savedDb = localStorage.getItem('devos_sqlite_db');
