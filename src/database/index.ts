@@ -10,6 +10,8 @@ import {
   BUG_QUERIES,
   ATTACHMENT_QUERIES,
   USER_QUERIES,
+  WORKFLOW_QUERIES,
+  WORKFLOW_LOG_QUERIES,
 } from './schema';
 import type { Project } from '../features/projects/types';
 import type { Note, Folder, CodeSnippet, Bug, Attachment } from '../features/knowledge/types';
@@ -90,6 +92,33 @@ function toSnippet(row: Row): CodeSnippet {
     project_id: row.project_id ? Number(row.project_id) : null,
     created_at: String(row.created_at ?? ''),
     updated_at: String(row.updated_at ?? ''),
+  };
+}
+
+function toWorkflow(row: Row): any {
+  return {
+    id: Number(row.id),
+    name: String(row.name ?? ''),
+    description: String(row.description ?? ''),
+    steps: typeof row.steps === 'string' ? JSON.parse(row.steps as string) : row.steps ?? [],
+    tags: typeof row.tags === 'string' ? JSON.parse(row.tags as string) : row.tags ?? [],
+    favorite: Boolean(row.favorite),
+    category: String(row.category ?? 'custom'),
+    last_run_at: row.last_run_at ? String(row.last_run_at) : null,
+    last_run_status: row.last_run_status ? String(row.last_run_status) : null,
+    created_at: String(row.created_at ?? ''),
+    updated_at: String(row.updated_at ?? ''),
+  };
+}
+
+function toWorkflowLog(row: Row): any {
+  return {
+    id: Number(row.id),
+    workflow_id: Number(row.workflow_id),
+    status: String(row.status ?? 'running'),
+    step_logs: typeof row.step_logs === 'string' ? JSON.parse(row.step_logs as string) : row.step_logs ?? [],
+    started_at: String(row.started_at ?? ''),
+    completed_at: row.completed_at ? String(row.completed_at) : null,
   };
 }
 
@@ -384,6 +413,64 @@ class LocalDatabase {
       lsSet('_db_tags', rows);
       return;
     }
+    // Workflows
+    if (sql.startsWith('INSERT INTO WORKFLOWS')) {
+      const rows = lsGet<Row>('_db_workflows');
+      rows.push({ id: nextId(rows as { id?: number }[]), name: bind?.[0], description: bind?.[1] ?? '', steps: bind?.[2] ?? '[]', tags: bind?.[3] ?? '[]', favorite: bind?.[4] ?? 0, category: bind?.[5] ?? 'custom', last_run_at: null, last_run_status: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+      lsSet('_db_workflows', rows);
+      return;
+    }
+    if (sql.startsWith('UPDATE WORKFLOWS SET NAME = ?')) {
+      const rows = lsGet<Row>('_db_workflows');
+      const id = bind?.[6];
+      const found = rows.find((r) => r.id === id);
+      if (found) { found.name = bind?.[0]; found.description = bind?.[1]; found.steps = bind?.[2]; found.tags = bind?.[3]; found.favorite = bind?.[4]; found.category = bind?.[5]; found.updated_at = new Date().toISOString(); }
+      lsSet('_db_workflows', rows);
+      return;
+    }
+    if (sql.includes('WORKFLOWS SET FAVORITE = CASE')) {
+      const rows = lsGet<Row>('_db_workflows');
+      const found = rows.find((r) => r.id === bind?.[0]);
+      if (found) { found.favorite = found.favorite === 1 ? 0 : 1; found.updated_at = new Date().toISOString(); }
+      lsSet('_db_workflows', rows);
+      return;
+    }
+    if (sql.startsWith('UPDATE WORKFLOWS SET LAST_RUN_AT')) {
+      const rows = lsGet<Row>('_db_workflows');
+      const found = rows.find((r) => r.id === bind?.[1]);
+      if (found) { found.last_run_at = new Date().toISOString(); found.last_run_status = bind?.[0]; found.updated_at = new Date().toISOString(); }
+      lsSet('_db_workflows', rows);
+      return;
+    }
+    if (sql.startsWith('DELETE FROM WORKFLOWS')) {
+      if (bind?.length) lsSet('_db_workflows', lsGet<Row>('_db_workflows').filter((r) => r.id !== bind[0]));
+      else lsSet('_db_workflows', []);
+      return;
+    }
+    // Workflow logs
+    if (sql.startsWith('INSERT INTO WORKFLOW_LOGS')) {
+      const rows = lsGet<Row>('_db_workflow_logs');
+      rows.push({ id: nextId(rows as { id?: number }[]), workflow_id: bind?.[0], status: bind?.[1] ?? 'running', step_logs: bind?.[2] ?? '[]', started_at: new Date().toISOString(), completed_at: null });
+      lsSet('_db_workflow_logs', rows);
+      return;
+    }
+    if (sql.startsWith('UPDATE WORKFLOW_LOGS SET STATUS = ?')) {
+      const rows = lsGet<Row>('_db_workflow_logs');
+      const found = rows.find((r) => r.id === bind?.[3]);
+      if (found) { found.status = bind?.[0]; found.step_logs = bind?.[1]; found.completed_at = new Date().toISOString(); }
+      lsSet('_db_workflow_logs', rows);
+      return;
+    }
+    if (sql.startsWith('DELETE FROM WORKFLOW_LOGS')) {
+      if (bind?.length) lsSet('_db_workflow_logs', lsGet<Row>('_db_workflow_logs').filter((r) => r.id !== bind[0]));
+      else lsSet('_db_workflow_logs', []);
+      return;
+    }
+    if (sql.includes('DELETE FROM WORKFLOW_LOGS WHERE WORKFLOW_ID = ?')) {
+      const wid = bind?.[0];
+      lsSet('_db_workflow_logs', lsGet<Row>('_db_workflow_logs').filter((r) => r.workflow_id !== wid));
+      return;
+    }
     // Generic CREATE TABLE IF NOT EXISTS / ALTER / DDL
     if (sql.includes('CREATE TABLE') || sql.startsWith('ALTER') || sql.startsWith('CREATE TRIGGER') || sql.startsWith('CREATE VIRTUAL')) return;
   }
@@ -526,6 +613,26 @@ class LocalDatabase {
     // Tags
     if (sql.startsWith('SELECT * FROM TAGS')) {
       return lsGet<Row>('_db_tags') as T[];
+    }
+    // Workflows
+    if (sql.startsWith('SELECT * FROM WORKFLOWS WHERE ID = ?')) {
+      const found = lsGet<Row>('_db_workflows').find((r) => r.id === bind?.[0]);
+      return (found ? [found] : []) as T[];
+    }
+    if (sql.startsWith('SELECT * FROM WORKFLOWS WHERE NAME LIKE ?')) {
+      const q = String(bind?.[0] ?? '').replace(/%/g, '').toLowerCase();
+      return lsGet<Row>('_db_workflows').filter((r) => String(r.name).toLowerCase().includes(q) || String(r.description).toLowerCase().includes(q)) as T[];
+    }
+    if (sql.startsWith('SELECT * FROM WORKFLOWS ORDER BY UPDATED_AT DESC')) {
+      return sortBy(lsGet<Row>('_db_workflows'), 'updated_at') as T[];
+    }
+    // Workflow logs
+    if (sql.startsWith('SELECT * FROM WORKFLOW_LOGS WHERE ID = ?')) {
+      const found = lsGet<Row>('_db_workflow_logs').find((r) => r.id === bind?.[0]);
+      return (found ? [found] : []) as T[];
+    }
+    if (sql.startsWith('SELECT * FROM WORKFLOW_LOGS WHERE WORKFLOW_ID = ?')) {
+      return sortBy(lsGet<Row>('_db_workflow_logs').filter((r) => r.workflow_id === bind?.[0]), 'started_at') as T[];
     }
     return [];
   }
@@ -1160,6 +1267,100 @@ export const database = {
         businessModules: ['Workspace', 'Utilities'],
       });
     }
+  },
+
+  // ── Workflows ────────────────────────────────────────────────────
+  async getWorkflows(): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(WORKFLOW_QUERIES.getAll);
+    return rows.map(toWorkflow);
+  },
+
+  async getWorkflow(id: number): Promise<any | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    const rows = await inst.select<Row>(WORKFLOW_QUERIES.getById, [id]);
+    return rows.length ? toWorkflow(rows[0]) : null;
+  },
+
+  async createWorkflow(data: { name: string; description?: string; steps?: string; tags?: string; favorite?: number; category?: string }): Promise<any | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    await inst.execute(WORKFLOW_QUERIES.insert, [
+      data.name, data.description ?? '', data.steps ?? '[]',
+      data.tags ?? '[]', data.favorite ?? 0, data.category ?? 'custom',
+    ]);
+    const rows = await inst.select<Row>(WORKFLOW_QUERIES.getAll);
+    return rows.length ? toWorkflow(rows[rows.length - 1]) : null;
+  },
+
+  async updateWorkflow(id: number, data: any): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    const existing = await this.getWorkflow(id);
+    if (!existing) return;
+    const merged = { ...existing, ...data };
+    await inst.execute(WORKFLOW_QUERIES.update, [
+      merged.name, merged.description,
+      typeof merged.steps === 'string' ? merged.steps : JSON.stringify(merged.steps),
+      JSON.stringify(merged.tags), merged.favorite ? 1 : 0, merged.category, id,
+    ]);
+  },
+
+  async deleteWorkflow(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(WORKFLOW_QUERIES.delete, [id]);
+    await inst.execute(WORKFLOW_LOG_QUERIES.clearForWorkflow, [id]);
+  },
+
+  async toggleWorkflowFavorite(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(WORKFLOW_QUERIES.toggleFavorite, [id]);
+  },
+
+  async updateWorkflowLastRun(id: number, status: string): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(WORKFLOW_QUERIES.updateLastRun, [status, id]);
+  },
+
+  async searchWorkflows(query: string): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(WORKFLOW_QUERIES.search, [`%${query}%`, `%${query}%`]);
+    return rows.map(toWorkflow);
+  },
+
+  // ── Workflow Logs ─────────────────────────────────────────────────
+  async getWorkflowLogs(workflowId: number): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(WORKFLOW_LOG_QUERIES.getByWorkflow, [workflowId]);
+    return rows.map(toWorkflowLog);
+  },
+
+  async getWorkflowLog(id: number): Promise<any | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    const rows = await inst.select<Row>(WORKFLOW_LOG_QUERIES.getById, [id]);
+    return rows.length ? toWorkflowLog(rows[0]) : null;
+  },
+
+  async createWorkflowLog(workflowId: number, status: string = 'running', stepLogs: string = '[]'): Promise<any | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    await inst.execute(WORKFLOW_LOG_QUERIES.insert, [workflowId, status, stepLogs]);
+    const rows = await inst.select<Row>(WORKFLOW_LOG_QUERIES.getByWorkflow, [workflowId]);
+    return rows.length ? toWorkflowLog(rows[rows.length - 1]) : null;
+  },
+
+  async updateWorkflowLog(id: number, status: string, stepLogs: string): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(WORKFLOW_LOG_QUERIES.update, [status, stepLogs, id]);
   },
 
   // ── Data Export/Import for syncing between environments ──────────────

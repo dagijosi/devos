@@ -138,6 +138,30 @@ export const USERS_TABLE = `CREATE TABLE IF NOT EXISTS users (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );`;
 
+export const WORKFLOWS_TABLE = `CREATE TABLE IF NOT EXISTS workflows (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  steps TEXT DEFAULT '[]',
+  tags TEXT DEFAULT '[]',
+  favorite INTEGER DEFAULT 0,
+  category TEXT NOT NULL DEFAULT 'custom',
+  last_run_at DATETIME,
+  last_run_status TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);`;
+
+export const WORKFLOW_LOGS_TABLE = `CREATE TABLE IF NOT EXISTS workflow_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  workflow_id INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'running',
+  step_logs TEXT DEFAULT '[]',
+  started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  completed_at DATETIME,
+  FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
+);`;
+
 export const ALL_MIGRATIONS = [
   SETTINGS_TABLE,
   NOTIFICATIONS_TABLE,
@@ -150,6 +174,8 @@ export const ALL_MIGRATIONS = [
   RECENT_ACTIVITY_TABLE,
   TAGS_TABLE,
   USERS_TABLE,
+  WORKFLOWS_TABLE,
+  WORKFLOW_LOGS_TABLE,
   // FTS - will silently fail in localStorage mode
   NOTES_FTS_TABLE,
   NOTES_FTS_TRIGGER_INSERT,
@@ -254,6 +280,26 @@ export const ATTACHMENT_QUERIES = {
   getByNote: `SELECT * FROM attachments WHERE note_id = ? ORDER BY created_at DESC`,
   insert: `INSERT INTO attachments (note_id, name, file_path, file_size, mime_type) VALUES (?, ?, ?, ?, ?)`,
   delete: `DELETE FROM attachments WHERE id = ?`,
+};
+
+export const WORKFLOW_QUERIES = {
+  getAll: `SELECT * FROM workflows ORDER BY updated_at DESC`,
+  getById: `SELECT * FROM workflows WHERE id = ?`,
+  insert: `INSERT INTO workflows (name, description, steps, tags, favorite, category) VALUES (?, ?, ?, ?, ?, ?)`,
+  update: `UPDATE workflows SET name = ?, description = ?, steps = ?, tags = ?, favorite = ?, category = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  updateLastRun: `UPDATE workflows SET last_run_at = CURRENT_TIMESTAMP, last_run_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  toggleFavorite: `UPDATE workflows SET favorite = CASE WHEN favorite = 1 THEN 0 ELSE 1 END, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  delete: `DELETE FROM workflows WHERE id = ?`,
+  search: `SELECT * FROM workflows WHERE name LIKE ? OR description LIKE ? ORDER BY updated_at DESC`,
+};
+
+export const WORKFLOW_LOG_QUERIES = {
+  getByWorkflow: `SELECT * FROM workflow_logs WHERE workflow_id = ? ORDER BY started_at DESC`,
+  getById: `SELECT * FROM workflow_logs WHERE id = ?`,
+  insert: `INSERT INTO workflow_logs (workflow_id, status, step_logs) VALUES (?, ?, ?)`,
+  update: `UPDATE workflow_logs SET status = ?, step_logs = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  delete: `DELETE FROM workflow_logs WHERE id = ?`,
+  clearForWorkflow: `DELETE FROM workflow_logs WHERE workflow_id = ?`,
 };
 
 export const USER_QUERIES = {
