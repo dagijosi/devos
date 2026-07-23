@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { CATCH_ALL, DASHBOARD, SETTING, PROFILE, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, TOOLBOX, AUTOMATION, AI, INSIGHTS, BACKUP } from './types/routeConstants';
+import { CATCH_ALL, DASHBOARD, SETTING, PROFILE, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, UTILITIES, WORKFLOWS, AI, INSIGHTS, BACKUP } from './types/routeConstants';
 import { createRoute } from './types/createRoute';
 import { AppLayout } from '../components/layout/AppLayout';
 
@@ -32,12 +32,12 @@ const LibraryPage = React.lazy(() =>
   import('../features/knowledge/pages/LibraryPage').then((m) => ({ default: m.LibraryPage }))
 );
 
-const ToolboxPage = React.lazy(() =>
-  import('../features/toolbox/pages/ToolboxPage').then((m) => ({ default: m.ToolboxPage }))
+const UtilitiesPage = React.lazy(() =>
+  import('../features/utilities/pages/UtilitiesPage').then((m) => ({ default: m.UtilitiesPage }))
 );
 
-const AutomationPage = React.lazy(() =>
-  import('../features/automation/pages/AutomationPage').then((m) => ({ default: m.AutomationPage }))
+const WorkflowsPage = React.lazy(() =>
+  import('../features/workflows/pages/WorkflowsPage').then((m) => ({ default: m.WorkflowsPage }))
 );
 
 const AiPage = React.lazy(() =>
@@ -64,8 +64,8 @@ const routes = [
   createRoute(PROJECT_FORM, ProjectFormPage, { layout: AppLayout }),
   createRoute(PROJECT_EDIT, ProjectFormPage, { layout: AppLayout }),
   createRoute(KNOWLEDGE, LibraryPage, { layout: AppLayout }),
-  createRoute(TOOLBOX, ToolboxPage, { layout: AppLayout }),
-  createRoute(AUTOMATION, AutomationPage, { layout: AppLayout }),
+  createRoute(UTILITIES, UtilitiesPage, { layout: AppLayout }),
+  createRoute(WORKFLOWS, WorkflowsPage, { layout: AppLayout }),
   createRoute(AI, AiPage, { layout: AppLayout }),
   createRoute(INSIGHTS, InsightsPage, { layout: AppLayout }),
   createRoute(BACKUP, BackupPage, { layout: AppLayout }),

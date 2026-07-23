@@ -1,16 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FaArrowLeft, FaStar, FaRegStar, FaEye, FaTasks, FaBook, FaLink, FaPlay, FaCloudUploadAlt, FaCog, FaFolder } from 'react-icons/fa';
+import { FaArrowLeft, FaStar, FaRegStar, FaEye, FaTasks, FaBook, FaLink, FaPlay, FaCloudUploadAlt, FaCog, FaFolder, FaWrench } from 'react-icons/fa';
 import { useProjects } from '../hooks/useProjects';
 import { OverviewTab } from '../components/detail/OverviewTab';
 import { TasksTab } from '../components/detail/TasksTab';
 import { KnowledgeTab } from '../components/detail/KnowledgeTab';
 import { ApisTab } from '../components/detail/ApisTab';
 import { WorkflowsTab } from '../components/detail/WorkflowsTab';
+import { UtilitiesTab } from '../components/detail/UtilitiesTab';
 import { DeploymentsTab } from '../components/detail/DeploymentsTab';
 import { SettingsTab } from '../components/detail/SettingsTab';
 import type { Project } from '../types';
 import { PROJECTS } from '../../../routes/types/routeConstants';
+import { setProjectContext } from '../utils/projectContext';
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: FaEye },
@@ -18,6 +20,7 @@ const TABS = [
   { id: 'knowledge', label: 'Knowledge', icon: FaBook },
   { id: 'apis', label: 'APIs', icon: FaLink },
   { id: 'workflows', label: 'Workflows', icon: FaPlay },
+  { id: 'utilities', label: 'Utilities', icon: FaWrench },
   { id: 'deployments', label: 'Deployments', icon: FaCloudUploadAlt },
   { id: 'settings', label: 'Settings', icon: FaCog },
 ] as const;
@@ -40,6 +43,8 @@ export function ProjectDetailPage() {
     if (p) await updateLastOpened(p.id);
     setLoading(false);
   }, [id, getProject, updateLastOpened]);
+
+  useEffect(() => { setProjectContext(project); return () => setProjectContext(null); }, [project]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -118,7 +123,8 @@ export function ProjectDetailPage() {
         {activeTab === 'tasks' && <TasksTab projectId={project.id} />}
         {activeTab === 'knowledge' && <KnowledgeTab projectId={project.id} />}
         {activeTab === 'apis' && <ApisTab projectId={project.id} />}
-        {activeTab === 'workflows' && <WorkflowsTab />}
+        {activeTab === 'workflows' && <WorkflowsTab project={project} />}
+        {activeTab === 'utilities' && <UtilitiesTab project={project} />}
         {activeTab === 'deployments' && <DeploymentsTab />}
         {activeTab === 'settings' && <SettingsTab project={project} onRefresh={load} />}
       </div>

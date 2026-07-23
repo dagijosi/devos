@@ -334,6 +334,29 @@ export const GOALS_TABLE = `CREATE TABLE IF NOT EXISTS goals (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );`;
 
+export const TOOLS_TABLE = `CREATE TABLE IF NOT EXISTS tools (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  icon TEXT DEFAULT '',
+  favorite INTEGER DEFAULT 0
+);`;
+
+export const RECENT_TOOLS_TABLE = `CREATE TABLE IF NOT EXISTS recent_tools (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tool_id INTEGER NOT NULL,
+  used_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (tool_id) REFERENCES tools(id) ON DELETE CASCADE
+);`;
+
+export const TOOL_SETTINGS_TABLE = `CREATE TABLE IF NOT EXISTS tool_settings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tool_id INTEGER NOT NULL,
+  settings_json TEXT DEFAULT '{}',
+  FOREIGN KEY (tool_id) REFERENCES tools(id) ON DELETE CASCADE
+);`;
+
 export const ALL_MIGRATIONS = [
   SETTINGS_TABLE,
   NOTIFICATIONS_TABLE,
@@ -374,6 +397,10 @@ export const ALL_MIGRATIONS = [
   DAILY_STATS_TABLE,
   PROJECT_STATS_TABLE,
   GOALS_TABLE,
+  // Utilities tables
+  TOOLS_TABLE,
+  RECENT_TOOLS_TABLE,
+  TOOL_SETTINGS_TABLE,
 ];
 
 // ── Query constants ────────────────────────────────────────────────────
@@ -644,4 +671,26 @@ export const KNOWLEDGE_FOLDER_QUERIES = {
   insert: `INSERT INTO knowledge_folders (name, parent_id) VALUES (?, ?)`,
   update: `UPDATE knowledge_folders SET name = ? WHERE id = ?`,
   delete: `DELETE FROM knowledge_folders WHERE id = ?`,
+};
+
+export const TOOL_QUERIES = {
+  getAll: `SELECT * FROM tools ORDER BY favorite DESC, name ASC`,
+  getByCategory: `SELECT * FROM tools WHERE category = ? ORDER BY name ASC`,
+  getFavorites: `SELECT * FROM tools WHERE favorite = 1 ORDER BY name ASC`,
+  insert: `INSERT INTO tools (name, category, description, icon) VALUES (?, ?, ?, ?)`,
+  toggleFavorite: `UPDATE tools SET favorite = CASE WHEN favorite = 1 THEN 0 ELSE 1 END WHERE id = ?`,
+  delete: `DELETE FROM tools WHERE id = ?`,
+};
+
+export const RECENT_TOOL_QUERIES = {
+  getRecent: `SELECT t.*, r.used_at FROM tools t INNER JOIN recent_tools r ON t.id = r.tool_id ORDER BY r.used_at DESC LIMIT ?`,
+  insert: `INSERT INTO recent_tools (tool_id) VALUES (?)`,
+  updateTimestamp: `UPDATE recent_tools SET used_at = CURRENT_TIMESTAMP WHERE tool_id = ?`,
+  getByToolId: `SELECT * FROM recent_tools WHERE tool_id = ?`,
+  cleanOld: `DELETE FROM recent_tools WHERE id NOT IN (SELECT id FROM recent_tools ORDER BY used_at DESC LIMIT 50)`,
+};
+
+export const TOOL_SETTINGS_QUERIES = {
+  getByToolId: `SELECT * FROM tool_settings WHERE tool_id = ?`,
+  upsert: `INSERT INTO tool_settings (tool_id, settings_json) VALUES (?, ?) ON CONFLICT(tool_id) DO UPDATE SET settings_json = excluded.settings_json`,
 };

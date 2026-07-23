@@ -28,6 +28,9 @@ import {
   INSIGHTS_DAILY_QUERIES,
   INSIGHTS_PROJECT_STATS_QUERIES,
   INSIGHTS_GOAL_QUERIES,
+  TOOL_QUERIES,
+  RECENT_TOOL_QUERIES,
+  TOOL_SETTINGS_QUERIES,
 } from './schema';
 import type { Project } from '../features/projects/types';
 import type { KnowledgeItem, Note, Folder, CodeSnippet, Bug, Attachment } from '../features/knowledge/types';
@@ -2083,5 +2086,61 @@ export const database = {
     const inst = await getDatabase();
     if (!inst) return;
     await inst.execute(INSIGHTS_GOAL_QUERIES.delete, [id]);
+  },
+
+  // ── Utilities ─────────────────────────────────────────────────────
+  async getTools(): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(TOOL_QUERIES.getAll);
+  },
+
+  async getToolsByCategory(category: string): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(TOOL_QUERIES.getByCategory, [category]);
+  },
+
+  async getFavoriteTools(): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(TOOL_QUERIES.getFavorites);
+  },
+
+  async toggleToolFavorite(toolId: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(TOOL_QUERIES.toggleFavorite, [toolId]);
+  },
+
+  async getRecentTools(limit = 20): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(RECENT_TOOL_QUERIES.getRecent, [limit]);
+  },
+
+  async logToolUsage(toolId: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    const existing = await inst.select(RECENT_TOOL_QUERIES.getByToolId, [toolId]);
+    if (existing.length > 0) {
+      await inst.execute(RECENT_TOOL_QUERIES.updateTimestamp, [toolId]);
+    } else {
+      await inst.execute(RECENT_TOOL_QUERIES.insert, [toolId]);
+    }
+    await inst.execute(RECENT_TOOL_QUERIES.cleanOld);
+  },
+
+  async getToolSettings(toolId: number): Promise<any | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    const rows = await inst.select(TOOL_SETTINGS_QUERIES.getByToolId, [toolId]);
+    return rows.length ? rows[0] : null;
+  },
+
+  async saveToolSettings(toolId: number, settingsJson: string): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(TOOL_SETTINGS_QUERIES.upsert, [toolId, settingsJson]);
   },
 };

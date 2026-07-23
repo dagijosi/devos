@@ -1,15 +1,15 @@
 import { useNavigate } from 'react-router-dom';
 import { FaFolder, FaStickyNote, FaCode, FaPlay, FaTerminal, FaRocket, FaSearch } from 'react-icons/fa';
 import { invoke } from '@tauri-apps/api/core';
-import { PROJECTS, KNOWLEDGE, TOOLBOX, AUTOMATION } from '../../../routes/types/routeConstants';
+import { PROJECTS, KNOWLEDGE, UTILITIES, WORKFLOWS } from '../../../routes/types/routeConstants';
 import { useAppStore } from '../../../stores/app.store';
 
 const actions = [
   { label: 'New Project', icon: FaFolder, desc: 'Create a new project', route: `${PROJECTS}?new=true` },
   { label: 'New Note', icon: FaStickyNote, desc: 'Quick note capture', route: KNOWLEDGE },
-  { label: 'Run Workflow', icon: FaPlay, desc: 'Execute automation', route: AUTOMATION },
+  { label: 'Run Workflow', icon: FaPlay, desc: 'Execute workflows', route: WORKFLOWS },
   { label: 'Open Terminal', icon: FaTerminal, desc: 'Command line', action: 'terminal' },
-  { label: 'Start Dev', icon: FaRocket, desc: 'Launch dev server', route: TOOLBOX },
+  { label: 'Start Dev', icon: FaRocket, desc: 'Launch dev server', route: UTILITIES },
   { label: 'Search Everything', icon: FaSearch, desc: 'Ctrl + K', action: 'search' },
 ];
 

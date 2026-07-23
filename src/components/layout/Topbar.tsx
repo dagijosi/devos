@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../stores/app.store';
 import { NotificationCenter } from '../../features/notifications/components/NotificationCenter';
 import { ThemeSwitcher } from '../../theme-system';
-import { DASHBOARD, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, TOOLBOX, AUTOMATION, SETTING } from '../../routes/types/routeConstants';
+import { DASHBOARD, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, UTILITIES, WORKFLOWS, SETTING } from '../../routes/types/routeConstants';
 
 interface TopbarProps {
   sidebarOpen: boolean;
@@ -15,8 +15,8 @@ const breadcrumbMap: Record<string, string> = {
   [DASHBOARD]: 'Dashboard',
   [PROJECTS]: 'Projects',
   [KNOWLEDGE]: 'Library',
-  [TOOLBOX]: 'Toolbox',
-  [AUTOMATION]: 'Automation',
+  [UTILITIES]: 'Utilities',
+  [WORKFLOWS]: 'Workflows',
   [SETTING]: 'Settings',
 };
 

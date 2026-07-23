@@ -2,7 +2,7 @@ import { useEffect, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../../stores/app.store';
 import { database } from '../../../database';
-import { DASHBOARD, PROJECTS, KNOWLEDGE, TOOLBOX, AUTOMATION, SETTING } from '../../../routes/types/routeConstants';
+import { DASHBOARD, PROJECTS, KNOWLEDGE, UTILITIES, WORKFLOWS, SETTING } from '../../../routes/types/routeConstants';
 import type { Project } from '../../projects/types';
 import type { Note } from '../../knowledge/types';
 
@@ -39,8 +39,8 @@ export function useCommandPalette() {
     { id: 'go-dashboard', label: 'Go to Dashboard', description: 'Navigate to the dashboard', category: 'Navigation', action: () => navigate(DASHBOARD) },
     { id: 'go-projects', label: 'Go to Projects', description: 'View and manage projects', category: 'Navigation', action: () => navigate(PROJECTS) },
     { id: 'go-knowledge', label: 'Go to Knowledge', description: 'Browse documentation and guides', category: 'Navigation', action: () => navigate(KNOWLEDGE) },
-    { id: 'go-toolbox', label: 'Go to Toolbox', description: 'Access developer utilities', category: 'Navigation', action: () => navigate(TOOLBOX) },
-    { id: 'go-automation', label: 'Go to Automation', description: 'Manage workflows', category: 'Navigation', action: () => navigate(AUTOMATION) },
+    { id: 'go-utilities', label: 'Go to Utilities', description: 'Access developer utilities', category: 'Navigation', action: () => navigate(UTILITIES) },
+    { id: 'go-workflows', label: 'Go to Workflows', description: 'Manage automation workflows', category: 'Navigation', action: () => navigate(WORKFLOWS) },
     { id: 'go-settings', label: 'Open Settings', description: 'Configure application settings', category: 'Navigation', action: () => navigate(SETTING) },
     { id: 'toggle-sidebar', label: 'Toggle Sidebar', description: 'Show or hide the sidebar', shortcut: 'Ctrl+B', category: 'View', action: () => useAppStore.getState().toggleSidebar() },
     { id: 'toggle-theme', label: 'Toggle Theme', description: 'Switch between light and dark mode', category: 'Preferences', action: () => {
