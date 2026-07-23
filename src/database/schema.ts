@@ -290,6 +290,50 @@ export const KNOWLEDGE_FOLDERS_TABLE = `CREATE TABLE IF NOT EXISTS knowledge_fol
   FOREIGN KEY (parent_id) REFERENCES knowledge_folders(id) ON DELETE CASCADE
 );`;
 
+export const ACTIVITY_LOGS_TABLE = `CREATE TABLE IF NOT EXISTS activity_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER,
+  type TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  ended_at DATETIME,
+  duration INTEGER DEFAULT 0,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
+);`;
+
+export const DAILY_STATS_TABLE = `CREATE TABLE IF NOT EXISTS daily_stats (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  date TEXT NOT NULL UNIQUE,
+  focus_time INTEGER DEFAULT 0,
+  projects INTEGER DEFAULT 0,
+  tasks INTEGER DEFAULT 0,
+  commits INTEGER DEFAULT 0,
+  notes INTEGER DEFAULT 0,
+  bugs INTEGER DEFAULT 0
+);`;
+
+export const PROJECT_STATS_TABLE = `CREATE TABLE IF NOT EXISTS project_stats (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER NOT NULL UNIQUE,
+  total_time INTEGER DEFAULT 0,
+  last_opened DATETIME,
+  commits INTEGER DEFAULT 0,
+  notes INTEGER DEFAULT 0,
+  bugs INTEGER DEFAULT 0,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);`;
+
+export const GOALS_TABLE = `CREATE TABLE IF NOT EXISTS goals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  target INTEGER DEFAULT 100,
+  progress INTEGER DEFAULT 0,
+  deadline DATETIME,
+  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','completed','archived')),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);`;
+
 export const ALL_MIGRATIONS = [
   SETTINGS_TABLE,
   NOTIFICATIONS_TABLE,
@@ -325,6 +369,11 @@ export const ALL_MIGRATIONS = [
   KNOWLEDGE_ITEMS_TABLE,
   RELATIONS_TABLE,
   KNOWLEDGE_FOLDERS_TABLE,
+  // Insights tables
+  ACTIVITY_LOGS_TABLE,
+  DAILY_STATS_TABLE,
+  PROJECT_STATS_TABLE,
+  GOALS_TABLE,
 ];
 
 // ── Query constants ────────────────────────────────────────────────────
@@ -466,6 +515,34 @@ export const ANALYTICS_QUERIES = {
   getToday: `SELECT * FROM analytics_sessions WHERE date = ? ORDER BY created_at ASC`,
   insert: `INSERT INTO analytics_sessions (date, duration_minutes, type, label) VALUES (?, ?, ?, ?)`,
   delete: `DELETE FROM analytics_sessions`,
+};
+
+export const INSIGHTS_ACTIVITY_QUERIES = {
+  insert: `INSERT INTO activity_logs (project_id, type, description, started_at, ended_at, duration) VALUES (?, ?, ?, ?, ?, ?)`,
+  getByRange: `SELECT * FROM activity_logs WHERE started_at >= ? AND started_at <= ? ORDER BY started_at DESC`,
+  getToday: `SELECT * FROM activity_logs WHERE date(started_at) = date('now') ORDER BY started_at DESC`,
+  getByProject: `SELECT * FROM activity_logs WHERE project_id = ? ORDER BY started_at DESC LIMIT ?`,
+};
+
+export const INSIGHTS_DAILY_QUERIES = {
+  upsert: `INSERT INTO daily_stats (date, focus_time, projects, tasks, commits, notes, bugs) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(date) DO UPDATE SET focus_time = excluded.focus_time, projects = excluded.projects, tasks = excluded.tasks, commits = excluded.commits, notes = excluded.notes, bugs = excluded.bugs`,
+  getByRange: `SELECT * FROM daily_stats WHERE date >= ? AND date <= ? ORDER BY date ASC`,
+  getLatest: `SELECT * FROM daily_stats ORDER BY date DESC LIMIT ?`,
+};
+
+export const INSIGHTS_PROJECT_STATS_QUERIES = {
+  upsert: `INSERT INTO project_stats (project_id, total_time, last_opened, commits, notes, bugs) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(project_id) DO UPDATE SET total_time = excluded.total_time, last_opened = excluded.last_opened, commits = excluded.commits, notes = excluded.notes, bugs = excluded.bugs`,
+  getAll: `SELECT ps.*, p.name, p.status FROM project_stats ps JOIN projects p ON ps.project_id = p.id ORDER BY ps.total_time DESC`,
+  getByProject: `SELECT * FROM project_stats WHERE project_id = ?`,
+};
+
+export const INSIGHTS_GOAL_QUERIES = {
+  getAll: `SELECT * FROM goals ORDER BY status ASC, created_at DESC`,
+  getActive: `SELECT * FROM goals WHERE status = 'active' ORDER BY created_at DESC`,
+  insert: `INSERT INTO goals (title, target, progress, deadline, status) VALUES (?, ?, ?, ?, ?)`,
+  update: `UPDATE goals SET title = ?, target = ?, progress = ?, deadline = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  updateProgress: `UPDATE goals SET progress = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  delete: `DELETE FROM goals WHERE id = ?`,
 };
 
 export const BACKUP_QUERIES = {

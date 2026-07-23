@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { CATCH_ALL, DASHBOARD, SETTING, PROFILE, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, TOOLBOX, AUTOMATION, AI, ANALYTICS, BACKUP } from './types/routeConstants';
+import { CATCH_ALL, DASHBOARD, SETTING, PROFILE, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, TOOLBOX, AUTOMATION, AI, INSIGHTS, BACKUP } from './types/routeConstants';
 import { createRoute } from './types/createRoute';
 import { AppLayout } from '../components/layout/AppLayout';
 
@@ -44,8 +44,8 @@ const AiPage = React.lazy(() =>
   import('../features/ai/pages/AiPage').then((m) => ({ default: m.AiPage }))
 );
 
-const AnalyticsPage = React.lazy(() =>
-  import('../features/analytics/pages/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage }))
+const InsightsPage = React.lazy(() =>
+  import('../features/insights/pages/InsightsPage').then((m) => ({ default: m.InsightsPage }))
 );
 
 const BackupPage = React.lazy(() =>
@@ -67,7 +67,7 @@ const routes = [
   createRoute(TOOLBOX, ToolboxPage, { layout: AppLayout }),
   createRoute(AUTOMATION, AutomationPage, { layout: AppLayout }),
   createRoute(AI, AiPage, { layout: AppLayout }),
-  createRoute(ANALYTICS, AnalyticsPage, { layout: AppLayout }),
+  createRoute(INSIGHTS, InsightsPage, { layout: AppLayout }),
   createRoute(BACKUP, BackupPage, { layout: AppLayout }),
   createRoute(CATCH_ALL, ErrorPage),
 ];

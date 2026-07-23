@@ -24,6 +24,10 @@ import {
   KNOWLEDGE_QUERIES,
   RELATION_QUERIES,
   KNOWLEDGE_FOLDER_QUERIES,
+  INSIGHTS_ACTIVITY_QUERIES,
+  INSIGHTS_DAILY_QUERIES,
+  INSIGHTS_PROJECT_STATS_QUERIES,
+  INSIGHTS_GOAL_QUERIES,
 } from './schema';
 import type { Project } from '../features/projects/types';
 import type { KnowledgeItem, Note, Folder, CodeSnippet, Bug, Attachment } from '../features/knowledge/types';
@@ -1989,5 +1993,95 @@ export const database = {
     const inst = await getDatabase();
     if (!inst) return;
     await inst.execute(KNOWLEDGE_FOLDER_QUERIES.delete, [id]);
+  },
+
+  // ── Insights ──────────────────────────────────────────────────────
+  async logActivity(data: { project_id?: number; type: string; description: string; started_at?: string; ended_at?: string; duration?: number }): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(INSIGHTS_ACTIVITY_QUERIES.insert, [data.project_id ?? null, data.type, data.description, data.started_at ?? new Date().toISOString(), data.ended_at ?? null, data.duration ?? 0]);
+  },
+
+  async getActivityByRange(from: string, to: string): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(INSIGHTS_ACTIVITY_QUERIES.getByRange, [from, to]);
+  },
+
+  async getActivityByProject(projectId: number, limit = 20): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(INSIGHTS_ACTIVITY_QUERIES.getByProject, [projectId, limit]);
+  },
+
+  async upsertDailyStats(date: string, stats: { focus_time?: number; projects?: number; tasks?: number; commits?: number; notes?: number; bugs?: number }): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(INSIGHTS_DAILY_QUERIES.upsert, [date, stats.focus_time ?? 0, stats.projects ?? 0, stats.tasks ?? 0, stats.commits ?? 0, stats.notes ?? 0, stats.bugs ?? 0]);
+  },
+
+  async getDailyStatsByRange(from: string, to: string): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(INSIGHTS_DAILY_QUERIES.getByRange, [from, to]);
+  },
+
+  async getLatestDailyStats(limit = 7): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(INSIGHTS_DAILY_QUERIES.getLatest, [limit]);
+  },
+
+  async upsertProjectStats(projectId: number, stats: { total_time?: number; last_opened?: string; commits?: number; notes?: number; bugs?: number }): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(INSIGHTS_PROJECT_STATS_QUERIES.upsert, [projectId, stats.total_time ?? 0, stats.last_opened ?? null, stats.commits ?? 0, stats.notes ?? 0, stats.bugs ?? 0]);
+  },
+
+  async getAllProjectStats(): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(INSIGHTS_PROJECT_STATS_QUERIES.getAll);
+  },
+
+  async getProjectStats(projectId: number): Promise<any | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    const rows = await inst.select(INSIGHTS_PROJECT_STATS_QUERIES.getByProject, [projectId]);
+    return rows.length ? rows[0] : null;
+  },
+
+  async getGoals(): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(INSIGHTS_GOAL_QUERIES.getAll);
+  },
+
+  async getActiveGoals(): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(INSIGHTS_GOAL_QUERIES.getActive);
+  },
+
+  async createGoal(data: { title: string; target?: number; progress?: number; deadline?: string; status?: string }): Promise<any | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    await inst.execute(INSIGHTS_GOAL_QUERIES.insert, [data.title, data.target ?? 100, data.progress ?? 0, data.deadline ?? null, data.status ?? 'active']);
+    const rows = await inst.select(INSIGHTS_GOAL_QUERIES.getAll);
+    return rows.length ? rows[rows.length - 1] : null;
+  },
+
+  async updateGoal(id: number, data: { title?: string; target?: number; progress?: number; deadline?: string; status?: string }): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    const existing = (await inst.select(INSIGHTS_GOAL_QUERIES.getAll)).find((g: any) => Number(g.id) === id);
+    if (!existing) return;
+    await inst.execute(INSIGHTS_GOAL_QUERIES.update, [data.title ?? existing.title, data.target ?? existing.target, data.progress ?? existing.progress, data.deadline ?? existing.deadline, data.status ?? existing.status, id]);
+  },
+
+  async deleteGoal(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(INSIGHTS_GOAL_QUERIES.delete, [id]);
   },
 };

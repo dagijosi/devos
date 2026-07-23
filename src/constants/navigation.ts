@@ -6,7 +6,7 @@ import {
   FaPlay,
   FaCog,
   FaRobot,
-  FaChartLine,
+  FaLightbulb,
   FaSave,
 } from "react-icons/fa";
 import {
@@ -16,7 +16,7 @@ import {
   TOOLBOX,
   AUTOMATION,
   AI,
-  ANALYTICS,
+  INSIGHTS,
   BACKUP,
   SETTING,
 } from "../routes/types/routeConstants";
@@ -50,7 +50,7 @@ export const navigationCategories: NavCategory[] = [
     name: "Utilities",
     links: [
       { name: "AI Assistant", href: AI, icon: FaRobot },
-      { name: "Analytics", href: ANALYTICS, icon: FaChartLine },
+      { name: "Insights", href: INSIGHTS, icon: FaLightbulb },
       { name: "Toolbox", href: TOOLBOX, icon: FaWrench },
       { name: "Automation", href: AUTOMATION, icon: FaPlay },
       { name: "Backup", href: BACKUP, icon: FaSave },

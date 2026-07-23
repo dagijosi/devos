@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaArrowLeft, FaArrowRight, FaFolder, FaCheck, FaTimes, FaPlus } from 'react-icons/fa';
 import { PROJECTS } from '../../../routes/types/routeConstants';
 import { database } from '../../../database';
+import type { ProjectFormData } from '../types';
 
 const isTauri = () => typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__;
 
@@ -92,7 +93,7 @@ function StepPath({ data, setData, onNext, onBack }: WizardStepProps) {
           <input type="text" value={data.local_path} onChange={e => setData({ ...data, local_path: e.target.value })}
             placeholder="C:\Projects\my-app" className="flex-1 bg-theme-background border border-theme-border/30 rounded-xl px-4 py-3 text-sm text-theme-text placeholder:text-theme-text/40 outline-none focus:border-theme-icon/50" />
           <button type="button" onClick={handleFolderPick} className="p-3 bg-theme-surface border border-theme-border/30 rounded-xl text-theme-text/50 hover:text-theme-text"><FaFolder className="w-4 h-4" /></button>
-          <input ref={folderRef} type="file" webkitdirectory="" directory="" onChange={handleFolderChange}
+          <input ref={folderRef} type="file" {...({ webkitdirectory: '', directory: '' } as any)} onChange={handleFolderChange}
             style={{ display: 'none' }} />
         </div>
       </div>
@@ -229,7 +230,7 @@ const STEPS = [
   { title: 'Review', component: StepFinish },
 ];
 
-export function ProjectWizard({ onClose }: { onClose: () => void }) {
+export function ProjectWizard({ onClose, initialData }: { onClose: () => void; initialData?: Partial<ProjectFormData> }) {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -237,6 +238,20 @@ export function ProjectWizard({ onClose }: { onClose: () => void }) {
     name: '', description: '', category: '', local_path: '', repository_url: '',
     technology: [] as string[], scripts: [] as { name: string; command: string }[],
   });
+
+  useEffect(() => {
+    if (initialData) {
+      setData({
+        name: initialData.name || '',
+        description: initialData.description || '',
+        category: '',
+        local_path: initialData.local_path || '',
+        repository_url: initialData.repository_url || '',
+        technology: initialData.technology || [],
+        scripts: initialData.scripts ? Object.entries(initialData.scripts).map(([name, command]) => ({ name, command })) : [],
+      });
+    }
+  }, [initialData]);
 
   const handleFinish = async () => {
     setBusy(true);

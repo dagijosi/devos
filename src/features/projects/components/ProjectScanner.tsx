@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaSearch, FaTimes, FaFolder } from 'react-icons/fa';
 import { PROJECT_FORM } from '../../../routes/types/routeConstants';
+
+const isTauri = () => typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__;
 
 interface ScanResult {
   path: string;
@@ -18,9 +20,37 @@ interface Props {
 
 export function ProjectScanner({ onClose }: Props) {
   const navigate = useNavigate();
+  const folderRef = useRef<HTMLInputElement>(null);
   const [path, setPath] = useState('');
   const [scanning, setScanning] = useState(false);
   const [results, setResults] = useState<ScanResult[] | null>(null);
+
+  const handleFolderPick = async () => {
+    if (isTauri()) {
+      try {
+        const { open } = await import('@tauri-apps/plugin-dialog');
+        const selected = await open({ directory: true, multiple: false, title: 'Select Project Folder' });
+        if (selected && typeof selected === 'string') {
+          setPath(selected);
+        }
+      } catch {
+        const input = folderRef.current;
+        if (input) { input.value = ''; input.click(); }
+      }
+    } else {
+      const input = folderRef.current;
+      if (input) { input.value = ''; input.click(); }
+    }
+  };
+
+  const handleFolderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isTauri()) return;
+    const file = e.target.files?.[0];
+    if (file) {
+      const folderPath = (file as any).path || file.webkitRelativePath.split('/')[0] || '';
+      if (folderPath) setPath(folderPath);
+    }
+  };
 
   const detectTechnologies = (folderName: string): string[] => {
     const techs: string[] = [];
@@ -102,10 +132,15 @@ export function ProjectScanner({ onClose }: Props) {
       <div className="flex gap-2 mb-4">
         <input value={path} onChange={(e) => setPath(e.target.value)} placeholder="Enter root folder path..."
           className="flex-1 px-3 py-2 bg-theme-background border border-theme-border/30 rounded-xl text-sm text-theme-text placeholder-theme-text/40 focus:outline-none focus:border-theme-icon/50" />
+        <button type="button" onClick={handleFolderPick} className="p-2 bg-theme-surface border border-theme-border/30 rounded-xl text-theme-text/50 hover:text-theme-text" title="Browse">
+          <FaFolder className="w-4 h-4" />
+        </button>
         <button onClick={handleScan} disabled={scanning}
           className="px-4 py-2 text-sm font-medium text-white bg-theme-icon rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity">
           {scanning ? 'Scanning...' : 'Scan'}
         </button>
+        <input ref={folderRef} type="file" {...({ webkitdirectory: '', directory: '' } as any)} onChange={handleFolderChange}
+          style={{ display: 'none' }} />
       </div>
 
       <AnimatePresence>

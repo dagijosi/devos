@@ -60,7 +60,7 @@ export function PerformanceSettings() {
         </summary>
         <div className="mt-2 space-y-1">
           <p>All pages are lazy-loaded for code splitting.</p>
-          <p>Charts (recharts) loaded on demand in Analytics.</p>
+          <p>Charts and widgets in the Insights page.</p>
           <p>SQL.js WASM loaded on first database fallback.</p>
         </div>
       </details>
