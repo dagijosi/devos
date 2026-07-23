@@ -4,6 +4,8 @@ import { FaArrowLeft, FaArrowRight, FaFolder, FaCheck, FaTimes, FaPlus } from 'r
 import { PROJECTS } from '../../../routes/types/routeConstants';
 import { database } from '../../../database';
 
+const isTauri = () => typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__;
+
 const techOptions = ['React', 'Node', 'Tailwind', 'TypeScript', 'Flutter', 'Laravel', 'Tauri', 'Docker', 'Next.js', 'Vue', 'Angular', 'Python', 'Go', 'Rust', 'SQLite', 'PostgreSQL'];
 
 interface WizardStepProps {
@@ -54,19 +56,30 @@ function StepName({ data, setData, onNext }: WizardStepProps) {
 function StepPath({ data, setData, onNext, onBack }: WizardStepProps) {
   const folderRef = useRef<HTMLInputElement>(null);
 
-  const handleFolderPick = () => {
-    const input = folderRef.current;
-    if (input) {
-      input.value = '';
-      input.click();
+  const handleFolderPick = async () => {
+    if (isTauri()) {
+      try {
+        const { open } = await import('@tauri-apps/plugin-dialog');
+        const selected = await open({ directory: true, multiple: false, title: 'Select Project Folder' });
+        if (selected) {
+          setData({ ...data, local_path: selected });
+        }
+      } catch {
+        const input = folderRef.current;
+        if (input) { input.value = ''; input.click(); }
+      }
+    } else {
+      const input = folderRef.current;
+      if (input) { input.value = ''; input.click(); }
     }
   };
 
   const handleFolderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isTauri()) return;
     const file = e.target.files?.[0];
     if (file) {
       const path = (file as any).path || file.webkitRelativePath.split('/')[0] || '';
-      setData({ ...data, local_path: path });
+      if (path) setData({ ...data, local_path: path });
     }
   };
 

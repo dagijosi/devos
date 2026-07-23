@@ -4,22 +4,30 @@ function isWindows(): boolean {
   return navigator.userAgent.includes('Windows');
 }
 
-const TAURI_SHELL = '@tauri-apps/plugin-shell';
-const TAURI_OPENER = '@tauri-apps/plugin-opener';
+function isTauri(): boolean {
+  return typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__;
+}
 
-async function tryTauriShell(): Promise<any> {
+function normalizePath(path: string): string {
+  let p = path.trim();
+  if (isWindows()) p = p.replace(/\//g, '\\');
+  while (p.endsWith('\\')) p = p.slice(0, -1);
+  return p;
+}
+
+async function tryShellModule(): Promise<any> {
+  if (!isTauri()) return null;
   try {
-    const mod = await import(/* @vite-ignore */ TAURI_SHELL);
-    return mod;
+    return await import('@tauri-apps/plugin-shell');
   } catch {
     return null;
   }
 }
 
-async function tryTauriOpener(): Promise<any> {
+async function tryOpenerModule(): Promise<any> {
+  if (!isTauri()) return null;
   try {
-    const mod = await import(/* @vite-ignore */ TAURI_OPENER);
-    return mod;
+    return await import('@tauri-apps/plugin-opener');
   } catch {
     return null;
   }
@@ -27,25 +35,18 @@ async function tryTauriOpener(): Promise<any> {
 
 export async function openFolder(path: string): Promise<ActionResult> {
   if (!path) return { success: false, message: 'No path configured' };
-  const opener = await tryTauriOpener();
-  if (opener?.open) {
-    try {
-      await opener.open(path);
-      return { success: true, message: 'Opened in file manager' };
-    } catch { /* fall through */ }
-  }
-  const shell = await tryTauriShell();
+  const normalized = normalizePath(path);
+  if (!normalized) return { success: false, message: `Path is empty after normalization (was: "${path}")` };
+  if (isWindows() && !normalized.includes(':')) return { success: false, message: `Path "${normalized}" doesn't look like a valid Windows path (missing drive letter)` };
+  const shell = await tryShellModule();
   if (shell?.Command) {
     try {
       if (isWindows()) {
-        const command = shell.Command.create('cmd', ['/c', 'explorer', path]);
-        await command.execute();
+        await shell.Command.create('explorer', [normalized]).execute();
       } else if (navigator.userAgent.includes('Mac')) {
-        const command = shell.Command.create('sh', ['-c', `open "${path}"`]);
-        await command.execute();
+        await shell.Command.create('open', [normalized]).execute();
       } else {
-        const command = shell.Command.create('sh', ['-c', `xdg-open "${path}"`]);
-        await command.execute();
+        await shell.Command.create('xdg-open', [normalized]).execute();
       }
       return { success: true, message: 'Opened in file manager' };
     } catch { /* fall through */ }
@@ -55,32 +56,37 @@ export async function openFolder(path: string): Promise<ActionResult> {
 
 export async function openVSCode(path: string): Promise<ActionResult> {
   if (!path) return { success: false, message: 'No path configured' };
-  const shell = await tryTauriShell();
+  const normalized = normalizePath(path);
+  if (!normalized) return { success: false, message: `Path is empty after normalization (was: "${path}")` };
+  const opener = await tryOpenerModule();
+  if (opener?.openPath) {
+    try { await opener.openPath(normalized, 'code'); return { success: true, message: 'Opening VS Code...' }; } catch {}
+  }
+  const shell = await tryShellModule();
   if (shell?.Command) {
     try {
-      const cmd = isWindows() ? 'cmd' : 'sh';
-      const args = isWindows() ? ['/c', 'code', path] : ['-c', `code "${path}"`];
-      const command = shell.Command.create(cmd, args);
-      await command.execute();
+      if (isWindows()) {
+        await shell.Command.create('cmd', ['/c', 'start', '/B', 'code', normalized]).execute();
+      } else {
+        await shell.Command.create('sh', ['-c', `code "${normalized}"`]).execute();
+      }
       return { success: true, message: 'Opening VS Code...' };
-    } catch {
-      return { success: false, message: 'VS Code not found in PATH' };
-    }
+    } catch { return { success: false, message: 'VS Code not found in PATH' }; }
   }
   return { success: false, message: 'Shell not available in this environment' };
 }
 
 export async function openTerminal(path: string): Promise<ActionResult> {
   if (!path) return { success: false, message: 'No path configured' };
-  const shell = await tryTauriShell();
+  const normalized = normalizePath(path);
+  if (!normalized) return { success: false, message: `Path is empty after normalization (was: "${path}")` };
+  const shell = await tryShellModule();
   if (shell?.Command) {
     try {
       if (isWindows()) {
-        const command = shell.Command.create('cmd', ['/c', 'start', 'cmd', '/k', `cd /d "${path}"`]);
-        await command.execute();
+        await shell.Command.create('cmd', ['/c', 'cd', '/d', normalized, '&&', 'start', 'cmd']).execute();
       } else {
-        const command = shell.Command.create('sh', ['-c', `cd "${path}" && $SHELL`]);
-        await command.execute();
+        await shell.Command.create('sh', ['-c', `cd "${normalized}" && $SHELL`]).execute();
       }
       return { success: true, message: 'Opening terminal...' };
     } catch { /* fall through */ }
@@ -90,24 +96,23 @@ export async function openTerminal(path: string): Promise<ActionResult> {
 
 export async function runScript(command: string, path?: string): Promise<ActionResult> {
   if (!command) return { success: false, message: 'No command configured' };
-  const shell = await tryTauriShell();
+  const shell = await tryShellModule();
   if (shell?.Command) {
     try {
-      let cmd;
       if (path) {
+        const normalized = normalizePath(path);
         if (isWindows()) {
-          cmd = shell.Command.create('cmd', ['/c', `cd /d "${path}" && ${command}`]);
+          await shell.Command.create('cmd', ['/c', `cd /d "${normalized}" && ${command}`]).execute();
         } else {
-          cmd = shell.Command.create('sh', ['-c', `cd "${path}" && ${command}`]);
+          await shell.Command.create('sh', ['-c', `cd "${normalized}" && ${command}`]).execute();
         }
       } else {
         if (isWindows()) {
-          cmd = shell.Command.create('cmd', ['/c', command]);
+          await shell.Command.create('cmd', ['/c', command]).execute();
         } else {
-          cmd = shell.Command.create('sh', ['-c', command]);
+          await shell.Command.create('sh', ['-c', command]).execute();
         }
       }
-      await cmd.execute();
       return { success: true, message: `Running: ${command}` };
     } catch { /* fall through */ }
   }
@@ -116,19 +121,13 @@ export async function runScript(command: string, path?: string): Promise<ActionR
 
 export async function openBrowser(url: string): Promise<ActionResult> {
   if (!url) return { success: false, message: 'No URL configured' };
-  const opener = await tryTauriOpener();
-  if (opener?.open) {
-    try {
-      await opener.open(url);
-      return { success: true, message: 'Opening browser...' };
-    } catch { /* fall through */ }
+  const opener = await tryOpenerModule();
+  if (opener?.openUrl) {
+    try { await opener.openUrl(url); return { success: true, message: 'Opening browser...' }; } catch { /* fall through */ }
   }
-  const shell = await tryTauriShell();
+  const shell = await tryShellModule();
   if (shell?.open) {
-    try {
-      await shell.open(url);
-      return { success: true, message: 'Opening browser...' };
-    } catch { /* fall through */ }
+    try { await shell.open(url); return { success: true, message: 'Opening browser...' }; } catch { /* fall through */ }
   }
   window.open(url, '_blank');
   return { success: true, message: 'Attempted to open browser' };

@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { FaSave, FaTrash, FaExclamationTriangle, FaFolder, FaGithub, FaTimes } from 'react-icons/fa';
+
+const isTauri = () => typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__;
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { database } from '../../../../database';
@@ -106,8 +108,21 @@ export function SettingsTab({ project, onRefresh }: SettingsTabProps) {
         <div className="space-y-4">
           <div>
             <label className="text-xs text-theme-text/60 mb-1 block flex items-center gap-1"><FaFolder className="w-3 h-3" /> Local Path</label>
-            <input type="text" value={form.local_path} onChange={e => updateForm('local_path', e.target.value)}
-              placeholder="C:\Projects\my-app" className="w-full bg-theme-background border border-theme-border/30 rounded-xl px-4 py-2.5 text-sm text-theme-text outline-none focus:border-theme-icon/50" />
+            <div className="flex gap-2">
+              <input type="text" value={form.local_path} onChange={e => updateForm('local_path', e.target.value)}
+                placeholder="C:\Projects\my-app" className="flex-1 bg-theme-background border border-theme-border/30 rounded-xl px-4 py-2.5 text-sm text-theme-text outline-none focus:border-theme-icon/50" />
+              <button type="button" onClick={async () => {
+                if (isTauri()) {
+                  try {
+                    const { open } = await import('@tauri-apps/plugin-dialog');
+                    const selected = await open({ directory: true, multiple: false, title: 'Select Project Folder' });
+                    if (selected) updateForm('local_path', selected);
+                  } catch {}
+                }
+              }} className="px-3 py-2 bg-theme-background border border-theme-border/30 rounded-xl text-theme-text/40 hover:text-theme-icon transition-colors" title="Browse">
+                <FaFolder className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
           <div>
             <label className="text-xs text-theme-text/60 mb-1 block flex items-center gap-1"><FaGithub className="w-3 h-3" /> Repository URL</label>

@@ -4,6 +4,8 @@ import { FaTimes, FaFolderOpen } from 'react-icons/fa';
 import { Portal } from '../../../components/ui/overlays';
 import type { Project, ProjectFormData } from '../types';
 
+const isTauri = () => typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__;
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -109,7 +111,15 @@ export function ProjectForm({ open, onClose, onSave, project }: Props) {
                   <div className="flex gap-2">
                     <input value={localPath} onChange={(e) => setLocalPath(e.target.value)} placeholder="C:/Users/.../project"
                       className="flex-1 px-3 py-2 bg-theme-background border border-theme-border/30 rounded-xl text-sm text-theme-text placeholder-theme-text/40 focus:outline-none focus:border-theme-icon/50" />
-                    <button type="button" className="p-2 rounded-xl bg-theme-background border border-theme-border/30 text-theme-text/40 hover:text-theme-icon transition-colors" title="Browse">
+                    <button type="button" onClick={async () => {
+                      if (isTauri()) {
+                        try {
+                          const { open } = await import('@tauri-apps/plugin-dialog');
+                          const selected = await open({ directory: true, multiple: false, title: 'Select Project Folder' });
+                          if (selected) setLocalPath(selected);
+                        } catch {}
+                      }
+                    }} className="p-2 rounded-xl bg-theme-background border border-theme-border/30 text-theme-text/40 hover:text-theme-icon transition-colors" title="Browse">
                       <FaFolderOpen className="w-4 h-4" />
                     </button>
                   </div>
