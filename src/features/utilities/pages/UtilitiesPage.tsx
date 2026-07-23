@@ -18,30 +18,98 @@ import { RegexTester } from '../components/tools/RegexTester';
 import { TimestampConverter } from '../components/tools/TimestampConverter';
 import { UuidGenerator } from '../components/tools/UuidGenerator';
 import { ApiTester } from '../components/tools/ApiTester';
+import { XmlFormatter } from '../components/tools/XmlFormatter';
+import { HtmlFormatter } from '../components/tools/HtmlFormatter';
+import { YamlFormatter } from '../components/tools/YamlFormatter';
+import { MarkdownPreview } from '../components/tools/MarkdownPreview';
+import { Minifier } from '../components/tools/Minifier';
+import { NanoIdGenerator } from '../components/tools/NanoIdGenerator';
+import { SlugGenerator } from '../components/tools/SlugGenerator';
+import { LoremIpsum } from '../components/tools/LoremIpsum';
+import { FakeDataGenerator } from '../components/tools/FakeDataGenerator';
+import { UrlEncoder } from '../components/tools/UrlEncoder';
+import { UnicodeEncoder } from '../components/tools/UnicodeEncoder';
+import { GraphqlClient } from '../components/tools/GraphqlClient';
+import { WebsocketClient } from '../components/tools/WebsocketClient';
+import { SqliteViewer } from '../components/tools/SqliteViewer';
+import { SqlRunner } from '../components/tools/SqlRunner';
+import { JsonToSql } from '../components/tools/JsonToSql';
+import { CsvViewer } from '../components/tools/CsvViewer';
+import { SchemaViewer } from '../components/tools/SchemaViewer';
+import { Sha256Tool } from '../components/tools/Sha256Tool';
+import { Md5Tool } from '../components/tools/Md5Tool';
+import { BcryptTool } from '../components/tools/BcryptTool';
+import { TokenInspector } from '../components/tools/TokenInspector';
+import { ChecksumTool } from '../components/tools/ChecksumTool';
+import { PingTool } from '../components/tools/PingTool';
+import { DnsLookup } from '../components/tools/DnsLookup';
+import { PortChecker } from '../components/tools/PortChecker';
+import { IpLookup } from '../components/tools/IpLookup';
+import { UrlInspector } from '../components/tools/UrlInspector';
+import { ResizeImage } from '../components/tools/ResizeImage';
+import { SvgPreview } from '../components/tools/SvgPreview';
+import { Base64ImageTool } from '../components/tools/Base64Image';
+import { DiffViewer } from '../components/tools/DiffViewer';
+import { WordCounter } from '../components/tools/WordCounter';
+import { CaseConverter } from '../components/tools/CaseConverter';
+import { FindReplace } from '../components/tools/FindReplace';
+import { CronParser } from '../components/tools/CronParser';
+import { GradientBuilder } from '../components/tools/GradientBuilder';
+import { EnvViewer } from '../components/tools/EnvViewer';
 
 const toolComponentMap: Record<string, ComponentType> = {
   'json-formatter': JsonFormatter,
   'sql-formatter': SqlFormatter,
-  'base64': Base64Tool,
-  'color-picker': ColorPicker,
-  'hash-generator': HashGenerator,
-  'image-compressor': ImageCompressor,
-  'jwt-decoder': JwtDecoder,
-  'password-generator': PasswordGenerator,
-  'qr-generator': QrGenerator,
-  'regex-tester': RegexTester,
-  'timestamp-converter': TimestampConverter,
+  'xml-formatter': XmlFormatter,
+  'html-formatter': HtmlFormatter,
+  'yaml-formatter': YamlFormatter,
+  'markdown-preview': MarkdownPreview,
+  'minifier': Minifier,
   'uuid-generator': UuidGenerator,
+  'nanoid-generator': NanoIdGenerator,
+  'slug-generator': SlugGenerator,
+  'hash-generator': HashGenerator,
+  'qr-generator': QrGenerator,
+  'password-generator': PasswordGenerator,
+  'lorem-ipsum': LoremIpsum,
+  'fake-data': FakeDataGenerator,
+  'base64': Base64Tool,
+  'url-encode': UrlEncoder,
+  'jwt-decoder': JwtDecoder,
+  'unicode-encoder': UnicodeEncoder,
   'api-tester': ApiTester,
+  'graphql-client': GraphqlClient,
+  'websocket-client': WebsocketClient,
+  'sqlite-viewer': SqliteViewer,
+  'sql-runner': SqlRunner,
+  'json-to-sql': JsonToSql,
+  'csv-viewer': CsvViewer,
+  'schema-viewer': SchemaViewer,
+  'sha256': Sha256Tool,
+  'md5': Md5Tool,
+  'bcrypt': BcryptTool,
+  'token-inspector': TokenInspector,
+  'checksum': ChecksumTool,
+  'ping': PingTool,
+  'dns-lookup': DnsLookup,
+  'port-checker': PortChecker,
+  'ip-lookup': IpLookup,
+  'url-inspector': UrlInspector,
+  'image-compressor': ImageCompressor,
+  'resize-image': ResizeImage,
+  'color-picker': ColorPicker,
+  'svg-preview': SvgPreview,
+  'base64-image': Base64ImageTool,
+  'regex-tester': RegexTester,
+  'diff-viewer': DiffViewer,
+  'word-counter': WordCounter,
+  'case-converter': CaseConverter,
+  'find-replace': FindReplace,
+  'timestamp-converter': TimestampConverter,
+  'cron-parser': CronParser,
+  'gradient-builder': GradientBuilder,
+  'env-viewer': EnvViewer,
 };
-
-function Placeholder() {
-  return (
-    <div className="flex flex-col items-center justify-center py-20 text-theme-text/30">
-      <p className="text-sm">Coming soon</p>
-    </div>
-  );
-}
 
 export function UtilitiesPage() {
   const { activeTool, setActiveTool, searchQuery, activeCategory, showFavoritesOnly, favoriteTools, recentTools } = useUtilitiesStore();

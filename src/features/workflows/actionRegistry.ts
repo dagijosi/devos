@@ -28,6 +28,23 @@ function normalizePath(path: string): string {
   return p;
 }
 
+function loadPrefs() {
+  try { return JSON.parse(localStorage.getItem('devos_tool_prefs') || '{}'); }
+  catch { return {}; }
+}
+function getEditorCommand(): string {
+  const p = loadPrefs();
+  if (p.editor?.type === 'custom') return p.editor.path || 'code';
+  const map: Record<string, string> = { vscode: 'code', cursor: 'cursor', windsurf: 'windsurf', webstorm: 'webstorm' };
+  return map[p.editor?.type] || 'code';
+}
+function getBrowserCommand(): string {
+  const p = loadPrefs();
+  if (p.browser?.type === 'custom') return p.browser.path || '';
+  const map: Record<string, string> = { chrome: 'chrome', firefox: 'firefox', edge: 'msedge', brave: 'brave' };
+  return map[p.browser?.type] || '';
+}
+
 const executors: Record<ActionType, (config: any) => Promise<StepResult>> = {
   'open-folder': async (c) => {
     const p = normalizePath(c.path || c.filePath || '.');
@@ -60,6 +77,18 @@ const executors: Record<ActionType, (config: any) => Promise<StepResult>> = {
   'open-url': async (c) => {
     const url = c.url || '';
     if (!url) return { success: false, output: 'No URL specified' };
+    const browserCmd = getBrowserCommand();
+    if (browserCmd) {
+      const shell = await tryShell();
+      if (shell?.Command) {
+        try {
+          if (isWindows()) { await shell.Command.create('cmd', ['/c', 'start', browserCmd, url]).execute(); }
+          else if (navigator.userAgent.includes('Mac')) { await shell.Command.create('open', ['-a', browserCmd, url]).execute(); }
+          else { await shell.Command.create('xdg-open', [url]).execute(); }
+          return { success: true, output: `Opened ${url} in ${browserCmd}` };
+        } catch (e: any) { return { success: false, output: `Failed to open in ${browserCmd}`, error: e.message }; }
+      }
+    }
     const opener = await tryOpener();
     if (opener?.openUrl) { try { await opener.openUrl(url); return { success: true, output: `Opened: ${url}` }; } catch {} }
     const shell = await tryShell();
@@ -70,17 +99,14 @@ const executors: Record<ActionType, (config: any) => Promise<StepResult>> = {
 
   'open-vscode': async (c) => {
     const p = normalizePath(c.path || '.');
-    const opener = await tryOpener();
-    if (opener?.openPath) {
-      try { await opener.openPath(p, 'code'); return { success: true, output: `Opening VS Code: ${p}` }; } catch {}
-    }
+    const cmd = getEditorCommand();
     const shell = await tryShell();
     if (shell?.Command) {
       try {
-        if (isWindows()) { await shell.Command.create('cmd', ['/c', 'start', '/B', 'code', p]).execute(); }
-        else { await shell.Command.create('sh', ['-c', `code "${p}"`]).execute(); }
-      } catch (e: any) { return { success: false, output: 'VS Code not found in PATH', error: e.message }; }
-      return { success: true, output: `Opening VS Code: ${p}` };
+        if (isWindows()) { await shell.Command.create('cmd', ['/c', 'start', '/B', cmd, p]).execute(); }
+        else { await shell.Command.create('sh', ['-c', `"${cmd}" "${p}"`]).execute(); }
+      } catch (e: any) { return { success: false, output: `"${cmd}" not found in PATH`, error: e.message }; }
+      return { success: true, output: `Opening ${cmd}: ${p}` };
     }
     return { success: false, output: 'Shell not available' };
   },
