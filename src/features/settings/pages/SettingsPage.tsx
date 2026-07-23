@@ -1,17 +1,25 @@
 import { useState } from 'react';
-import { FaPalette, FaDatabase, FaFolderOpen, FaInfoCircle, FaDownload, FaUpload } from 'react-icons/fa';
+import { FaPalette, FaDatabase, FaFolderOpen, FaInfoCircle, FaDownload, FaUpload, FaTachometerAlt, FaUniversalAccess, FaBug, FaCloudUploadAlt } from 'react-icons/fa';
 import { ThemeSettings } from '../components/ThemeSettings';
+import { PerformanceSettings } from '../components/PerformanceSettings';
+import { AccessibilitySettings } from '../components/AccessibilitySettings';
+import { LogViewer } from '../components/LogViewer';
+import { UpdaterSettings } from '../components/UpdaterSettings';
 import { database } from '../../../database';
 import { toast } from 'sonner';
 
 const tabs = [
   { id: 'theme' as const, label: 'Theme', icon: FaPalette },
+  { id: 'performance' as const, label: 'Performance', icon: FaTachometerAlt },
+  { id: 'accessibility' as const, label: 'Accessibility', icon: FaUniversalAccess },
   { id: 'database' as const, label: 'Database', icon: FaDatabase },
   { id: 'backup' as const, label: 'Backup Path', icon: FaFolderOpen },
+  { id: 'logs' as const, label: 'Logs', icon: FaBug },
+  { id: 'updates' as const, label: 'Updates', icon: FaCloudUploadAlt },
   { id: 'about' as const, label: 'About', icon: FaInfoCircle },
 ];
 
-type SettingsTab = 'theme' | 'database' | 'backup' | 'about';
+type SettingsTab = 'theme' | 'performance' | 'accessibility' | 'database' | 'backup' | 'logs' | 'updates' | 'about';
 
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('theme');
@@ -50,7 +58,7 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-6xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-theme-text">Settings</h1>
         <p className="text-sm text-theme-text/60 mt-1">Configure your Developer OS</p>
@@ -75,6 +83,10 @@ export function SettingsPage() {
 
       <div className="bg-theme-surface border border-theme-border/30 rounded-2xl p-6">
         {activeTab === 'theme' && <ThemeSettings />}
+
+        {activeTab === 'performance' && <PerformanceSettings />}
+
+        {activeTab === 'accessibility' && <AccessibilitySettings />}
 
         {activeTab === 'database' && (
           <div className="space-y-6">
@@ -155,6 +167,15 @@ export function SettingsPage() {
             </button>
           </div>
         )}
+
+        {activeTab === 'logs' && (
+          <div>
+            <h3 className="text-sm font-semibold text-theme-text mb-4">Diagnostic Logs</h3>
+            <LogViewer />
+          </div>
+        )}
+
+        {activeTab === 'updates' && <UpdaterSettings />}
 
         {activeTab === 'about' && (
           <div className="space-y-6">

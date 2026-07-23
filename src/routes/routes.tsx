@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { CATCH_ALL, DASHBOARD, SETTING, PROFILE, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, TOOLBOX, AUTOMATION } from './types/routeConstants';
+import { CATCH_ALL, DASHBOARD, SETTING, PROFILE, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, TOOLBOX, AUTOMATION, AI, ANALYTICS, BACKUP } from './types/routeConstants';
 import { createRoute } from './types/createRoute';
 import { AppLayout } from '../components/layout/AppLayout';
 
@@ -40,6 +40,18 @@ const AutomationPage = React.lazy(() =>
   import('../features/automation/pages/AutomationPage').then((m) => ({ default: m.AutomationPage }))
 );
 
+const AiPage = React.lazy(() =>
+  import('../features/ai/pages/AiPage').then((m) => ({ default: m.AiPage }))
+);
+
+const AnalyticsPage = React.lazy(() =>
+  import('../features/analytics/pages/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage }))
+);
+
+const BackupPage = React.lazy(() =>
+  import('../features/backup/pages/BackupPage').then((m) => ({ default: m.BackupPage }))
+);
+
 const ErrorPage = React.lazy(() => import('../pages/ErrorPage'));
 
 const routes = [
@@ -54,6 +66,9 @@ const routes = [
   createRoute(KNOWLEDGE, KnowledgePage, { layout: AppLayout }),
   createRoute(TOOLBOX, ToolboxPage, { layout: AppLayout }),
   createRoute(AUTOMATION, AutomationPage, { layout: AppLayout }),
+  createRoute(AI, AiPage, { layout: AppLayout }),
+  createRoute(ANALYTICS, AnalyticsPage, { layout: AppLayout }),
+  createRoute(BACKUP, BackupPage, { layout: AppLayout }),
   createRoute(CATCH_ALL, ErrorPage),
 ];
 

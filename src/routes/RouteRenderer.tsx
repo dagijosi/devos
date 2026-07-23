@@ -3,6 +3,7 @@ import { Route } from "react-router-dom";
 import RoleGuard from "./RoleGuard";
 import type { AppRoute } from "./types/routesTypes";
 import { LoadingComponent, ProtectedRoute } from "../components/ui";
+import { ErrorBoundary } from "../components/feedback/ErrorBoundary";
 
 /**
  * Apply wrapper functions around a React element
@@ -50,9 +51,11 @@ export const renderRoutes = (routes: AppRoute[]): React.ReactNode => {
 
     // --- Lazy-loaded element ---
     const lazyElement: ReactElement = (
-      <Suspense fallback={<LoadingComponent />}>
-        <Component />
-      </Suspense>
+      <ErrorBoundary module={path || 'page'}>
+        <Suspense fallback={<LoadingComponent />}>
+          <Component />
+        </Suspense>
+      </ErrorBoundary>
     );
 
     let element: ReactElement = lazyElement;

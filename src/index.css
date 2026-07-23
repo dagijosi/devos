@@ -37,3 +37,31 @@ h1, h2, h3, h4, h5, h6 {
   0%, 100% { transform: translateX(-25%); animation-timing-function: cubic-bezier(0.8, 0, 1, 1); }
   50% { transform: translateX(0); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.reduce-motion *, .reduce-motion *::before, .reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+.reduce-transparency .backdrop-blur-md,
+.reduce-transparency .backdrop-blur-sm,
+.reduce-transparency .backdrop-blur-lg {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.high-contrast {
+  --color-text: #000000 !important;
+  --color-textSecondary: #1a1a1a !important;
+  --color-border: #666666 !important;
+  --color-muted: #333333 !important;
+}

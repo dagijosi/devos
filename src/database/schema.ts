@@ -162,6 +162,44 @@ export const WORKFLOW_LOGS_TABLE = `CREATE TABLE IF NOT EXISTS workflow_logs (
   FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
 );`;
 
+export const AI_CONVERSATIONS_TABLE = `CREATE TABLE IF NOT EXISTS ai_conversations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL DEFAULT 'New Conversation',
+  provider TEXT DEFAULT '',
+  model TEXT DEFAULT '',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);`;
+
+export const AI_MESSAGES_TABLE = `CREATE TABLE IF NOT EXISTS ai_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  conversation_id INTEGER NOT NULL,
+  role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'system', 'tool')),
+  content TEXT NOT NULL,
+  tool_calls TEXT DEFAULT '[]',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (conversation_id) REFERENCES ai_conversations(id) ON DELETE CASCADE
+);`;
+
+export const ANALYTICS_SESSIONS_TABLE = `CREATE TABLE IF NOT EXISTS analytics_sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  date TEXT NOT NULL,
+  duration_minutes INTEGER DEFAULT 0,
+  type TEXT NOT NULL DEFAULT 'focus',
+  label TEXT DEFAULT '',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);`;
+
+export const BACKUPS_TABLE = `CREATE TABLE IF NOT EXISTS backups (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  filename TEXT NOT NULL,
+  size_bytes INTEGER DEFAULT 0,
+  type TEXT NOT NULL DEFAULT 'manual',
+  encrypted INTEGER DEFAULT 0,
+  notes TEXT DEFAULT '',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);`;
+
 export const ALL_MIGRATIONS = [
   SETTINGS_TABLE,
   NOTIFICATIONS_TABLE,
@@ -176,6 +214,10 @@ export const ALL_MIGRATIONS = [
   USERS_TABLE,
   WORKFLOWS_TABLE,
   WORKFLOW_LOGS_TABLE,
+  AI_CONVERSATIONS_TABLE,
+  AI_MESSAGES_TABLE,
+  ANALYTICS_SESSIONS_TABLE,
+  BACKUPS_TABLE,
   // FTS - will silently fail in localStorage mode
   NOTES_FTS_TABLE,
   NOTES_FTS_TRIGGER_INSERT,
@@ -300,6 +342,36 @@ export const WORKFLOW_LOG_QUERIES = {
   update: `UPDATE workflow_logs SET status = ?, step_logs = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?`,
   delete: `DELETE FROM workflow_logs WHERE id = ?`,
   clearForWorkflow: `DELETE FROM workflow_logs WHERE workflow_id = ?`,
+};
+
+export const AI_CONVERSATION_QUERIES = {
+  getAll: `SELECT * FROM ai_conversations ORDER BY updated_at DESC`,
+  getById: `SELECT * FROM ai_conversations WHERE id = ?`,
+  insert: `INSERT INTO ai_conversations (title, provider, model) VALUES (?, ?, ?)`,
+  update: `UPDATE ai_conversations SET title = ?, provider = ?, model = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  delete: `DELETE FROM ai_conversations WHERE id = ?`,
+};
+
+export const AI_MESSAGE_QUERIES = {
+  getByConversation: `SELECT * FROM ai_messages WHERE conversation_id = ? ORDER BY created_at ASC`,
+  insert: `INSERT INTO ai_messages (conversation_id, role, content, tool_calls) VALUES (?, ?, ?, ?)`,
+  deleteByConversation: `DELETE FROM ai_messages WHERE conversation_id = ?`,
+};
+
+export const ANALYTICS_QUERIES = {
+  getAll: `SELECT * FROM analytics_sessions ORDER BY created_at DESC`,
+  getByDateRange: `SELECT * FROM analytics_sessions WHERE date >= ? AND date <= ? ORDER BY date ASC`,
+  getToday: `SELECT * FROM analytics_sessions WHERE date = ? ORDER BY created_at ASC`,
+  insert: `INSERT INTO analytics_sessions (date, duration_minutes, type, label) VALUES (?, ?, ?, ?)`,
+  delete: `DELETE FROM analytics_sessions`,
+};
+
+export const BACKUP_QUERIES = {
+  getAll: `SELECT * FROM backups ORDER BY created_at DESC`,
+  getById: `SELECT * FROM backups WHERE id = ?`,
+  insert: `INSERT INTO backups (filename, size_bytes, type, encrypted, notes) VALUES (?, ?, ?, ?, ?)`,
+  delete: `DELETE FROM backups WHERE id = ?`,
+  deleteAll: `DELETE FROM backups`,
 };
 
 export const USER_QUERIES = {

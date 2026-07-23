@@ -12,6 +12,10 @@ import {
   USER_QUERIES,
   WORKFLOW_QUERIES,
   WORKFLOW_LOG_QUERIES,
+  AI_CONVERSATION_QUERIES,
+  AI_MESSAGE_QUERIES,
+  ANALYTICS_QUERIES,
+  BACKUP_QUERIES,
 } from './schema';
 import type { Project } from '../features/projects/types';
 import type { Note, Folder, CodeSnippet, Bug, Attachment } from '../features/knowledge/types';
@@ -471,6 +475,66 @@ class LocalDatabase {
       lsSet('_db_workflow_logs', lsGet<Row>('_db_workflow_logs').filter((r) => r.workflow_id !== wid));
       return;
     }
+    // AI conversations
+    if (sql.startsWith('INSERT INTO AI_CONVERSATIONS')) {
+      const rows = lsGet<Row>('_db_ai_conversations');
+      rows.push({ id: nextId(rows as { id?: number }[]), title: bind?.[0] ?? 'New Conversation', provider: bind?.[1] ?? '', model: bind?.[2] ?? '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+      lsSet('_db_ai_conversations', rows);
+      return;
+    }
+    if (sql.startsWith('UPDATE AI_CONVERSATIONS SET TITLE = ?')) {
+      const rows = lsGet<Row>('_db_ai_conversations');
+      const found = rows.find((r) => r.id === bind?.[3]);
+      if (found) { found.title = bind?.[0]; found.provider = bind?.[1]; found.model = bind?.[2]; found.updated_at = new Date().toISOString(); }
+      lsSet('_db_ai_conversations', rows);
+      return;
+    }
+    if (sql.startsWith('DELETE FROM AI_CONVERSATIONS')) {
+      const id = bind?.[0];
+      lsSet('_db_ai_conversations', lsGet<Row>('_db_ai_conversations').filter((r) => r.id !== id));
+      if (id) lsSet('_db_ai_messages', lsGet<Row>('_db_ai_messages').filter((r) => r.conversation_id !== id));
+      return;
+    }
+    // AI messages
+    if (sql.startsWith('INSERT INTO AI_MESSAGES')) {
+      const rows = lsGet<Row>('_db_ai_messages');
+      rows.push({ id: nextId(rows as { id?: number }[]), conversation_id: bind?.[0], role: bind?.[1], content: bind?.[2], tool_calls: bind?.[3] ?? '[]', created_at: new Date().toISOString() });
+      lsSet('_db_ai_messages', rows);
+      return;
+    }
+    if (sql.startsWith('DELETE FROM AI_MESSAGES')) {
+      const convId = bind?.[0];
+      if (convId) lsSet('_db_ai_messages', lsGet<Row>('_db_ai_messages').filter((r) => r.conversation_id !== convId));
+      else lsSet('_db_ai_messages', []);
+      return;
+    }
+    // Analytics sessions
+    if (sql.startsWith('INSERT INTO ANALYTICS_SESSIONS')) {
+      const rows = lsGet<Row>('_db_analytics_sessions');
+      rows.push({ id: nextId(rows as { id?: number }[]), date: bind?.[0], duration_minutes: bind?.[1] ?? 0, type: bind?.[2] ?? 'focus', label: bind?.[3] ?? '', created_at: new Date().toISOString() });
+      lsSet('_db_analytics_sessions', rows);
+      return;
+    }
+    if (sql.startsWith('DELETE FROM ANALYTICS_SESSIONS')) {
+      lsSet('_db_analytics_sessions', []);
+      return;
+    }
+    // Backups
+    if (sql.startsWith('INSERT INTO BACKUPS')) {
+      const rows = lsGet<Row>('_db_backups');
+      rows.push({ id: nextId(rows as { id?: number }[]), filename: bind?.[0], size_bytes: bind?.[1] ?? 0, type: bind?.[2] ?? 'manual', encrypted: bind?.[3] ?? 0, notes: bind?.[4] ?? '', created_at: new Date().toISOString() });
+      lsSet('_db_backups', rows);
+      return;
+    }
+    if (sql.startsWith('DELETE FROM BACKUPS WHERE ID = ?')) {
+      const id = bind?.[0];
+      lsSet('_db_backups', lsGet<Row>('_db_backups').filter((r) => r.id !== id));
+      return;
+    }
+    if (sql.startsWith('DELETE FROM BACKUPS')) {
+      lsSet('_db_backups', []);
+      return;
+    }
     // Generic CREATE TABLE IF NOT EXISTS / ALTER / DDL
     if (sql.includes('CREATE TABLE') || sql.startsWith('ALTER') || sql.startsWith('CREATE TRIGGER') || sql.startsWith('CREATE VIRTUAL')) return;
   }
@@ -633,6 +697,38 @@ class LocalDatabase {
     }
     if (sql.startsWith('SELECT * FROM WORKFLOW_LOGS WHERE WORKFLOW_ID = ?')) {
       return sortBy(lsGet<Row>('_db_workflow_logs').filter((r) => r.workflow_id === bind?.[0]), 'started_at') as T[];
+    }
+    // AI conversations
+    if (sql.startsWith('SELECT * FROM AI_CONVERSATIONS WHERE ID = ?')) {
+      const found = lsGet<Row>('_db_ai_conversations').find((r) => r.id === bind?.[0]);
+      return (found ? [found] : []) as T[];
+    }
+    if (sql.startsWith('SELECT * FROM AI_CONVERSATIONS ORDER BY UPDATED_AT DESC')) {
+      return sortBy(lsGet<Row>('_db_ai_conversations'), 'updated_at') as T[];
+    }
+    // AI messages
+    if (sql.startsWith('SELECT * FROM AI_MESSAGES WHERE CONVERSATION_ID = ?')) {
+      return sortBy(lsGet<Row>('_db_ai_messages').filter((r) => r.conversation_id === bind?.[0]), 'created_at', 'asc') as T[];
+    }
+    // Analytics sessions
+    if (sql.startsWith('SELECT * FROM ANALYTICS_SESSIONS WHERE DATE >= ?')) {
+      const from = bind?.[0]; const to = bind?.[1];
+      return sortBy(lsGet<Row>('_db_analytics_sessions').filter((r) => String(r.date) >= String(from) && String(r.date) <= String(to)), 'date', 'asc') as T[];
+    }
+    if (sql.startsWith('SELECT * FROM ANALYTICS_SESSIONS WHERE DATE = ?')) {
+      const d = bind?.[0];
+      return sortBy(lsGet<Row>('_db_analytics_sessions').filter((r) => String(r.date) === String(d)), 'created_at', 'asc') as T[];
+    }
+    if (sql.startsWith('SELECT * FROM ANALYTICS_SESSIONS ORDER BY CREATED_AT DESC')) {
+      return sortBy(lsGet<Row>('_db_analytics_sessions'), 'created_at') as T[];
+    }
+    // Backups
+    if (sql.startsWith('SELECT * FROM BACKUPS WHERE ID = ?')) {
+      const found = lsGet<Row>('_db_backups').find((r) => r.id === bind?.[0]);
+      return (found ? [found] : []) as T[];
+    }
+    if (sql.startsWith('SELECT * FROM BACKUPS ORDER BY CREATED_AT DESC')) {
+      return sortBy(lsGet<Row>('_db_backups'), 'created_at') as T[];
     }
     return [];
   }
@@ -1361,6 +1457,123 @@ export const database = {
     const inst = await getDatabase();
     if (!inst) return;
     await inst.execute(WORKFLOW_LOG_QUERIES.update, [status, stepLogs, id]);
+  },
+
+  // ── AI Conversations ──────────────────────────────────────────────
+  async getAiConversations(): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(AI_CONVERSATION_QUERIES.getAll);
+  },
+
+  async getAiConversation(id: number): Promise<any | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    const rows = await inst.select(AI_CONVERSATION_QUERIES.getById, [id]);
+    return rows.length ? rows[0] : null;
+  },
+
+  async createAiConversation(data: { title?: string; provider?: string; model?: string }): Promise<any | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    await inst.execute(AI_CONVERSATION_QUERIES.insert, [data.title ?? 'New Conversation', data.provider ?? '', data.model ?? '']);
+    const rows = await inst.select(AI_CONVERSATION_QUERIES.getAll);
+    return rows.length ? rows[0] : null;
+  },
+
+  async updateAiConversation(id: number, data: { title?: string; provider?: string; model?: string }): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(AI_CONVERSATION_QUERIES.update, [data.title, data.provider, data.model, id]);
+  },
+
+  async deleteAiConversation(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(AI_CONVERSATION_QUERIES.delete, [id]);
+    await inst.execute(AI_MESSAGE_QUERIES.deleteByConversation, [id]);
+  },
+
+  // ── AI Messages ───────────────────────────────────────────────────
+  async getAiMessages(conversationId: number): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(AI_MESSAGE_QUERIES.getByConversation, [conversationId]);
+  },
+
+  async createAiMessage(data: { conversation_id: number; role: string; content: string; tool_calls?: string }): Promise<any | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    await inst.execute(AI_MESSAGE_QUERIES.insert, [data.conversation_id, data.role, data.content, data.tool_calls ?? '[]']);
+    const rows = await inst.select(AI_MESSAGE_QUERIES.getByConversation, [data.conversation_id]);
+    return rows.length ? rows[rows.length - 1] : null;
+  },
+
+  // ── Analytics ─────────────────────────────────────────────────────
+  async getAnalyticsSessions(): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(ANALYTICS_QUERIES.getAll);
+  },
+
+  async getAnalyticsByDateRange(from: string, to: string): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(ANALYTICS_QUERIES.getByDateRange, [from, to]);
+  },
+
+  async getAnalyticsToday(date: string): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(ANALYTICS_QUERIES.getToday, [date]);
+  },
+
+  async createAnalyticsSession(data: { date: string; duration_minutes: number; type?: string; label?: string }): Promise<any | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    await inst.execute(ANALYTICS_QUERIES.insert, [data.date, data.duration_minutes, data.type ?? 'focus', data.label ?? '']);
+    const rows = await inst.select(ANALYTICS_QUERIES.getAll);
+    return rows.length ? rows[0] : null;
+  },
+
+  async clearAnalytics(): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(ANALYTICS_QUERIES.delete);
+  },
+
+  // ── Backups ───────────────────────────────────────────────────────
+  async getBackups(): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(BACKUP_QUERIES.getAll);
+  },
+
+  async getBackup(id: number): Promise<any | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    const rows = await inst.select(BACKUP_QUERIES.getById, [id]);
+    return rows.length ? rows[0] : null;
+  },
+
+  async createBackup(data: { filename: string; size_bytes?: number; type?: string; encrypted?: number; notes?: string }): Promise<any | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    await inst.execute(BACKUP_QUERIES.insert, [data.filename, data.size_bytes ?? 0, data.type ?? 'manual', data.encrypted ?? 0, data.notes ?? '']);
+    const rows = await inst.select(BACKUP_QUERIES.getAll);
+    return rows.length ? rows[0] : null;
+  },
+
+  async deleteBackup(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(BACKUP_QUERIES.delete, [id]);
+  },
+
+  async clearBackups(): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(BACKUP_QUERIES.deleteAll);
   },
 
   // ── Data Export/Import for syncing between environments ──────────────
