@@ -1,92 +1,214 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaPlus, FaSearch, FaTimes, FaFileImport } from 'react-icons/fa';
+import { FaPlus, FaSearch, FaStar, FaFolder, FaFire, FaDatabase, FaFileImport, FaTimes } from 'react-icons/fa';
 import { useProjects } from '../hooks/useProjects';
 import { ProjectCard } from '../components/ProjectCard';
+import { ProjectWizard } from '../components/ProjectWizard';
 import { ProjectScanner } from '../components/ProjectScanner';
-import { PROJECT_FORM } from '../../../routes/types/routeConstants';
+import { Portal } from '../../../components/ui/overlays/Portal';
 
 export function ProjectsPage() {
+  const { projects, loading, toggleFavorite, refresh } = useProjects();
   const navigate = useNavigate();
-  const { projects, loading, deleteProject, toggleFavorite, togglePinned } = useProjects();
-  const [showScanner, setShowScanner] = useState(false);
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<'all' | 'favorites' | 'active'>('all');
+  const [showWizard, setShowWizard] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
-  const filtered = search.trim()
-    ? projects.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()) || p.description?.toLowerCase().includes(search.toLowerCase()))
-    : projects;
+  const techs = useMemo(() => {
+    const all = projects.flatMap(p => p.technology || []);
+    return [...new Set(all)].slice(0, 8);
+  }, [projects]);
+
+  const [selectedTech, setSelectedTech] = useState('');
+
+  const filtered = useMemo(() => {
+    let list = projects;
+    if (filter === 'favorites') list = list.filter(p => p.favorite);
+    if (filter === 'active') list = list.filter(p => p.status === 'active');
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        p.description.toLowerCase().includes(q) ||
+        (p.tags || []).some(t => t.toLowerCase().includes(q)) ||
+        (p.technology || []).some(t => t.toLowerCase().includes(q))
+      );
+    }
+    if (selectedTech) list = list.filter(p => (p.technology || []).includes(selectedTech));
+    return list;
+  }, [projects, filter, search, selectedTech]);
+
+  const favorites = projects.filter(p => p.favorite);
+  const active = projects.filter(p => p.status === 'active');
 
   return (
-    <div className="space-y-6 max-w-6xl">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-theme-text">Projects</h1>
-          <p className="text-sm text-theme-text/60 mt-1">{projects.length} project{projects.length !== 1 ? 's' : ''} total</p>
+    <div className="flex gap-6 h-[calc(100vh-8rem)]">
+      {/* Sidebar */}
+      <div className="w-56 shrink-0 space-y-1 hidden lg:flex flex-col">
+        <div className="relative mb-3">
+          <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-theme-text/30" />
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search projects..."
+            className="w-full bg-theme-surface border border-theme-border/30 rounded-xl pl-9 pr-3 py-2.5 text-xs text-theme-text placeholder:text-theme-text/40 outline-none focus:border-theme-icon/50" />
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowScanner(!showScanner)}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-theme-border/30 text-sm text-theme-text/60 hover:text-theme-text hover:border-theme-border/60 transition-colors">
-            <FaFileImport className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Import</span>
+
+        <SidebarSection
+          label={`Favorites (${favorites.length})`}
+          icon={<FaStar className="w-3.5 h-3.5 text-yellow-400" />}
+          active={filter === 'favorites'}
+          onClick={() => { setFilter('favorites'); setSearch(''); }}
+        />
+
+        <SidebarSection
+          label={`Active (${active.length})`}
+          icon={<FaFire className="w-3.5 h-3.5 text-green-400" />}
+          active={filter === 'active'}
+          onClick={() => { setFilter('active'); setSearch(''); }}
+        />
+
+        <SidebarSection
+          label={`All (${projects.length})`}
+          icon={<FaDatabase className="w-3.5 h-3.5 text-theme-icon" />}
+          active={filter === 'all'}
+          onClick={() => { setFilter('all'); setSearch(''); }}
+        />
+
+        <div className="mt-auto pt-4 space-y-1.5">
+          <button onClick={() => setShowWizard(true)}
+            className="flex items-center gap-2 w-full px-3 py-2.5 bg-theme-icon text-white rounded-xl text-sm font-medium hover:bg-theme-icon/90 transition-colors">
+            <FaPlus className="w-3 h-3" /> New Project
           </button>
-          <button onClick={() => navigate(PROJECT_FORM)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-theme-icon rounded-xl hover:opacity-90 transition-opacity">
-            <FaPlus className="w-3.5 h-3.5" />
-            New Project
+          <button onClick={() => setShowScanner(true)}
+            className="flex items-center gap-2 w-full px-3 py-2.5 bg-theme-surface border border-theme-border/30 text-theme-text rounded-xl text-sm font-medium hover:bg-theme-surface/80 transition-colors">
+            <FaFileImport className="w-3 h-3" /> Import
           </button>
         </div>
       </div>
 
-      {showScanner && (
-        <ProjectScanner onClose={() => setShowScanner(false)} />
-      )}
+      {/* Main Content */}
+      <div className="flex-1 min-w-0 space-y-4 overflow-y-auto">
+        {/* Mobile search */}
+        <div className="lg:hidden relative">
+          <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-theme-text/30" />
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search projects..."
+            className="w-full bg-theme-surface border border-theme-border/30 rounded-xl pl-9 pr-3 py-2.5 text-xs text-theme-text placeholder:text-theme-text/40 outline-none focus:border-theme-icon/50" />
+        </div>
 
-      <div className="relative">
-        <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-theme-text/30" />
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search projects..."
-          className="w-full pl-10 pr-10 py-2.5 bg-theme-surface border border-theme-border/30 rounded-xl text-sm text-theme-text placeholder-theme-text/40 focus:outline-none focus:border-theme-icon/50" />
-        {search && (
-          <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-theme-text/30 hover:text-theme-text transition-colors">
-            <FaTimes className="w-3.5 h-3.5" />
-          </button>
+        {/* Filter tabs */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          {(['all', 'favorites', 'active'] as const).map(f => (
+            <button key={f} onClick={() => { setFilter(f); setSearch(''); }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                filter === f
+                  ? 'bg-theme-icon/10 text-theme-icon border border-theme-icon/30'
+                  : 'bg-theme-surface text-theme-text/50 border border-theme-border/20 hover:border-theme-border/40'
+              }`}>
+              {f.charAt(0).toUpperCase() + f.slice(1)}
+            </button>
+          ))}
+          <div className="ml-auto flex gap-1.5 lg:hidden">
+            <button onClick={() => setShowWizard(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-theme-icon text-white rounded-lg text-xs font-medium">
+              <FaPlus className="w-2.5 h-2.5" /> New
+            </button>
+            <button onClick={() => setShowScanner(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-theme-surface border border-theme-border/30 rounded-lg text-xs text-theme-text">
+              <FaFileImport className="w-2.5 h-2.5" /> Import
+            </button>
+          </div>
+        </div>
+
+        {/* Tech chips */}
+        {techs.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {techs.map(t => (
+              <button key={t} onClick={() => setSelectedTech(selectedTech === t ? '' : t)}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors ${
+                  selectedTech === t
+                    ? 'bg-theme-icon/10 text-theme-icon border border-theme-icon/30'
+                    : 'bg-theme-background text-theme-text/40 border border-theme-border/10 hover:border-theme-border/30'
+                }`}>
+                {t}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Project Grid */}
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="bg-theme-surface border border-theme-border/30 rounded-2xl p-5 animate-pulse">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-theme-border/20" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-theme-border/20 rounded w-2/3" />
+                    <div className="h-3 bg-theme-border/20 rounded w-1/2" />
+                  </div>
+                </div>
+                <div className="flex gap-1.5 mt-3">
+                  <div className="h-5 bg-theme-border/10 rounded w-14" />
+                  <div className="h-5 bg-theme-border/10 rounded w-16" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-16">
+            <FaFolder className="w-12 h-12 text-theme-text/10 mx-auto mb-3" />
+            <p className="text-sm text-theme-text/40">
+              {search ? 'No projects match your search' : filter === 'favorites' ? 'No favorite projects yet' : filter === 'active' ? 'No active projects' : 'No projects yet'}
+            </p>
+            {!search && (
+              <button onClick={() => setShowWizard(true)}
+                className="mt-4 px-5 py-2.5 bg-theme-icon text-white rounded-xl text-sm font-medium hover:bg-theme-icon/90 transition-colors">
+                Create your first project
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {filtered.map(p => (
+              <ProjectCard key={p.id} project={p} onToggleFavorite={toggleFavorite} />
+            ))}
+          </div>
         )}
       </div>
 
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[1,2,3,4].map((i) => (
-            <div key={i} className="bg-theme-surface border border-theme-border/30 rounded-2xl p-5 animate-pulse">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-xl bg-theme-background/50" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 w-2/3 rounded bg-theme-background/50" />
-                  <div className="h-3 w-1/2 rounded bg-theme-background/30" />
-                </div>
-              </div>
+      {/* Modals */}
+      {showWizard && (
+        <Portal>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
+            <div className="w-full max-w-xl py-8">
+              <ProjectWizard onClose={() => { setShowWizard(false); refresh(); }} />
             </div>
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="text-center py-16">
-          <FaSearch className="w-12 h-12 text-theme-text/20 mx-auto mb-4" />
-          <p className="text-theme-text/40 text-sm">No projects found</p>
-          <button onClick={() => navigate(PROJECT_FORM)} className="mt-4 text-sm text-theme-icon/70 hover:text-theme-icon transition-colors underline underline-offset-2">
-            Create your first project
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filtered.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              onToggleFavorite={toggleFavorite}
-              onTogglePinned={togglePinned}
-              onDelete={deleteProject}
-            />
-          ))}
-        </div>
+          </div>
+        </Portal>
+      )}
+
+      {showScanner && (
+        <Portal>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <ProjectScanner onClose={() => { setShowScanner(false); }} />
+          </div>
+        </Portal>
       )}
     </div>
+  );
+}
+
+function SidebarSection({ label, icon, active, onClick }: { label: string; icon: React.ReactNode; active: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick}
+      className={`flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+        active
+          ? 'bg-theme-icon/10 text-theme-icon'
+          : 'text-theme-text/50 hover:bg-theme-surface/50 hover:text-theme-text'
+      }`}>
+      {icon}
+      {label}
+    </button>
   );
 }

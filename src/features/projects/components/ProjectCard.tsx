@@ -1,5 +1,5 @@
-import { FaFolder, FaStar, FaRegStar, FaThumbtack, FaRegTrashAlt, FaExternalLinkAlt } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
+import { FaFolder, FaStar, FaRegStar, FaArrowRight, FaStickyNote, FaTasks, FaBug, FaCode } from 'react-icons/fa';
 import type { Project } from '../types';
 import { TechnologyBadge } from './TechnologyBadge';
 import { PROJECTS } from '../../../routes/types/routeConstants';
@@ -7,75 +7,87 @@ import { PROJECTS } from '../../../routes/types/routeConstants';
 interface Props {
   project: Project;
   onToggleFavorite: (id: number) => void;
-  onTogglePinned: (id: number) => void;
-  onDelete: (id: number) => void;
 }
 
-export function ProjectCard({ project, onToggleFavorite, onTogglePinned, onDelete }: Props) {
+const statusConfig = {
+  active: { dot: 'bg-green-400', label: 'Healthy', text: 'text-green-400' },
+  completed: { dot: 'bg-blue-400', label: 'Completed', text: 'text-blue-400' },
+  archived: { dot: 'bg-gray-400', label: 'Archived', text: 'text-gray-400' },
+};
+
+export function ProjectCard({ project, onToggleFavorite }: Props) {
   const navigate = useNavigate();
-  const techs = project.technology.slice(0, 3);
+  const status = statusConfig[project.status];
+  const techs = (project.technology || []).slice(0, 3);
+  const lastOpened = project.last_opened
+    ? (() => {
+        const diff = Date.now() - new Date(project.last_opened).getTime();
+        const hrs = Math.floor(diff / 3600000);
+        if (hrs < 1) return 'Just now';
+        if (hrs < 24) return `${hrs}h ago`;
+        return `${Math.floor(hrs / 24)}d ago`;
+      })()
+    : null;
 
   return (
-    <div
-      className="bg-theme-surface border border-theme-border/30 rounded-2xl p-5 hover:border-theme-border/60 transition-colors group cursor-pointer"
-      onClick={() => navigate(`${PROJECTS}/${project.id}`)}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-theme-icon flex items-center justify-center flex-shrink-0">
-            <FaFolder className="w-4 h-4 text-white" />
+    <div className="group bg-theme-surface border border-theme-border/20 hover:border-theme-border/40 rounded-2xl transition-all overflow-hidden">
+      <div className="p-5">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-theme-icon/10 flex items-center justify-center shrink-0">
+              <FaFolder className="w-5 h-5 text-theme-icon" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-theme-text truncate">{project.name}</h3>
+              {project.description && (
+                <p className="text-xs text-theme-text/40 truncate max-w-[200px]">{project.description}</p>
+              )}
+            </div>
           </div>
-          <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-theme-text truncate">{project.name}</h3>
-            {project.description && (
-              <p className="text-xs text-theme-text/50 mt-0.5 line-clamp-1">{project.description}</p>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-1 flex-shrink-0">
           <button
-            onClick={(e) => { e.stopPropagation(); onTogglePinned(project.id); }}
-            className={`p-1.5 rounded-lg transition-colors ${project.pinned ? 'text-yellow-400' : 'text-theme-text/30 hover:text-yellow-400'}`}
-            title={project.pinned ? 'Unpin' : 'Pin'}
+            onClick={e => { e.stopPropagation(); onToggleFavorite(project.id); }}
+            className="p-1.5 rounded-lg hover:bg-yellow-400/10 transition-colors opacity-0 group-hover:opacity-100"
           >
-            <FaThumbtack className="w-3 h-3" />
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onToggleFavorite(project.id); }}
-            className={`p-1.5 rounded-lg transition-colors ${project.favorite ? 'text-yellow-400' : 'text-theme-text/30 hover:text-yellow-400'}`}
-            title={project.favorite ? 'Unfavorite' : 'Favorite'}
-          >
-            {project.favorite ? <FaStar className="w-3.5 h-3.5" /> : <FaRegStar className="w-3.5 h-3.5" />}
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete(project.id); }}
-            className="p-1.5 rounded-lg text-theme-text/30 hover:text-red-400 transition-colors"
-            title="Delete"
-          >
-            <FaRegTrashAlt className="w-3 h-3" />
+            {project.favorite ? <FaStar className="w-3.5 h-3.5 text-yellow-400" /> : <FaRegStar className="w-3.5 h-3.5 text-theme-text/30" />}
           </button>
         </div>
-      </div>
 
-      <div className="flex items-center gap-2 flex-wrap min-h-[22px]">
-        {techs.map((t) => <TechnologyBadge key={t} name={t} />)}
-        {project.technology.length > 3 && (
-          <span className="text-[10px] text-theme-text/40">+{project.technology.length - 3}</span>
+        {techs.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {techs.map(t => <TechnologyBadge key={t} name={t} />)}
+          </div>
         )}
-      </div>
 
-      <div className="flex items-center justify-between mt-3 pt-3 border-t border-theme-border/10 text-xs text-theme-text/40">
-        <span className={`px-2 py-0.5 rounded-full font-medium ${
-          project.status === 'active' ? 'bg-green-500/10 text-green-400' :
-          project.status === 'completed' ? 'bg-blue-500/10 text-blue-400' :
-          'bg-gray-500/10 text-gray-400'
-        }`}>
-          {project.status}
-        </span>
-        <span className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <FaExternalLinkAlt className="w-2.5 h-2.5" />
-          Details
-        </span>
+        <div className="flex items-center gap-3 mt-3">
+          <div className="flex items-center gap-1.5">
+            <span className={`w-2 h-2 rounded-full ${status.dot}`} />
+            <span className={`text-[10px] font-medium ${status.text}`}>{status.label}</span>
+          </div>
+          {lastOpened && (
+            <span className="text-[10px] text-theme-text/30">Last open {lastOpened}</span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 mt-3 pt-3 border-t border-theme-border/10">
+          <div className="flex items-center gap-1 text-[10px] text-theme-text/40">
+            <FaStickyNote className="w-3 h-3" /> {project.note_count ?? 0}
+          </div>
+          <div className="flex items-center gap-1 text-[10px] text-theme-text/40">
+            <FaTasks className="w-3 h-3" /> {project.task_count ?? 0}
+          </div>
+          <div className="flex items-center gap-1 text-[10px] text-theme-text/40">
+            <FaBug className="w-3 h-3" /> {project.bug_count ?? 0}
+          </div>
+          <div className="flex items-center gap-1 text-[10px] text-theme-text/40">
+            <FaCode className="w-3 h-3" /> {project.snippet_count ?? 0}
+          </div>
+          <button
+            onClick={() => navigate(`${PROJECTS}/${project.id}`)}
+            className="ml-auto flex items-center gap-1 text-[10px] text-theme-icon/60 hover:text-theme-icon transition-colors"
+          >
+            Open <FaArrowRight className="w-2.5 h-2.5" />
+          </button>
+        </div>
       </div>
     </div>
   );

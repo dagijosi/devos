@@ -50,8 +50,7 @@ export async function openFolder(path: string): Promise<ActionResult> {
       return { success: true, message: 'Opened in file manager' };
     } catch { /* fall through */ }
   }
-  window.open(`file://${path}`);
-  return { success: true, message: 'Attempted to open folder' };
+  return { success: false, message: 'Cannot open local files in this environment' };
 }
 
 export async function openVSCode(path: string): Promise<ActionResult> {

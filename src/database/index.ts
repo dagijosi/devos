@@ -16,6 +16,11 @@ import {
   AI_MESSAGE_QUERIES,
   ANALYTICS_QUERIES,
   BACKUP_QUERIES,
+  PROJECT_PATH_QUERIES,
+  PROJECT_SCRIPT_QUERIES,
+  PROJECT_LINK_QUERIES,
+  PROJECT_TASK_QUERIES,
+  PROJECT_ACTIVITY_QUERIES,
 } from './schema';
 import type { Project } from '../features/projects/types';
 import type { Note, Folder, CodeSnippet, Bug, Attachment } from '../features/knowledge/types';
@@ -805,6 +810,9 @@ function toProject(row: Row): Project {
     name: String(row.name ?? ''),
     description: String(row.description ?? ''),
     status: (row.status as Project['status']) ?? 'active',
+    icon: String(row.icon ?? 'folder'),
+    color: String(row.color ?? '#6366f1'),
+    category: String(row.category ?? ''),
     tags: typeof row.tags === 'string' ? JSON.parse(row.tags as string) : row.tags ?? [],
     technology: typeof row.technology === 'string' ? JSON.parse(row.technology as string) : row.technology ?? [],
     favorite: Boolean(row.favorite),
@@ -967,6 +975,97 @@ export const database = {
     await inst.execute(PROJECT_QUERIES.togglePinned, [id]);
   },
 
+  // ── Project sub-entities ─────────────────────────────────────────
+  async getProjectPaths(projectId: number): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select<any>(PROJECT_PATH_QUERIES.getByProject, [projectId]);
+  },
+
+  async addProjectPath(projectId: number, path: string, type: string = 'local'): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(PROJECT_PATH_QUERIES.insert, [projectId, path, type]);
+  },
+
+  async deleteProjectPath(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(PROJECT_PATH_QUERIES.delete, [id]);
+  },
+
+  async getProjectScripts(projectId: number): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select<any>(PROJECT_SCRIPT_QUERIES.getByProject, [projectId]);
+  },
+
+  async addProjectScript(projectId: number, name: string, command: string): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(PROJECT_SCRIPT_QUERIES.insert, [projectId, name, command]);
+  },
+
+  async deleteProjectScript(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(PROJECT_SCRIPT_QUERIES.delete, [id]);
+  },
+
+  async getProjectLinks(projectId: number): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select<any>(PROJECT_LINK_QUERIES.getByProject, [projectId]);
+  },
+
+  async addProjectLink(projectId: number, type: string, url: string): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(PROJECT_LINK_QUERIES.insert, [projectId, type, url]);
+  },
+
+  async deleteProjectLink(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(PROJECT_LINK_QUERIES.delete, [id]);
+  },
+
+  async getProjectTasks(projectId: number): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select<any>(PROJECT_TASK_QUERIES.getByProject, [projectId]);
+  },
+
+  async addProjectTask(projectId: number, title: string, priority: string = 'medium', due_date?: string): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(PROJECT_TASK_QUERIES.insert, [projectId, title, '', priority, 'todo', due_date || null]);
+  },
+
+  async updateProjectTask(id: number, data: any): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(PROJECT_TASK_QUERIES.update, [data.title, data.description || '', data.priority, data.status, data.due_date || null, id]);
+  },
+
+  async deleteProjectTask(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(PROJECT_TASK_QUERIES.delete, [id]);
+  },
+
+  async getProjectActivity(projectId: number, limit: number = 10): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select<any>(PROJECT_ACTIVITY_QUERIES.getByProject, [projectId, limit]);
+  },
+
+  async addProjectActivity(projectId: number, title: string, type: string = 'update'): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(PROJECT_ACTIVITY_QUERIES.insert, [projectId, title, type]);
+  },
+
   // ── Notes ────────────────────────────────────────────────────────
   async getNotes(): Promise<Note[]> {
     const inst = await getDatabase();
@@ -999,7 +1098,11 @@ export const database = {
       data.project_id ?? null,
     ]);
     const rows = await inst.select<Row>(NOTE_QUERIES.getAll);
-    return rows.length ? toNote(rows[0]) : null;
+    const note = rows.length ? toNote(rows[0]) : null;
+    if (note) {
+      try { await inst.execute('INSERT INTO notes_fts(rowid, title, content, tags) VALUES (?, ?, ?, ?)', [note.id, note.title, note.content, JSON.stringify(note.tags)]); } catch { /* fts5 unavailable */ }
+    }
+    return note;
   },
 
   async updateNote(id: number, data: Partial<Note>): Promise<void> {
@@ -1014,12 +1117,17 @@ export const database = {
       merged.favorite ? 1 : 0, merged.pinned ? 1 : 0,
       merged.project_id, id,
     ]);
+    try {
+      await inst.execute('INSERT INTO notes_fts(notes_fts, rowid, title, content, tags) VALUES(?, ?, ?, ?, ?)', ['delete', id, '', '', '']);
+      await inst.execute('INSERT INTO notes_fts(rowid, title, content, tags) VALUES (?, ?, ?, ?)', [id, merged.title, merged.content, JSON.stringify(merged.tags)]);
+    } catch { /* fts5 unavailable */ }
   },
 
   async deleteNote(id: number): Promise<void> {
     const inst = await getDatabase();
     if (!inst) return;
     await inst.execute(NOTE_QUERIES.delete, [id]);
+    try { await inst.execute('INSERT INTO notes_fts(notes_fts, rowid, title, content, tags) VALUES(?, ?, ?, ?, ?)', ['delete', id, '', '', '']); } catch { /* fts5 unavailable */ }
   },
 
   async getFavoriteNotes(): Promise<Note[]> {

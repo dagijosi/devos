@@ -94,22 +94,17 @@ export const ATTACHMENTS_TABLE = `CREATE TABLE IF NOT EXISTS attachments (
   FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE
 );`;
 
+// FTS5 virtual table — will silently fail if fts5 module is unavailable (sql.js default build)
 export const NOTES_FTS_TABLE = `CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
   title, content, tags, content='notes', content_rowid='id'
 );`;
 
-export const NOTES_FTS_TRIGGER_INSERT = `CREATE TRIGGER IF NOT EXISTS notes_ai AFTER INSERT ON notes BEGIN
-  INSERT INTO notes_fts(rowid, title, content, tags) VALUES (new.id, new.title, new.content, new.tags);
-END;`;
-
-export const NOTES_FTS_TRIGGER_DELETE = `CREATE TRIGGER IF NOT EXISTS notes_ad AFTER DELETE ON notes BEGIN
-  INSERT INTO notes_fts(notes_fts, rowid, title, content, tags) VALUES('delete', old.id, old.title, old.content, old.tags);
-END;`;
-
-export const NOTES_FTS_TRIGGER_UPDATE = `CREATE TRIGGER IF NOT EXISTS notes_au AFTER UPDATE ON notes BEGIN
-  INSERT INTO notes_fts(notes_fts, rowid, title, content, tags) VALUES('delete', old.id, old.title, old.content, old.tags);
-  INSERT INTO notes_fts(rowid, title, content, tags) VALUES (new.id, new.title, new.content, new.tags);
-END;`;
+// Clean up old triggers (they were previously managed at DB level but caused failures when fts5 is unavailable)
+export const NOTES_FTS_DROP_TRIGGERS = `
+  DROP TRIGGER IF EXISTS notes_ai;
+  DROP TRIGGER IF EXISTS notes_ad;
+  DROP TRIGGER IF EXISTS notes_au;
+`;
 
 export const RECENT_ACTIVITY_TABLE = `CREATE TABLE IF NOT EXISTS recent_activity (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -200,6 +195,56 @@ export const BACKUPS_TABLE = `CREATE TABLE IF NOT EXISTS backups (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );`;
 
+export const PROJECT_PATHS_TABLE = `CREATE TABLE IF NOT EXISTS project_paths (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER NOT NULL,
+  path TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'local',
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);`;
+
+export const PROJECT_SCRIPTS_TABLE = `CREATE TABLE IF NOT EXISTS project_scripts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  command TEXT NOT NULL,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);`;
+
+export const PROJECT_LINKS_TABLE = `CREATE TABLE IF NOT EXISTS project_links (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER NOT NULL,
+  type TEXT NOT NULL,
+  url TEXT NOT NULL,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);`;
+
+export const PROJECT_TASKS_TABLE = `CREATE TABLE IF NOT EXISTS project_tasks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  priority TEXT NOT NULL DEFAULT 'medium',
+  status TEXT NOT NULL DEFAULT 'todo',
+  due_date DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);`;
+
+export const PROJECT_ACTIVITY_TABLE = `CREATE TABLE IF NOT EXISTS project_activity (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'update',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);`;
+
+// Migration-safe column additions (silently fail if columns exist)
+export const PROJECTS_ADD_ICON = `ALTER TABLE projects ADD COLUMN icon TEXT DEFAULT 'folder';`;
+export const PROJECTS_ADD_COLOR = `ALTER TABLE projects ADD COLUMN color TEXT DEFAULT '#6366f1';`;
+export const PROJECTS_ADD_CATEGORY = `ALTER TABLE projects ADD COLUMN category TEXT DEFAULT '';`;
+
 export const ALL_MIGRATIONS = [
   SETTINGS_TABLE,
   NOTIFICATIONS_TABLE,
@@ -218,11 +263,19 @@ export const ALL_MIGRATIONS = [
   AI_MESSAGES_TABLE,
   ANALYTICS_SESSIONS_TABLE,
   BACKUPS_TABLE,
-  // FTS - will silently fail in localStorage mode
+  PROJECT_PATHS_TABLE,
+  PROJECT_SCRIPTS_TABLE,
+  PROJECT_LINKS_TABLE,
+  PROJECT_TASKS_TABLE,
+  PROJECT_ACTIVITY_TABLE,
+  // Column additions (may fail silently)
+  PROJECTS_ADD_ICON,
+  PROJECTS_ADD_COLOR,
+  PROJECTS_ADD_CATEGORY,
+  // FTS cleanup (drop old triggers that fail when fts5 module is unavailable)
+  NOTES_FTS_DROP_TRIGGERS,
+  // FTS - will silently fail if fts5 unavailable (sql.js default build)
   NOTES_FTS_TABLE,
-  NOTES_FTS_TRIGGER_INSERT,
-  NOTES_FTS_TRIGGER_DELETE,
-  NOTES_FTS_TRIGGER_UPDATE,
 ];
 
 // ── Query constants ────────────────────────────────────────────────────
@@ -381,4 +434,40 @@ export const USER_QUERIES = {
   insert: `INSERT INTO users (id, name, email, role, permissions, business_modules, avatar) VALUES (?, ?, ?, ?, ?, ?, ?)`,
   update: `UPDATE users SET name = ?, email = ?, role = ?, permissions = ?, business_modules = ?, avatar = ? WHERE id = ?`,
   delete: `DELETE FROM users WHERE id = ?`,
+};
+
+export const PROJECT_PATH_QUERIES = {
+  getByProject: `SELECT * FROM project_paths WHERE project_id = ?`,
+  insert: `INSERT INTO project_paths (project_id, path, type) VALUES (?, ?, ?)`,
+  delete: `DELETE FROM project_paths WHERE id = ?`,
+  deleteByProject: `DELETE FROM project_paths WHERE project_id = ?`,
+};
+
+export const PROJECT_SCRIPT_QUERIES = {
+  getByProject: `SELECT * FROM project_scripts WHERE project_id = ?`,
+  insert: `INSERT INTO project_scripts (project_id, name, command) VALUES (?, ?, ?)`,
+  delete: `DELETE FROM project_scripts WHERE id = ?`,
+  deleteByProject: `DELETE FROM project_scripts WHERE project_id = ?`,
+};
+
+export const PROJECT_LINK_QUERIES = {
+  getByProject: `SELECT * FROM project_links WHERE project_id = ?`,
+  insert: `INSERT INTO project_links (project_id, type, url) VALUES (?, ?, ?)`,
+  delete: `DELETE FROM project_links WHERE id = ?`,
+  deleteByProject: `DELETE FROM project_links WHERE project_id = ?`,
+};
+
+export const PROJECT_TASK_QUERIES = {
+  getAll: `SELECT * FROM project_tasks ORDER BY created_at DESC`,
+  getByProject: `SELECT * FROM project_tasks WHERE project_id = ? ORDER BY created_at DESC`,
+  insert: `INSERT INTO project_tasks (project_id, title, description, priority, status, due_date) VALUES (?, ?, ?, ?, ?, ?)`,
+  update: `UPDATE project_tasks SET title = ?, description = ?, priority = ?, status = ?, due_date = ? WHERE id = ?`,
+  delete: `DELETE FROM project_tasks WHERE id = ?`,
+  deleteByProject: `DELETE FROM project_tasks WHERE project_id = ?`,
+};
+
+export const PROJECT_ACTIVITY_QUERIES = {
+  getByProject: `SELECT * FROM project_activity WHERE project_id = ? ORDER BY created_at DESC LIMIT ?`,
+  insert: `INSERT INTO project_activity (project_id, title, type) VALUES (?, ?, ?)`,
+  deleteByProject: `DELETE FROM project_activity WHERE project_id = ?`,
 };

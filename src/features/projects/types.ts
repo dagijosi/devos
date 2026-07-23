@@ -3,6 +3,9 @@ export interface Project {
   name: string;
   description: string;
   status: 'active' | 'archived' | 'completed';
+  icon: string;
+  color: string;
+  category: string;
   tags: string[];
   technology: string[];
   favorite: boolean;
@@ -14,18 +17,65 @@ export interface Project {
   last_opened: string | null;
   created_at: string;
   updated_at: string;
+  note_count?: number;
+  task_count?: number;
+  bug_count?: number;
+  snippet_count?: number;
 }
 
 export interface ProjectFormData {
   name: string;
   description: string;
+  status: 'active' | 'archived' | 'completed';
+  icon: string;
+  color: string;
+  category: string;
   tags: string[];
   technology: string[];
   repository_url: string;
   local_path: string;
-  status: 'active' | 'archived' | 'completed';
-  scripts?: Record<string, string>;
-  environment?: Record<string, string>;
+  scripts: Record<string, string>;
+  environment: Record<string, string>;
+}
+
+export interface ProjectPath {
+  id: number;
+  project_id: number;
+  path: string;
+  type: string;
+}
+
+export interface ProjectScript {
+  id: number;
+  project_id: number;
+  name: string;
+  command: string;
+}
+
+export interface ProjectLink {
+  id: number;
+  project_id: number;
+  type: string;
+  url: string;
+}
+
+export interface ProjectActivity {
+  id: number;
+  project_id: number;
+  title: string;
+  type: string;
+  created_at: string;
+}
+
+export interface ProjectTask {
+  id: number;
+  project_id: number;
+  title: string;
+  description: string;
+  priority: 'low' | 'medium' | 'high';
+  status: 'todo' | 'in_progress' | 'done';
+  due_date: string | null;
+  created_at: string;
 }
 
 export interface DetectedTechnology {
