@@ -31,6 +31,8 @@ import {
   TOOL_QUERIES,
   RECENT_TOOL_QUERIES,
   TOOL_SETTINGS_QUERIES,
+  DEPLOYMENT_QUERIES,
+  DEPLOYMENT_LOG_QUERIES,
 } from './schema';
 import type { Project } from '../features/projects/types';
 import type { KnowledgeItem, Note, Folder, CodeSnippet, Bug, Attachment } from '../features/knowledge/types';
@@ -550,6 +552,50 @@ class LocalDatabase {
       lsSet('_db_backups', []);
       return;
     }
+    // Deployments
+    if (sql.startsWith('INSERT INTO DEPLOYMENTS')) {
+      const rows = lsGet<Row>('_db_deployments');
+      rows.push({ id: nextId(rows as { id?: number }[]), project_id: bind?.[0], name: bind?.[1], provider: bind?.[2] ?? 'custom', url: bind?.[3] ?? '', build_command: bind?.[4] ?? '', branch: bind?.[5] ?? 'main', auto_deploy: bind?.[6] ?? 0, status: bind?.[7] ?? 'idle', last_deployed_at: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+      lsSet('_db_deployments', rows);
+      return;
+    }
+    if (sql.startsWith('UPDATE DEPLOYMENTS SET NAME = ?')) {
+      const rows = lsGet<Row>('_db_deployments');
+      const found = rows.find((r) => r.id === bind?.[7]);
+      if (found) { found.name = bind?.[0]; found.provider = bind?.[1]; found.url = bind?.[2]; found.build_command = bind?.[3]; found.branch = bind?.[4]; found.auto_deploy = bind?.[5]; found.status = bind?.[6]; found.updated_at = new Date().toISOString(); }
+      lsSet('_db_deployments', rows);
+      return;
+    }
+    if (sql.startsWith('UPDATE DEPLOYMENTS SET STATUS = ?')) {
+      const rows = lsGet<Row>('_db_deployments');
+      const found = rows.find((r) => r.id === bind?.[1]);
+      if (found) { found.status = bind?.[0]; found.last_deployed_at = new Date().toISOString(); found.updated_at = new Date().toISOString(); }
+      lsSet('_db_deployments', rows);
+      return;
+    }
+    if (sql.startsWith('DELETE FROM DEPLOYMENTS')) {
+      if (bind?.length) {
+        const id = bind[0];
+        lsSet('_db_deployments', lsGet<Row>('_db_deployments').filter((r) => r.id !== id));
+        lsSet('_db_deployment_logs', lsGet<Row>('_db_deployment_logs').filter((r) => r.deployment_id !== id));
+      } else {
+        lsSet('_db_deployments', []);
+        lsSet('_db_deployment_logs', []);
+      }
+      return;
+    }
+    // Deployment logs
+    if (sql.startsWith('INSERT INTO DEPLOYMENT_LOGS')) {
+      const rows = lsGet<Row>('_db_deployment_logs');
+      rows.push({ id: nextId(rows as { id?: number }[]), deployment_id: bind?.[0], status: bind?.[1], output: bind?.[2] ?? '', started_at: bind?.[3] ?? new Date().toISOString(), completed_at: bind?.[4] ?? null, created_at: new Date().toISOString() });
+      lsSet('_db_deployment_logs', rows);
+      return;
+    }
+    if (sql.startsWith('DELETE FROM DEPLOYMENT_LOGS')) {
+      if (bind?.length) lsSet('_db_deployment_logs', lsGet<Row>('_db_deployment_logs').filter((r) => r.deployment_id !== bind[0]));
+      else lsSet('_db_deployment_logs', []);
+      return;
+    }
     // Generic CREATE TABLE IF NOT EXISTS / ALTER / DDL
     if (sql.includes('CREATE TABLE') || sql.startsWith('ALTER') || sql.startsWith('CREATE TRIGGER') || sql.startsWith('CREATE VIRTUAL')) return;
   }
@@ -744,6 +790,13 @@ class LocalDatabase {
     }
     if (sql.startsWith('SELECT * FROM BACKUPS ORDER BY CREATED_AT DESC')) {
       return sortBy(lsGet<Row>('_db_backups'), 'created_at') as T[];
+    }
+    // Deployments
+    if (sql.startsWith('SELECT * FROM DEPLOYMENTS WHERE PROJECT_ID = ?')) {
+      return sortBy(lsGet<Row>('_db_deployments').filter((r) => r.project_id === bind?.[0]), 'created_at') as T[];
+    }
+    if (sql.startsWith('SELECT * FROM DEPLOYMENT_LOGS WHERE DEPLOYMENT_ID = ?')) {
+      return sortBy(lsGet<Row>('_db_deployment_logs').filter((r) => r.deployment_id === bind?.[0]), 'created_at') as T[];
     }
     return [];
   }
@@ -1088,6 +1141,49 @@ export const database = {
     const inst = await getDatabase();
     if (!inst) return;
     await inst.execute(PROJECT_TASK_QUERIES.delete, [id]);
+  },
+
+  // ── Deployments ───────────────────────────────────────────────────
+  async getProjectDeployments(projectId: number): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select<any>(DEPLOYMENT_QUERIES.getByProject, [projectId]);
+  },
+
+  async addDeployment(projectId: number, name: string, provider: string = 'custom', url: string = '', build_command: string = '', branch: string = 'main', auto_deploy: number = 0): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(DEPLOYMENT_QUERIES.insert, [projectId, name, provider, url, build_command, branch, auto_deploy, 'idle']);
+  },
+
+  async updateDeployment(id: number, data: any): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(DEPLOYMENT_QUERIES.update, [data.name, data.provider, data.url, data.build_command, data.branch, data.auto_deploy ?? 0, data.status || 'idle', id]);
+  },
+
+  async updateDeploymentStatus(id: number, status: string): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(DEPLOYMENT_QUERIES.updateStatus, [status, id]);
+  },
+
+  async deleteDeployment(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(DEPLOYMENT_QUERIES.delete, [id]);
+  },
+
+  async getDeploymentLogs(deploymentId: number): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select<any>(DEPLOYMENT_LOG_QUERIES.getByDeployment, [deploymentId]);
+  },
+
+  async addDeploymentLog(deploymentId: number, status: string, output: string = '', started_at?: string, completed_at?: string): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(DEPLOYMENT_LOG_QUERIES.insert, [deploymentId, status, output, started_at || new Date().toISOString(), completed_at || null]);
   },
 
   async getProjectActivity(projectId: number, limit: number = 10): Promise<any[]> {

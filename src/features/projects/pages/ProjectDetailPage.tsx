@@ -125,7 +125,7 @@ export function ProjectDetailPage() {
         {activeTab === 'apis' && <ApisTab projectId={project.id} />}
         {activeTab === 'workflows' && <WorkflowsTab project={project} />}
         {activeTab === 'utilities' && <UtilitiesTab project={project} />}
-        {activeTab === 'deployments' && <DeploymentsTab />}
+        {activeTab === 'deployments' && <DeploymentsTab project={project} />}
         {activeTab === 'settings' && <SettingsTab project={project} onRefresh={load} />}
       </div>
     </div>

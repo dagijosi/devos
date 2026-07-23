@@ -78,6 +78,31 @@ export interface ProjectTask {
   created_at: string;
 }
 
+export interface Deployment {
+  id: number;
+  project_id: number;
+  name: string;
+  provider: string;
+  url: string;
+  build_command: string;
+  branch: string;
+  auto_deploy: number;
+  status: string;
+  last_deployed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DeploymentLog {
+  id: number;
+  deployment_id: number;
+  status: string;
+  output: string;
+  started_at: string;
+  completed_at: string | null;
+  created_at: string;
+}
+
 export interface DetectedTechnology {
   name: string;
   version?: string;

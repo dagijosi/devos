@@ -350,6 +350,32 @@ export const RECENT_TOOLS_TABLE = `CREATE TABLE IF NOT EXISTS recent_tools (
   FOREIGN KEY (tool_id) REFERENCES tools(id) ON DELETE CASCADE
 );`;
 
+export const DEPLOYMENTS_TABLE = `CREATE TABLE IF NOT EXISTS deployments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  provider TEXT NOT NULL DEFAULT 'custom',
+  url TEXT DEFAULT '',
+  build_command TEXT DEFAULT '',
+  branch TEXT DEFAULT 'main',
+  auto_deploy INTEGER DEFAULT 0,
+  status TEXT DEFAULT 'idle',
+  last_deployed_at DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);`;
+
+export const DEPLOYMENT_LOGS_TABLE = `CREATE TABLE IF NOT EXISTS deployment_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  deployment_id INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  output TEXT DEFAULT '',
+  started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  completed_at DATETIME,
+  FOREIGN KEY (deployment_id) REFERENCES deployments(id) ON DELETE CASCADE
+);`;
+
 export const TOOL_SETTINGS_TABLE = `CREATE TABLE IF NOT EXISTS tool_settings (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   tool_id INTEGER NOT NULL,
@@ -401,6 +427,9 @@ export const ALL_MIGRATIONS = [
   TOOLS_TABLE,
   RECENT_TOOLS_TABLE,
   TOOL_SETTINGS_TABLE,
+  // Deployments tables
+  DEPLOYMENTS_TABLE,
+  DEPLOYMENT_LOGS_TABLE,
 ];
 
 // ── Query constants ────────────────────────────────────────────────────
@@ -688,6 +717,21 @@ export const RECENT_TOOL_QUERIES = {
   updateTimestamp: `UPDATE recent_tools SET used_at = CURRENT_TIMESTAMP WHERE tool_id = ?`,
   getByToolId: `SELECT * FROM recent_tools WHERE tool_id = ?`,
   cleanOld: `DELETE FROM recent_tools WHERE id NOT IN (SELECT id FROM recent_tools ORDER BY used_at DESC LIMIT 50)`,
+};
+
+export const DEPLOYMENT_QUERIES = {
+  getByProject: `SELECT * FROM deployments WHERE project_id = ? ORDER BY created_at DESC`,
+  insert: `INSERT INTO deployments (project_id, name, provider, url, build_command, branch, auto_deploy, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  update: `UPDATE deployments SET name = ?, provider = ?, url = ?, build_command = ?, branch = ?, auto_deploy = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  updateStatus: `UPDATE deployments SET status = ?, last_deployed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  delete: `DELETE FROM deployments WHERE id = ?`,
+  deleteByProject: `DELETE FROM deployments WHERE project_id = ?`,
+};
+
+export const DEPLOYMENT_LOG_QUERIES = {
+  getByDeployment: `SELECT * FROM deployment_logs WHERE deployment_id = ? ORDER BY created_at DESC`,
+  insert: `INSERT INTO deployment_logs (deployment_id, status, output, started_at, completed_at) VALUES (?, ?, ?, ?, ?)`,
+  deleteByDeployment: `DELETE FROM deployment_logs WHERE deployment_id = ?`,
 };
 
 export const TOOL_SETTINGS_QUERIES = {
