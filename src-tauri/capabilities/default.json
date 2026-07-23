@@ -10,7 +10,32 @@
     "sql:allow-execute",
     "sql:allow-load",
     "sql:allow-select",
-    "shell:default",
-    "opener:default"
+    "opener:default",
+    "shell:allow-open",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "cmd",
+          "cmd": "cmd.exe",
+          "args": true
+        },
+        {
+          "name": "sh",
+          "cmd": "sh",
+          "args": true
+        },
+        {
+          "name": "explorer",
+          "cmd": "explorer",
+          "args": true
+        },
+        {
+          "name": "code",
+          "cmd": "code",
+          "args": true
+        }
+      ]
+    }
   ]
 }

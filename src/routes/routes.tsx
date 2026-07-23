@@ -28,8 +28,8 @@ const ProjectFormPage = React.lazy(() =>
   import('../features/projects/pages/ProjectFormPage').then((m) => ({ default: m.ProjectFormPage }))
 );
 
-const KnowledgePage = React.lazy(() =>
-  import('../features/knowledge/pages/KnowledgePage').then((m) => ({ default: m.KnowledgePage }))
+const LibraryPage = React.lazy(() =>
+  import('../features/knowledge/pages/LibraryPage').then((m) => ({ default: m.LibraryPage }))
 );
 
 const ToolboxPage = React.lazy(() =>
@@ -63,7 +63,7 @@ const routes = [
   createRoute(PROJECT_DETAIL, ProjectDetailPage, { layout: AppLayout }),
   createRoute(PROJECT_FORM, ProjectFormPage, { layout: AppLayout }),
   createRoute(PROJECT_EDIT, ProjectFormPage, { layout: AppLayout }),
-  createRoute(KNOWLEDGE, KnowledgePage, { layout: AppLayout }),
+  createRoute(KNOWLEDGE, LibraryPage, { layout: AppLayout }),
   createRoute(TOOLBOX, ToolboxPage, { layout: AppLayout }),
   createRoute(AUTOMATION, AutomationPage, { layout: AppLayout }),
   createRoute(AI, AiPage, { layout: AppLayout }),

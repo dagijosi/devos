@@ -43,7 +43,7 @@ export const navigationCategories: NavCategory[] = [
     links: [
       { name: "Dashboard", href: DASHBOARD, icon: FaChartBar },
       { name: "Projects", href: PROJECTS, icon: FaFolder },
-      { name: "Knowledge", href: KNOWLEDGE, icon: FaBook },
+      { name: "Library", href: KNOWLEDGE, icon: FaBook },
     ],
   },
   {

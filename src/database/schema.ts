@@ -245,6 +245,51 @@ export const PROJECTS_ADD_ICON = `ALTER TABLE projects ADD COLUMN icon TEXT DEFA
 export const PROJECTS_ADD_COLOR = `ALTER TABLE projects ADD COLUMN color TEXT DEFAULT '#6366f1';`;
 export const PROJECTS_ADD_CATEGORY = `ALTER TABLE projects ADD COLUMN category TEXT DEFAULT '';`;
 
+// ── Unified Knowledge / Library tables ─────────────────────────────────
+
+export const KNOWLEDGE_ITEMS_TABLE = `CREATE TABLE IF NOT EXISTS knowledge_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  type TEXT NOT NULL CHECK(type IN ('note','bug','snippet','prompt','doc','bookmark','template')),
+  content TEXT DEFAULT '',
+  description TEXT DEFAULT '',
+  language TEXT DEFAULT '',
+  url TEXT DEFAULT '',
+  problem TEXT DEFAULT '',
+  cause TEXT DEFAULT '',
+  solution TEXT DEFAULT '',
+  severity TEXT DEFAULT '',
+  category TEXT DEFAULT '',
+  tags TEXT DEFAULT '[]',
+  favorite INTEGER DEFAULT 0,
+  pinned INTEGER DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','archived','trashed')),
+  project_id INTEGER,
+  folder_id INTEGER,
+  last_opened DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
+);`;
+
+export const RELATIONS_TABLE = `CREATE TABLE IF NOT EXISTS relations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  source_id INTEGER NOT NULL,
+  target_id INTEGER NOT NULL,
+  relation_type TEXT NOT NULL DEFAULT 'related',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (source_id) REFERENCES knowledge_items(id) ON DELETE CASCADE,
+  FOREIGN KEY (target_id) REFERENCES knowledge_items(id) ON DELETE CASCADE
+);`;
+
+export const KNOWLEDGE_FOLDERS_TABLE = `CREATE TABLE IF NOT EXISTS knowledge_folders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  parent_id INTEGER,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (parent_id) REFERENCES knowledge_folders(id) ON DELETE CASCADE
+);`;
+
 export const ALL_MIGRATIONS = [
   SETTINGS_TABLE,
   NOTIFICATIONS_TABLE,
@@ -276,6 +321,10 @@ export const ALL_MIGRATIONS = [
   NOTES_FTS_DROP_TRIGGERS,
   // FTS - will silently fail if fts5 unavailable (sql.js default build)
   NOTES_FTS_TABLE,
+  // Unified Knowledge / Library tables
+  KNOWLEDGE_ITEMS_TABLE,
+  RELATIONS_TABLE,
+  KNOWLEDGE_FOLDERS_TABLE,
 ];
 
 // ── Query constants ────────────────────────────────────────────────────
@@ -470,4 +519,52 @@ export const PROJECT_ACTIVITY_QUERIES = {
   getByProject: `SELECT * FROM project_activity WHERE project_id = ? ORDER BY created_at DESC LIMIT ?`,
   insert: `INSERT INTO project_activity (project_id, title, type) VALUES (?, ?, ?)`,
   deleteByProject: `DELETE FROM project_activity WHERE project_id = ?`,
+};
+
+// ── Unified Knowledge queries ──────────────────────────────────────────
+
+const ACTIVE = `status != 'trashed'`;
+const BASE_ORDER = `ORDER BY pinned DESC, updated_at DESC`;
+
+const SELECT = `SELECT * FROM knowledge_items WHERE ${ACTIVE}`;
+const SELECT_ALL = `${SELECT} ${BASE_ORDER}`;
+
+export const KNOWLEDGE_QUERIES = {
+  getAll: `${SELECT_ALL}`,
+  getById: `SELECT * FROM knowledge_items WHERE id = ?`,
+  getByType: (type: string) => `${SELECT} AND type = '${type}' ${BASE_ORDER}`,
+  getByProject: `SELECT * FROM knowledge_items WHERE project_id = ? AND ${ACTIVE} ${BASE_ORDER}`,
+  getFavorites: `${SELECT} AND favorite = 1 ${BASE_ORDER}`,
+  getRecent: `${SELECT} ${BASE_ORDER} LIMIT ?`,
+  getTrashed: `SELECT * FROM knowledge_items WHERE status = 'trashed' ORDER BY updated_at DESC`,
+  search: `SELECT * FROM knowledge_items WHERE ${ACTIVE} AND (title LIKE ? OR content LIKE ? OR description LIKE ? OR tags LIKE ?) ORDER BY CASE WHEN title LIKE ? THEN 0 ELSE 1 END, updated_at DESC`,
+  insert: `INSERT INTO knowledge_items (title, type, content, description, language, url, problem, cause, solution, severity, category, tags, favorite, pinned, status, project_id, folder_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  update: `UPDATE knowledge_items SET title = ?, content = ?, description = ?, language = ?, url = ?, problem = ?, cause = ?, solution = ?, severity = ?, category = ?, tags = ?, favorite = ?, pinned = ?, status = ?, project_id = ?, folder_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  toggleFavorite: `UPDATE knowledge_items SET favorite = CASE WHEN favorite = 1 THEN 0 ELSE 1 END, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  togglePinned: `UPDATE knowledge_items SET pinned = CASE WHEN pinned = 1 THEN 0 ELSE 1 END, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  updateLastOpened: `UPDATE knowledge_items SET last_opened = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  softDelete: `UPDATE knowledge_items SET status = 'trashed', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  hardDelete: `DELETE FROM knowledge_items WHERE id = ?`,
+  emptyTrash: `DELETE FROM knowledge_items WHERE status = 'trashed'`,
+  restore: `UPDATE knowledge_items SET status = 'active', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  countByType: (type: string) => `SELECT COUNT(*) as count FROM knowledge_items WHERE type = '${type}' AND status != 'trashed'`,
+};
+
+export const RELATION_QUERIES = {
+  getBySource: `SELECT * FROM relations WHERE source_id = ?`,
+  getByTarget: `SELECT * FROM relations WHERE target_id = ?`,
+  getRelated: `SELECT k.* FROM knowledge_items k INNER JOIN relations r ON (r.target_id = k.id OR r.source_id = k.id) WHERE (r.source_id = ? OR r.target_id = ?) AND k.id != ? AND ${ACTIVE} LIMIT 10`,
+  insert: `INSERT INTO relations (source_id, target_id, relation_type) VALUES (?, ?, ?)`,
+  delete: `DELETE FROM relations WHERE id = ?`,
+  deletePair: `DELETE FROM relations WHERE (source_id = ? AND target_id = ?) OR (source_id = ? AND target_id = ?)`,
+};
+
+export const KNOWLEDGE_FOLDER_QUERIES = {
+  getAll: `SELECT * FROM knowledge_folders ORDER BY name ASC`,
+  getById: `SELECT * FROM knowledge_folders WHERE id = ?`,
+  getChildren: `SELECT * FROM knowledge_folders WHERE parent_id = ? ORDER BY name ASC`,
+  getRoot: `SELECT * FROM knowledge_folders WHERE parent_id IS NULL ORDER BY name ASC`,
+  insert: `INSERT INTO knowledge_folders (name, parent_id) VALUES (?, ?)`,
+  update: `UPDATE knowledge_folders SET name = ? WHERE id = ?`,
+  delete: `DELETE FROM knowledge_folders WHERE id = ?`,
 };

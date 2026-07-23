@@ -14,7 +14,7 @@ interface TopbarProps {
 const breadcrumbMap: Record<string, string> = {
   [DASHBOARD]: 'Dashboard',
   [PROJECTS]: 'Projects',
-  [KNOWLEDGE]: 'Knowledge',
+  [KNOWLEDGE]: 'Library',
   [TOOLBOX]: 'Toolbox',
   [AUTOMATION]: 'Automation',
   [SETTING]: 'Settings',

@@ -21,9 +21,12 @@ import {
   PROJECT_LINK_QUERIES,
   PROJECT_TASK_QUERIES,
   PROJECT_ACTIVITY_QUERIES,
+  KNOWLEDGE_QUERIES,
+  RELATION_QUERIES,
+  KNOWLEDGE_FOLDER_QUERIES,
 } from './schema';
 import type { Project } from '../features/projects/types';
-import type { Note, Folder, CodeSnippet, Bug, Attachment } from '../features/knowledge/types';
+import type { KnowledgeItem, Note, Folder, CodeSnippet, Bug, Attachment } from '../features/knowledge/types';
 
 type Row = Record<string, unknown>;
 type DatabaseInstance = {
@@ -821,6 +824,32 @@ function toProject(row: Row): Project {
     local_path: String(row.local_path ?? ''),
     scripts: typeof row.scripts === 'string' ? JSON.parse(row.scripts as string) : row.scripts ?? {},
     environment: typeof row.environment === 'string' ? JSON.parse(row.environment as string) : row.environment ?? {},
+    last_opened: row.last_opened ? String(row.last_opened) : null,
+    created_at: String(row.created_at ?? ''),
+    updated_at: String(row.updated_at ?? ''),
+  };
+}
+
+function toKnowledgeItem(row: Row): KnowledgeItem {
+  return {
+    id: Number(row.id),
+    title: String(row.title ?? ''),
+    type: (row.type as KnowledgeItem['type']) ?? 'note',
+    content: String(row.content ?? ''),
+    description: String(row.description ?? ''),
+    language: String(row.language ?? ''),
+    url: String(row.url ?? ''),
+    problem: String(row.problem ?? ''),
+    cause: String(row.cause ?? ''),
+    solution: String(row.solution ?? ''),
+    severity: String(row.severity ?? ''),
+    category: String(row.category ?? ''),
+    tags: typeof row.tags === 'string' ? JSON.parse(row.tags as string) : row.tags ?? [],
+    favorite: Boolean(row.favorite),
+    pinned: Boolean(row.pinned),
+    status: (row.status as KnowledgeItem['status']) ?? 'active',
+    project_id: row.project_id ? Number(row.project_id) : null,
+    folder_id: row.folder_id ? Number(row.folder_id) : null,
     last_opened: row.last_opened ? String(row.last_opened) : null,
     created_at: String(row.created_at ?? ''),
     updated_at: String(row.updated_at ?? ''),
@@ -1785,5 +1814,180 @@ export const database = {
         JSON.stringify(user.permissions), JSON.stringify(user.businessModules), user.avatar,
       ]);
     }
+  },
+
+  // ── Unified Knowledge / Library CRUD ─────────────────────────────
+
+  async getKnowledgeItems(type?: string): Promise<KnowledgeItem[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const sql = type ? KNOWLEDGE_QUERIES.getByType(type) : KNOWLEDGE_QUERIES.getAll;
+    const rows = await inst.select<Row>(sql);
+    return rows.map(toKnowledgeItem);
+  },
+
+  async getKnowledgeItem(id: number): Promise<KnowledgeItem | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    const rows = await inst.select<Row>(KNOWLEDGE_QUERIES.getById, [id]);
+    return rows.length ? toKnowledgeItem(rows[0]) : null;
+  },
+
+  async getKnowledgeByProject(projectId: number): Promise<KnowledgeItem[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(KNOWLEDGE_QUERIES.getByProject, [projectId]);
+    return rows.map(toKnowledgeItem);
+  },
+
+  async getFavoriteKnowledge(): Promise<KnowledgeItem[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(KNOWLEDGE_QUERIES.getFavorites);
+    return rows.map(toKnowledgeItem);
+  },
+
+  async getRecentKnowledge(limit = 10): Promise<KnowledgeItem[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(KNOWLEDGE_QUERIES.getRecent, [limit]);
+    return rows.map(toKnowledgeItem);
+  },
+
+  async getTrashedKnowledge(): Promise<KnowledgeItem[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(KNOWLEDGE_QUERIES.getTrashed);
+    return rows.map(toKnowledgeItem);
+  },
+
+  async createKnowledgeItem(data: {
+    title: string; type: string; content?: string; description?: string;
+    language?: string; url?: string; problem?: string; cause?: string; solution?: string;
+    severity?: string; category?: string; tags?: string; favorite?: number; pinned?: number;
+    status?: string; project_id?: number | null; folder_id?: number | null;
+  }): Promise<KnowledgeItem | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    await inst.execute(KNOWLEDGE_QUERIES.insert, [
+      data.title, data.type, data.content ?? '', data.description ?? '',
+      data.language ?? '', data.url ?? '', data.problem ?? '', data.cause ?? '',
+      data.solution ?? '', data.severity ?? '', data.category ?? '',
+      data.tags ?? '[]', data.favorite ?? 0, data.pinned ?? 0,
+      data.status ?? 'active', data.project_id ?? null, data.folder_id ?? null,
+    ]);
+    const rows = await inst.select<Row>(KNOWLEDGE_QUERIES.getAll);
+    return rows.length ? toKnowledgeItem(rows[0]) : null;
+  },
+
+  async updateKnowledgeItem(id: number, data: Partial<KnowledgeItem>): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    const existing = await this.getKnowledgeItem(id);
+    if (!existing) return;
+    const merged = { ...existing, ...data };
+    await inst.execute(KNOWLEDGE_QUERIES.update, [
+      merged.title, merged.content, merged.description,
+      merged.language, merged.url, merged.problem, merged.cause, merged.solution,
+      merged.severity, merged.category, JSON.stringify(merged.tags),
+      merged.favorite ? 1 : 0, merged.pinned ? 1 : 0,
+      merged.status, merged.project_id, merged.folder_id, id,
+    ]);
+  },
+
+  async deleteKnowledgeItem(id: number, permanent = false): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    if (permanent) await inst.execute(KNOWLEDGE_QUERIES.hardDelete, [id]);
+    else await inst.execute(KNOWLEDGE_QUERIES.softDelete, [id]);
+  },
+
+  async restoreKnowledgeItem(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(KNOWLEDGE_QUERIES.restore, [id]);
+  },
+
+  async emptyKnowledgeTrash(): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(KNOWLEDGE_QUERIES.emptyTrash);
+  },
+
+  async toggleKnowledgeFavorite(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(KNOWLEDGE_QUERIES.toggleFavorite, [id]);
+  },
+
+  async toggleKnowledgePinned(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(KNOWLEDGE_QUERIES.togglePinned, [id]);
+  },
+
+  async updateKnowledgeLastOpened(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(KNOWLEDGE_QUERIES.updateLastOpened, [id]);
+  },
+
+  async searchKnowledge(query: string): Promise<KnowledgeItem[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const like = `%${query}%`;
+    const rows = await inst.select<Row>(KNOWLEDGE_QUERIES.search, [like, like, like, like, like]);
+    return rows.map(toKnowledgeItem);
+  },
+
+  async getKnowledgeCountByType(type: string): Promise<number> {
+    const inst = await getDatabase();
+    if (!inst) return 0;
+    const rows = await inst.select<{ count: number }>(KNOWLEDGE_QUERIES.countByType(type));
+    return rows[0]?.count ?? 0;
+  },
+
+  // ── Relations CRUD ───────────────────────────────────────────────
+
+  async getRelatedKnowledge(id: number): Promise<KnowledgeItem[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(RELATION_QUERIES.getRelated, [id, id, id]);
+    return rows.map(toKnowledgeItem);
+  },
+
+  async addRelation(sourceId: number, targetId: number, type = 'related'): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(RELATION_QUERIES.insert, [sourceId, targetId, type]);
+  },
+
+  async removeRelation(sourceId: number, targetId: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(RELATION_QUERIES.deletePair, [sourceId, targetId, targetId, sourceId]);
+  },
+
+  // ── Knowledge Folders CRUD ───────────────────────────────────────
+
+  async getKnowledgeFolders(): Promise<KnowledgeItem['folder_id'][]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(KNOWLEDGE_FOLDER_QUERIES.getAll);
+    return rows.map((r) => ({ id: Number(r.id), name: String(r.name), parent_id: r.parent_id ? Number(r.parent_id) : null, created_at: String(r.created_at ?? '') })) as any;
+  },
+
+  async createKnowledgeFolder(data: { name: string; parent_id?: number | null }): Promise<any> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    await inst.execute(KNOWLEDGE_FOLDER_QUERIES.insert, [data.name, data.parent_id ?? null]);
+    const rows = await inst.select<Row>(KNOWLEDGE_FOLDER_QUERIES.getAll);
+    return rows.length ? { id: Number(rows[0].id), name: String(rows[0].name), parent_id: rows[0].parent_id ? Number(rows[0].parent_id) : null, created_at: String(rows[0].created_at ?? '') } : null;
+  },
+
+  async deleteKnowledgeFolder(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(KNOWLEDGE_FOLDER_QUERIES.delete, [id]);
   },
 };
