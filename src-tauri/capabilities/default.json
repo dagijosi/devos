@@ -18,6 +18,7 @@
     "core:window:allow-set-position",
     "core:window:allow-set-title",
     "sql:default",
+    "sql:allow-execute",
     "opener:default",
     "dialog:default",
     "shell:default",
