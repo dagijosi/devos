@@ -46,3 +46,18 @@ jobs:
           releaseBody: 'See the assets to download this version and install.'
           releaseDraft: true
           prerelease: false
+
+  # Cleanup old releases to prevent storage from filling up
+  cleanup:
+    runs-on: ubuntu-latest
+    if: always()
+    needs: release
+    steps:
+      - uses: actions/checkout@v4
+      - name: Delete old releases
+        uses: dev-drprasad/delete-older-releases@v0.3.2
+        with:
+          keep_latest: 5
+          delete_tag_pattern: v*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
