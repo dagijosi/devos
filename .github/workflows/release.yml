@@ -77,14 +77,10 @@ jobs:
           $json | Out-File -FilePath "src-tauri/target/release/bundle/nsis/latest.json" -Encoding utf8 -NoNewline
 
       - name: Upload latest.json to release
-        uses: softprops/action-gh-release@v1
-        if: success()
-        with:
-          files: src-tauri/target/release/bundle/nsis/latest.json
-          tag_name: ${{ github.ref_name }}
-          draft: true
+        run: |
+          gh release upload "${{ github.ref_name }}" src-tauri/target/release/bundle/nsis/latest.json --clobber
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # Cleanup old releases to prevent storage from filling up
   cleanup:
