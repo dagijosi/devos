@@ -92,11 +92,7 @@ jobs:
               Select-Object -First 1 -ExpandProperty FullName
           }
           if (-not $sigPath -or -not (Test-Path $sigPath)) {
-            throw @"
-Updater signature (.sig) not found next to $($setup.Name).
-Signing did not run. Ensure repo secret TAURI_PRIVATE_KEY holds the minisign private key
-(contents of the .key file from ``tauri signer generate``), matching the pubkey in tauri.conf.json.
-"@
+            throw "Updater signature (.sig) not found next to $($setup.Name). Signing did not run — ensure secret TAURI_PRIVATE_KEY is the minisign private key matching tauri.conf.json pubkey."
           }
           $signature = (Get-Content -Path $sigPath -Raw).Trim()
           if (-not $signature) {
