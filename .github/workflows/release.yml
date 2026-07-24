@@ -51,6 +51,13 @@ jobs:
           releaseDraft: true
           prerelease: false
 
+      - name: Upload latest.json to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: src-tauri/target/release/bundle/nsis/latest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   # Cleanup old releases to prevent storage from filling up
   cleanup:
     runs-on: ubuntu-latest
