@@ -30,7 +30,7 @@ type TabId = typeof TABS[number]['id'];
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getProject, toggleFavorite, updateLastOpened, refresh } = useProjects();
+  const { getProject, toggleFavorite, updateLastOpened } = useProjects();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabId>('overview');

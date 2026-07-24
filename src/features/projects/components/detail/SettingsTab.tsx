@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { FaSave, FaTrash, FaExclamationTriangle, FaFolder, FaGithub, FaTimes } from 'react-icons/fa';
+import { useState } from 'react';
+import { FaSave, FaTrash, FaExclamationTriangle, FaFolder, FaGithub } from 'react-icons/fa';
 
 const isTauri = () => typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__;
 import { toast } from 'sonner';

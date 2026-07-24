@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { FaPlus, FaDownload, FaTrash, FaLock, FaUnlock, FaHistory, FaTimes } from 'react-icons/fa';
+import { FaPlus, FaTrash, FaLock, FaUnlock, FaHistory } from 'react-icons/fa';
 import { toast } from 'sonner';
 import { useBackups } from '../hooks/useBackups';
 import { AutoBackupSettings } from '../components/AutoBackupSettings';
@@ -27,9 +27,6 @@ export function BackupPage() {
     }
   }, [createBackup, backupPassword]);
 
-  const handleDownload = useCallback(async (backup: any) => {
-    const data = await (await fetch('/')).text();
-  }, []);
 
   if (loading) {
     return (

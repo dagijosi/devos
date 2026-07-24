@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { FaCode, FaFingerprint, FaLock, FaQrcode, FaKey, FaPalette, FaClock, FaTerminal, FaSearch, FaExternalLinkAlt, FaDatabase, FaFileCode, FaMarkdown, FaRandom, FaCube, FaGlobe, FaPlug, FaImage, FaCrop, FaFont, FaCodeBranch, FaRuler, FaPaintBrush, FaCog, FaNetworkWired } from 'react-icons/fa';
+import { FaCode, FaFingerprint, FaLock, FaQrcode, FaKey, FaPalette, FaClock, FaTerminal, FaSearch, FaExternalLinkAlt, FaDatabase, FaFileCode, FaMarkdown, FaRandom, FaCube, FaGlobe, FaPlug, FaCrop, FaCodeBranch, FaRuler, FaPaintBrush, FaCog, FaNetworkWired } from 'react-icons/fa';
 import { UTILITIES } from '../../../../routes/types/routeConstants';
 
 interface Props {

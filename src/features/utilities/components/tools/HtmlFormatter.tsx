@@ -12,7 +12,7 @@ export function HtmlFormatter() {
       const serializer = new XMLSerializer();
       let html = serializer.serializeToString(doc);
       html = html.replace(/></g, '>\n<').replace(/([^/])>\s*<\//g, '$1>\n</');
-      html = html.split('\n').map((l, i) => '  '.repeat(Math.max(0, (l.match(/<\//) ? -1 : 0) + (l.match(/<[^/]/) ? 1 : 0))) + l.trim()).join('\n');
+      html = html.split('\n').map((l) => '  '.repeat(Math.max(0, (l.match(/<\//) ? -1 : 0) + (l.match(/<[^/]/) ? 1 : 0))) + l.trim()).join('\n');
       setOutput(html);
       setError('');
     } catch (e: any) { setError(e.message); setOutput(''); }

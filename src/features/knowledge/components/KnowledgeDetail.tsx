@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FaStar, FaRegStar, FaThumbtack, FaTag, FaFolder, FaProjectDiagram, FaTrash, FaUndo, FaExternalLinkAlt, FaTimes, FaSave } from 'react-icons/fa';
+import { FaStar, FaRegStar, FaThumbtack, FaTag, FaFolder, FaTrash, FaUndo, FaExternalLinkAlt, FaTimes, FaSave } from 'react-icons/fa';
 import { database } from '../../../database';
 import { MarkdownEditor } from './MarkdownEditor';
 import type { KnowledgeItem } from '../types';

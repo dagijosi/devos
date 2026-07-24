@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { FaCopy, FaCheck, FaArrowsAltH } from 'react-icons/fa';
+import { FaCopy, FaCheck } from 'react-icons/fa';
 
 export function TimestampConverter() {
   const [unixInput, setUnixInput] = useState('');

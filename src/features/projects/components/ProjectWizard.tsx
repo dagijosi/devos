@@ -234,9 +234,11 @@ export function ProjectWizard({ onClose, initialData }: { onClose: () => void; i
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
+  void busy;
   const [data, setData] = useState({
     name: '', description: '', category: '', local_path: '', repository_url: '',
     technology: [] as string[], scripts: [] as { name: string; command: string }[],
+    icon: 'folder', color: '#6366f1', environment: {} as Record<string, string>,
   });
 
   useEffect(() => {
@@ -249,6 +251,9 @@ export function ProjectWizard({ onClose, initialData }: { onClose: () => void; i
         repository_url: initialData.repository_url || '',
         technology: initialData.technology || [],
         scripts: initialData.scripts ? Object.entries(initialData.scripts).map(([name, command]) => ({ name, command })) : [],
+        icon: initialData.icon || 'folder',
+        color: initialData.color || '#6366f1',
+        environment: initialData.environment || {},
       });
     }
   }, [initialData]);
@@ -288,7 +293,7 @@ export function ProjectWizard({ onClose, initialData }: { onClose: () => void; i
         </button>
         <div className="flex-1">
           <div className="flex gap-1.5">
-            {STEPS.map((s, i) => (
+            {STEPS.map((_, i) => (
               <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${i <= step ? 'bg-theme-icon' : 'bg-theme-border/20'}`} />
             ))}
           </div>

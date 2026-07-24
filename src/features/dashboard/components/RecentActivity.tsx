@@ -44,7 +44,7 @@ export function RecentActivity() {
     const load = async () => {
       try {
         const rows = await database.getRecentActivity(10);
-        setActivities(rows || []);
+        setActivities((rows as unknown) as ActivityItem[] || []);
       } catch { /* noop */ }
       setLoading(false);
     };

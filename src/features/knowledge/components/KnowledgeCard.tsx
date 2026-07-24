@@ -1,8 +1,5 @@
-import { useState, useEffect } from 'react';
 import { FaStar, FaRegStar, FaThumbtack, FaCode, FaBug, FaBook, FaRobot, FaFileAlt, FaBookmark, FaClipboardList, FaExternalLinkAlt, FaFolder } from 'react-icons/fa';
-import { database } from '../../../database';
 import type { KnowledgeItem } from '../types';
-import type { Project } from '../../projects/types';
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
   note: FaFileAlt, bug: FaBug, snippet: FaCode, prompt: FaRobot, doc: FaBook, bookmark: FaBookmark, template: FaClipboardList,

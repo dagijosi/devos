@@ -35,6 +35,11 @@ export function ProjectForm({ open, onClose, onSave, project }: Props) {
       repository_url: repositoryUrl.trim(),
       local_path: localPath.trim(),
       status,
+      icon: project?.icon || 'folder',
+      color: project?.color || '#6366f1',
+      category: project?.category || '',
+      scripts: project?.scripts || {},
+      environment: project?.environment || {},
     });
   };
 

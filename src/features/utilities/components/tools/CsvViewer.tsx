@@ -3,7 +3,8 @@ import { useState } from 'react';
 export function CsvViewer() {
   const [input, setInput] = useState('');
   const [delimiter, setDelimiter] = useState(',');
-  const [error, setError] = useState('');
+  const [error] = useState('');
+  void error;
 
   const lines = input.trim() ? input.trim().split('\n') : [];
   const headers = lines.length > 0 ? lines[0].split(delimiter).map(h => h.trim()) : [];

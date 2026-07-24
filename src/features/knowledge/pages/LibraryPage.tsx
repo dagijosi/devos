@@ -6,7 +6,6 @@ import { KnowledgeCard } from '../components/KnowledgeCard';
 import { KnowledgeDetail } from '../components/KnowledgeDetail';
 import { CreateMenu } from '../components/CreateMenu';
 import type { KnowledgeItem, KnowledgeType } from '../types';
-import type { Project } from '../../projects/types';
 
 interface LibraryPageProps {
   projectId?: number;
@@ -20,8 +19,7 @@ export function LibraryPage({ projectId }: LibraryPageProps) {
   const [selected, setSelected] = useState<KnowledgeItem | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [projectNames, setProjectNames] = useState<Record<number, string>>({});
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
-
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const loadProjectNames = useCallback(async () => {
     const all = await database.getProjects();
     const map: Record<number, string> = {};

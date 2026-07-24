@@ -35,7 +35,7 @@ import {
   DEPLOYMENT_LOG_QUERIES,
 } from './schema';
 import type { Project } from '../features/projects/types';
-import type { KnowledgeItem, Note, Folder, CodeSnippet, Bug, Attachment } from '../features/knowledge/types';
+import type { KnowledgeItem, Note, Folder, CodeSnippet, Bug, Attachment, ItemStatus } from '../features/knowledge/types';
 
 type Row = Record<string, unknown>;
 type DatabaseInstance = {
@@ -79,11 +79,22 @@ function toNote(row: Row): Note {
   return {
     id: Number(row.id),
     title: String(row.title ?? ''),
+    type: 'note',
     content: String(row.content ?? ''),
+    code: '',
+    description: '',
+    language: '',
+    url: '',
+    problem: '',
+    cause: '',
+    solution: '',
+    severity: '',
+    category: '',
     folder_id: row.folder_id ? Number(row.folder_id) : null,
     tags: parseTags(row.tags),
     favorite: Boolean(row.favorite),
     pinned: Boolean(row.pinned),
+    status: 'active',
     project_id: row.project_id ? Number(row.project_id) : null,
     last_opened: row.last_opened ? String(row.last_opened) : null,
     created_at: String(row.created_at ?? ''),
@@ -96,7 +107,6 @@ function toFolder(row: Row): Folder {
     id: Number(row.id),
     name: String(row.name ?? ''),
     parent_id: row.parent_id ? Number(row.parent_id) : null,
-    icon: String(row.icon ?? 'folder'),
     created_at: String(row.created_at ?? ''),
   };
 }
@@ -105,12 +115,24 @@ function toSnippet(row: Row): CodeSnippet {
   return {
     id: Number(row.id),
     title: String(row.title ?? ''),
+    type: 'snippet',
+    content: '',
     code: String(row.code ?? ''),
-    language: String(row.language ?? ''),
     description: String(row.description ?? ''),
+    language: String(row.language ?? ''),
+    url: '',
+    problem: '',
+    cause: '',
+    solution: '',
+    severity: '',
+    category: '',
     tags: parseTags(row.tags),
     favorite: Boolean(row.favorite),
+    pinned: false,
+    status: 'active',
     project_id: row.project_id ? Number(row.project_id) : null,
+    folder_id: null,
+    last_opened: null,
     created_at: String(row.created_at ?? ''),
     updated_at: String(row.updated_at ?? ''),
   };
@@ -147,11 +169,24 @@ function toBug(row: Row): Bug {
   return {
     id: Number(row.id),
     title: String(row.title ?? ''),
+    type: 'bug',
+    content: '',
+    code: '',
+    description: '',
+    language: '',
+    url: '',
     problem: String(row.problem ?? ''),
+    cause: '',
     solution: String(row.solution ?? ''),
+    severity: '',
+    category: '',
     tags: parseTags(row.tags),
+    favorite: false,
+    pinned: false,
+    status: (row.status as ItemStatus) ?? 'active',
     project_id: row.project_id ? Number(row.project_id) : null,
-    status: String(row.status ?? 'open'),
+    folder_id: null,
+    last_opened: null,
     created_at: String(row.created_at ?? ''),
     updated_at: String(row.updated_at ?? ''),
   };
@@ -896,6 +931,7 @@ function toKnowledgeItem(row: Row): KnowledgeItem {
     title: String(row.title ?? ''),
     type: (row.type as KnowledgeItem['type']) ?? 'note',
     content: String(row.content ?? ''),
+    code: String(row.code ?? ''),
     description: String(row.description ?? ''),
     language: String(row.language ?? ''),
     url: String(row.url ?? ''),
@@ -1335,20 +1371,20 @@ export const database = {
     return rows.map(toFolder);
   },
 
-  async createFolder(data: { name: string; parent_id?: number | null; icon?: string }): Promise<Folder | null> {
+  async createFolder(data: { name: string; parent_id?: number | null }): Promise<Folder | null> {
     const inst = await getDatabase();
     if (!inst) return null;
-    await inst.execute(FOLDER_QUERIES.insert, [data.name, data.parent_id ?? null, data.icon ?? 'folder']);
+    await inst.execute(FOLDER_QUERIES.insert, [data.name, data.parent_id ?? null]);
     const rows = await inst.select<Row>(FOLDER_QUERIES.getAll);
     return rows.length ? toFolder(rows[rows.length - 1]) : null;
   },
 
-  async updateFolder(id: number, data: { name?: string; icon?: string }): Promise<void> {
+  async updateFolder(id: number, data: { name?: string }): Promise<void> {
     const inst = await getDatabase();
     if (!inst) return;
     const existing = await this.getFolder(id);
     if (!existing) return;
-    await inst.execute(FOLDER_QUERIES.update, [data.name ?? existing.name, data.icon ?? existing.icon, id]);
+    await inst.execute(FOLDER_QUERIES.update, [data.name ?? existing.name, id]);
   },
 
   async deleteFolder(id: number): Promise<void> {

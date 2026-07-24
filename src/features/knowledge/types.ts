@@ -6,6 +6,7 @@ export interface KnowledgeItem {
   title: string;
   type: KnowledgeType;
   content: string;
+  code: string;
   description: string;
   language: string;
   url: string;

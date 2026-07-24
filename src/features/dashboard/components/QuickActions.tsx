@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { FaFolder, FaStickyNote, FaCode, FaPlay, FaTerminal, FaRocket, FaSearch } from 'react-icons/fa';
+import { FaFolder, FaStickyNote, FaPlay, FaTerminal, FaRocket, FaSearch } from 'react-icons/fa';
 import { invoke } from '@tauri-apps/api/core';
 import { PROJECTS, KNOWLEDGE, UTILITIES, WORKFLOWS } from '../../../routes/types/routeConstants';
 import { useAppStore } from '../../../stores/app.store';

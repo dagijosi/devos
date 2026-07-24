@@ -11,7 +11,8 @@ interface OverviewTabProps {
   onRefresh: () => void;
 }
 
-export function OverviewTab({ project, onRefresh }: OverviewTabProps) {
+export function OverviewTab({ project, onRefresh: _onRefresh }: OverviewTabProps) {
+  void _onRefresh;
   const [activity, setActivity] = useState<any[]>([]);
   const [scripts, setScripts] = useState<any[]>([]);
 

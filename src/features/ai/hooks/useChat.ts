@@ -1,10 +1,10 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { streamChat } from '../services/provider';
 import { buildContext, SYSTEM_PROMPT } from '../services/knowledge';
 import { useAiStore } from '../store/ai.store';
 import { database } from '../../../database';
 
-interface DisplayMessage {
+export interface DisplayMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -17,7 +17,6 @@ export function useChat() {
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState('');
   const [conversationId, setConversationId] = useState<number | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
 
   const addMessage = useCallback((msg: DisplayMessage) => {
     setMessages((prev) => [...prev, msg]);

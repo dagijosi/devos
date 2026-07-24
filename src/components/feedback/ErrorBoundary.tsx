@@ -1,4 +1,4 @@
-import React, { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { FaExclamationTriangle, FaRedo, FaHome, FaBug } from 'react-icons/fa';
 import { logger } from '../../utils/logger';
 import { markCrashed } from '../../utils/crashRecovery';

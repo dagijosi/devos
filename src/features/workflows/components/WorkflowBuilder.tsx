@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { FaPlus, FaTimes, FaArrowUp, FaArrowDown, FaSave, FaArrowLeft, FaCode, FaGlobe, FaTerminal, FaBell, FaFolder, FaCopy, FaFile, FaCompress, FaLock, FaClock, FaPlay, FaTrash } from 'react-icons/fa';
+import { FaPlus, FaTimes, FaArrowUp, FaArrowDown, FaSave, FaArrowLeft, FaCode, FaGlobe, FaTerminal, FaBell, FaFolder, FaCopy, FaFile, FaCompress, FaLock, FaClock, FaTrash } from 'react-icons/fa';
 import type { Workflow, WorkflowStep, ActionType, StepConfig } from '../types';
 import { ACTION_TYPE_LABELS } from '../types';
 

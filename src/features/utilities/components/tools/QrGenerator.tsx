@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { FaDownload } from 'react-icons/fa';
 import QRCode from 'qrcode';
 
@@ -6,7 +6,6 @@ export function QrGenerator() {
   const [text, setText] = useState('');
   const [error, setError] = useState('');
   const [qrDataUrl, setQrDataUrl] = useState('');
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const generate = useCallback(async () => {
     if (!text.trim()) { setError('Please enter text or URL'); return; }

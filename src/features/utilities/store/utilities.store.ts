@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { database } from '../../../database';
 
 interface UtilitiesState {
   activeTool: string | null;
@@ -19,7 +18,7 @@ interface UtilitiesState {
 
 export const useUtilitiesStore = create<UtilitiesState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       activeTool: null,
       searchQuery: '',
       activeCategory: null,

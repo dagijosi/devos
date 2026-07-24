@@ -1,4 +1,4 @@
-import { InsightWidget, ProgressBar } from './InsightWidget';
+import { InsightWidget } from './InsightWidget';
 
 interface Props {
   weekData: { day: string; hours: number }[];

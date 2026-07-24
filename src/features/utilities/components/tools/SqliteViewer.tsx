@@ -34,6 +34,7 @@ export function SqliteViewer() {
   };
 
   const ic = "w-full bg-theme-surface border border-theme-border/20 rounded-lg px-3 py-2 text-xs text-theme-text outline-none";
+  void ic;
 
   return (
     <div className="space-y-4">

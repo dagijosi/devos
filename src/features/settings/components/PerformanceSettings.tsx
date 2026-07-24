@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FaTachometerAlt, FaImage, FaCog } from 'react-icons/fa';
+import { FaTachometerAlt, FaCog } from 'react-icons/fa';
 
 export function PerformanceSettings() {
   const [reducedMotion, setReducedMotion] = useState(

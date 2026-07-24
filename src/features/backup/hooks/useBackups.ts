@@ -15,7 +15,7 @@ export function useBackups() {
       getBackupConfig(),
     ]);
     setBackups(list || []);
-    setConfig(cfg);
+    setConfig(cfg as BackupConfig);
     setLoading(false);
   }, []);
 

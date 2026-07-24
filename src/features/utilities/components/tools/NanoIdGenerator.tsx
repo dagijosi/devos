@@ -20,6 +20,7 @@ export function NanoIdGenerator() {
   const copyAll = () => navigator.clipboard.writeText(ids.join('\n'));
 
   const ic = "w-full bg-theme-surface border border-theme-border/20 rounded-lg px-3 py-2 text-xs text-theme-text outline-none focus:border-theme-icon/50";
+  void ic;
 
   return (
     <div className="space-y-4">

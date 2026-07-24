@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FaSync, FaDownload, FaCheckCircle, FaExclamationTriangle, FaTimes } from 'react-icons/fa';
+import { FaSync, FaDownload, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
 import { toast } from 'sonner';
 import { checkForUpdates, type UpdateInfo } from '../../../utils/updater';
 

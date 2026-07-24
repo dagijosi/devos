@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaPlus, FaSearch, FaStar, FaFolder, FaFire, FaDatabase, FaFileImport, FaTimes } from 'react-icons/fa';
+import { FaPlus, FaSearch, FaStar, FaFolder, FaFire, FaDatabase, FaFileImport } from 'react-icons/fa';
 import { useProjects } from '../hooks/useProjects';
 import { ProjectCard } from '../components/ProjectCard';
 import { ProjectWizard } from '../components/ProjectWizard';
@@ -10,6 +10,7 @@ import { Portal } from '../../../components/ui/overlays/Portal';
 export function ProjectsPage() {
   const { projects, loading, toggleFavorite, refresh } = useProjects();
   const navigate = useNavigate();
+  void navigate;
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'favorites' | 'active'>('all');
   const [showWizard, setShowWizard] = useState(false);

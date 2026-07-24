@@ -19,7 +19,7 @@ export function SplashScreen({ onFinish, minDuration = 2000 }: SplashScreenProps
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const startTime = Date.now();
+    void Date.now();
     const interval = setInterval(() => {
       setStep(prev => Math.min(prev + 1, LOADING_STEPS.length - 1));
       setProgress(prev => {

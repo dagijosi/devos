@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { FaPlay, FaSpinner, FaCheckCircle, FaExclamationCircle, FaSearch, FaFolder, FaCode, FaGlobe, FaTerminal, FaBell, FaClock } from 'react-icons/fa';
+import { FaPlay, FaSpinner, FaCheckCircle, FaExclamationCircle, FaSearch, FaClock } from 'react-icons/fa';
 import { database } from '../../../../database';
 import { actionExecutors } from '../../../workflows/actionRegistry';
 import { Portal } from '../../../../components/ui/overlays/Portal';

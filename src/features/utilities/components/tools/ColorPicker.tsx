@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState } from 'react';
 import { FaCopy, FaCheck } from 'react-icons/fa';
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {

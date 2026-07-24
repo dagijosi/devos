@@ -1,4 +1,5 @@
-import React, { useMemo, type ComponentType } from 'react';
+import { useMemo, type ComponentType } from 'react';
+import { FaExclamationTriangle } from 'react-icons/fa';
 import { UtilitiesSidebar } from '../components/UtilitiesSidebar';
 import { ToolGrid } from '../components/ToolGrid';
 import { ToolShell } from '../components/ToolShell';
@@ -57,6 +58,13 @@ import { CronParser } from '../components/tools/CronParser';
 import { GradientBuilder } from '../components/tools/GradientBuilder';
 import { EnvViewer } from '../components/tools/EnvViewer';
 
+const Placeholder = () => (
+  <div className="flex flex-col items-center justify-center py-12 text-theme-text/30">
+    <FaExclamationTriangle className="w-8 h-8 mb-2" />
+    <p className="text-xs">Tool not found</p>
+  </div>
+);
+
 const toolComponentMap: Record<string, ComponentType> = {
   'json-formatter': JsonFormatter,
   'sql-formatter': SqlFormatter,
@@ -112,7 +120,7 @@ const toolComponentMap: Record<string, ComponentType> = {
 };
 
 export function UtilitiesPage() {
-  const { activeTool, setActiveTool, searchQuery, activeCategory, showFavoritesOnly, favoriteTools, recentTools } = useUtilitiesStore();
+  const { activeTool, searchQuery, activeCategory, showFavoritesOnly, favoriteTools, recentTools } = useUtilitiesStore();
 
   const matchedTool = useMemo(() => {
     if (!activeTool) return null;

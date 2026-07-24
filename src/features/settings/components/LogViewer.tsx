@@ -28,7 +28,7 @@ export function LogViewer() {
   useEffect(() => {
     refresh();
     const unsub = logger.subscribe(refresh);
-    return unsub;
+    return () => { unsub(); };
   }, [refresh]);
 
   const filtered = search

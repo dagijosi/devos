@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 
 interface MatchResult {
   full: string;
@@ -21,7 +21,7 @@ export function RegexTester() {
     if (!pattern.trim() || !testText) return [];
     setError('');
     try {
-      const regex = new RegExp(pattern, flagString);
+      void pattern;
       const results: MatchResult[] = [];
       let match: RegExpExecArray | null;
       const global = flagString.includes('g');
