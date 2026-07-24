@@ -165,7 +165,29 @@ export function TelegramConnector() {
             </p>
           </div>
           <input value={config.bot_token} onChange={e => save({ bot_token: e.target.value.trim() })} placeholder="Bot token" className={ic} />
-          <input value={config.chat_id} onChange={e => save({ chat_id: e.target.value.trim() })} placeholder="Chat ID filter (optional)" className={ic} />
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <input
+                value={config.chat_id}
+                onChange={e => save({ chat_id: e.target.value.trim() })}
+                placeholder="Chat ID (numbers only, or leave empty)"
+                className={ic}
+              />
+              {config.chat_id ? (
+                <button
+                  type="button"
+                  onClick={() => save({ chat_id: '' })}
+                  className="shrink-0 px-2.5 py-2 rounded-lg text-[10px] border border-theme-border/20 text-theme-text/50 hover:text-theme-text hover:bg-theme-background"
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
+            <p className="text-[10px] text-theme-text/35">
+              Optional lock to one Telegram chat. Must be digits (e.g. <code className="text-theme-text/55">5019457140</code>).
+              Leave empty to accept the first chat that messages the bot — text like “main” is ignored.
+            </p>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <label className="text-[10px] text-theme-text/40">Poll every</label>
             <select value={config.poll_interval || 15} onChange={e => save({ poll_interval: Number(e.target.value) })}

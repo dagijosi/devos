@@ -3,59 +3,86 @@ import { database } from '../../database';
 import type { Workflow, WorkflowLog, StepLog } from './types';
 import { actionExecutors } from './actionRegistry';
 
-const SEED_KEY = 'devos_workflows_v5';
+const SEED_KEY = 'devos_workflows_v7';
 
-/** Curated examples that work out of the box on Windows DevOS builds. */
+/** Day-to-day examples — all runnable on Windows DevOS. */
 const SEED_WORKFLOWS = [
-  { name: 'Open Task Manager', description: 'Launch Windows Task Manager', category: 'system', steps: [
-    { actionType: 'run-command', label: 'Open Task Manager', config: { command: 'taskmgr' } },
+  { name: 'Morning coding setup', description: 'Pull, open editor + terminal, open localhost', category: 'development', steps: [
+    { actionType: 'run-command', label: 'Git pull', config: { command: 'git pull' } },
+    { actionType: 'open-vscode', label: 'Open editor', config: { path: '.' } },
+    { actionType: 'open-terminal', label: 'Open terminal', config: { path: '.' } },
+    { actionType: 'open-url', label: 'Open app', config: { url: 'http://localhost:5173' } },
+    { actionType: 'notification', label: 'Ready', config: { notifTitle: 'Ready to code', notifType: 'success' } },
   ]},
-  { name: 'Flush DNS Cache', description: 'Clear the Windows DNS resolver cache', category: 'system', steps: [
-    { actionType: 'run-command', label: 'ipconfig /flushdns', config: { command: 'ipconfig /flushdns' } },
-    { actionType: 'notification', label: 'Done', config: { notifTitle: 'DNS cache flushed', notifType: 'success' } },
-  ]},
-  { name: 'Open File Explorer', description: 'Open Explorer in the current folder', category: 'system', steps: [
-    { actionType: 'open-folder', label: 'Open Explorer', config: { path: '.' } },
-  ]},
-  { name: 'Empty Recycle Bin', description: 'Empty the Windows Recycle Bin', category: 'system', steps: [
-    { actionType: 'run-command', label: 'Clear Recycle Bin', config: { command: 'powershell -NoProfile -Command "Clear-RecycleBin -Force -ErrorAction SilentlyContinue"' } },
-    { actionType: 'notification', label: 'Done', config: { notifTitle: 'Recycle Bin emptied', notifType: 'info' } },
-  ]},
-  { name: 'Git Status', description: 'Show working tree status', category: 'git', steps: [
-    { actionType: 'run-command', label: 'git status', config: { command: 'git status' } },
-  ]},
-  { name: 'Git Pull', description: 'Pull latest changes from the remote', category: 'git', steps: [
-    { actionType: 'run-command', label: 'git pull', config: { command: 'git pull' } },
-    { actionType: 'notification', label: 'Done', config: { notifTitle: 'Pull finished', notifType: 'success' } },
-  ]},
-  { name: 'Stage All Changes', description: 'git add -A and show status', category: 'git', steps: [
-    { actionType: 'run-command', label: 'git add -A', config: { command: 'git add -A' } },
-    { actionType: 'run-command', label: 'git status', config: { command: 'git status' } },
-    { actionType: 'notification', label: 'Ready', config: { notifTitle: 'Changes staged', notifType: 'info' } },
-  ]},
-  { name: 'Open GitHub Repo', description: 'Open github.com in your browser', category: 'git', steps: [
-    { actionType: 'open-url', label: 'Open GitHub', config: { url: 'https://github.com' } },
-  ]},
-  { name: 'Open in Editor', description: 'Open the current folder in your preferred editor', category: 'development', steps: [
-    { actionType: 'open-vscode', label: 'Open Editor', config: { path: '.' } },
-  ]},
-  { name: 'Open Terminal', description: 'Open a terminal in the current folder', category: 'development', steps: [
-    { actionType: 'open-terminal', label: 'Open Terminal', config: { path: '.' } },
-  ]},
-  { name: 'Open Dev Server', description: 'Open the local Vite URL', category: 'development', steps: [
-    { actionType: 'open-url', label: 'localhost:5173', config: { url: 'http://localhost:5173' } },
-  ]},
-  { name: 'Install & Build', description: 'npm install then npm run build', category: 'development', steps: [
+  { name: 'Ship check', description: 'Status → install → build', category: 'development', steps: [
+    { actionType: 'run-command', label: 'Git status', config: { command: 'git status' } },
     { actionType: 'run-command', label: 'npm install', config: { command: 'npm install' } },
     { actionType: 'run-command', label: 'npm run build', config: { command: 'npm run build' } },
     { actionType: 'notification', label: 'Done', config: { notifTitle: 'Build complete', notifType: 'success' } },
   ]},
-  { name: 'Sleep PC', description: 'Put this PC to sleep', category: 'system', steps: [
-    { actionType: 'notification', label: 'Sleeping', config: { notifTitle: 'Going to sleep…', notifType: 'warning' } },
-    { actionType: 'wait', label: 'Wait 2s', config: { waitDuration: 2, waitUnit: 'seconds' } },
-    { actionType: 'run-command', label: 'Sleep', config: { command: 'rundll32.exe powrprof.dll,SetSuspendState 0,1,0' } },
+  { name: 'Prepare commit', description: 'Stage all changes and show status', category: 'git', steps: [
+    { actionType: 'run-command', label: 'git add -A', config: { command: 'git add -A' } },
+    { actionType: 'run-command', label: 'git status', config: { command: 'git status' } },
+    { actionType: 'notification', label: 'Staged', config: { notifTitle: 'Changes staged', notifType: 'info' } },
+  ]},
+  { name: 'Git pull', description: 'Pull latest from remote', category: 'git', steps: [
+    { actionType: 'run-command', label: 'git pull', config: { command: 'git pull' } },
+  ]},
+  { name: 'Open workspace', description: 'Explorer + editor + terminal', category: 'project', steps: [
+    { actionType: 'open-folder', label: 'Explorer', config: { path: '.' } },
+    { actionType: 'open-vscode', label: 'Editor', config: { path: '.' } },
+    { actionType: 'open-terminal', label: 'Terminal', config: { path: '.' } },
+  ]},
+  { name: 'Open Task Manager', description: 'Launch Windows Task Manager', category: 'system', steps: [
+    { actionType: 'run-command', label: 'Task Manager', config: { command: 'taskmgr' } },
+  ]},
+  { name: 'Flush DNS', description: 'Clear Windows DNS cache', category: 'system', steps: [
+    { actionType: 'run-command', label: 'ipconfig /flushdns', config: { command: 'ipconfig /flushdns' } },
+    { actionType: 'notification', label: 'Done', config: { notifTitle: 'DNS flushed', notifType: 'success' } },
+  ]},
+  { name: 'Dev server URL', description: 'Open http://localhost:5173', category: 'development', steps: [
+    { actionType: 'open-url', label: 'localhost:5173', config: { url: 'http://localhost:5173' } },
   ]},
 ];
+
+/** Old example names from earlier seeds — remove leftover copies once. */
+const LEGACY_EXAMPLE_NAMES = [
+  'Morning coding setup', 'Ship check', 'Prepare commit', 'Git pull', 'Open workspace',
+  'Open Task Manager', 'Flush DNS', 'Dev server URL', 'Flush DNS Cache', 'Open File Explorer',
+  'Empty Recycle Bin', 'Git Status', 'Git Pull', 'Stage All Changes', 'Open GitHub Repo',
+  'Open in Editor', 'Open Terminal', 'Open Dev Server', 'Install & Build', 'Sleep PC',
+  'System quick tools',
+];
+
+function normalizeTags(tags: unknown): string[] {
+  if (Array.isArray(tags)) return tags.map(String);
+  if (typeof tags === 'string') {
+    try { return JSON.parse(tags); } catch { return []; }
+  }
+  return [];
+}
+
+function isBuiltIn(wf: { tags?: unknown }): boolean {
+  return normalizeTags(wf.tags).includes('built-in');
+}
+
+/** Remove duplicate example workflows (keeps one per name). */
+async function dedupeBuiltInWorkflows() {
+  const existing = await database.getWorkflows();
+  const seen = new Set<string>();
+  for (const wf of existing) {
+    if (!isBuiltIn(wf)) continue;
+    const key = String(wf.name || '').trim().toLowerCase();
+    if (!key) continue;
+    if (seen.has(key)) {
+      await database.deleteWorkflow(wf.id);
+    } else {
+      seen.add(key);
+    }
+  }
+}
+
+let seedLock: Promise<void> | null = null;
 
 export function useWorkflows() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
@@ -63,42 +90,71 @@ export function useWorkflows() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    await dedupeBuiltInWorkflows();
     const data = await database.getWorkflows();
     setWorkflows(data);
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
-
   const ensureSeeded = useCallback(async () => {
-    if (localStorage.getItem(SEED_KEY)) return;
-    localStorage.removeItem('devos_workflows_seeded');
-    localStorage.removeItem('devos_workflows_v2');
-    localStorage.removeItem('devos_workflows_v4');
-    const existing = await database.getWorkflows();
-    for (const wf of existing) {
-      const tags = Array.isArray(wf.tags) ? wf.tags : [];
-      if (tags.includes('built-in')) await database.deleteWorkflow(wf.id);
-    }
-    for (const wf of SEED_WORKFLOWS) {
-      await database.createWorkflow({
-        name: wf.name,
-        description: wf.description,
-        steps: JSON.stringify(wf.steps.map((s: any, i: number) => ({
-          id: `step_${i}_${Date.now()}`,
-          ...s,
-        }))),
-        tags: JSON.stringify(['built-in']),
-        category: wf.category,
-      });
-    }
-    localStorage.setItem(SEED_KEY, '1');
-    await load();
+    if (seedLock) return seedLock;
+
+    seedLock = (async () => {
+      await dedupeBuiltInWorkflows();
+
+      if (localStorage.getItem(SEED_KEY) === '1') {
+        await load();
+        return;
+      }
+
+      // Claim immediately so React StrictMode cannot double-insert
+      localStorage.setItem(SEED_KEY, 'pending');
+
+      localStorage.removeItem('devos_workflows_seeded');
+      localStorage.removeItem('devos_workflows_v2');
+      localStorage.removeItem('devos_workflows_v4');
+      localStorage.removeItem('devos_workflows_v5');
+      localStorage.removeItem('devos_workflows_v6');
+
+      const existing = await database.getWorkflows();
+      const wipeNames = new Set(
+        [...SEED_WORKFLOWS.map(s => s.name), ...LEGACY_EXAMPLE_NAMES].map(n => n.toLowerCase()),
+      );
+
+      for (const wf of existing) {
+        const name = String(wf.name || '').trim().toLowerCase();
+        if (isBuiltIn(wf) || wipeNames.has(name)) {
+          await database.deleteWorkflow(wf.id);
+        }
+      }
+
+      for (const wf of SEED_WORKFLOWS) {
+        await database.createWorkflow({
+          name: wf.name,
+          description: wf.description,
+          steps: JSON.stringify(wf.steps.map((s: any, i: number) => ({
+            id: `step_${i}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            ...s,
+          }))),
+          tags: JSON.stringify(['built-in']),
+          category: wf.category,
+        });
+      }
+
+      localStorage.setItem(SEED_KEY, '1');
+      await load();
+    })().catch((e) => {
+      if (localStorage.getItem(SEED_KEY) === 'pending') localStorage.removeItem(SEED_KEY);
+      throw e;
+    }).finally(() => { seedLock = null; });
+
+    return seedLock;
   }, [load]);
 
   useEffect(() => {
     ensureSeeded().catch((e) => {
       console.error('[Workflows] Seed failed:', e);
+      setLoading(false);
     });
   }, [ensureSeeded]);
 
@@ -128,21 +184,25 @@ export function useWorkflows() {
   return { workflows, loading, createWorkflow, updateWorkflow, deleteWorkflow, toggleFavorite, refresh };
 }
 
+export type RunOptions = { projectPath?: string };
+
 export function useWorkflowRunner() {
   const [running, setRunning] = useState(false);
   const [currentLog, setCurrentLog] = useState<WorkflowLog | null>(null);
 
-  function injectProjectContext(config: any) {
-    const ctx = typeof window !== 'undefined' ? (window as any).__workflow_context : null;
-    if (!ctx?.project_folder) return config;
+  function injectProjectContext(config: any, projectPath?: string) {
+    const ctxPath =
+      projectPath ||
+      (typeof window !== 'undefined' ? (window as any).__workflow_context?.project_folder : null);
+    if (!ctxPath) return config;
     const c = { ...config };
-    if (!c.path || c.path === '.' || c.path === '') c.path = ctx.project_folder;
-    if (!c.commandCwd || c.commandCwd === '') c.commandCwd = ctx.project_folder;
-    if (!c.sourcePath) c.sourcePath = ctx.project_folder;
+    if (!c.path || c.path === '.' || c.path === '') c.path = ctxPath;
+    if (!c.commandCwd || c.commandCwd === '' || c.commandCwd === '.') c.commandCwd = ctxPath;
+    if (!c.sourcePath) c.sourcePath = ctxPath;
     return c;
   }
 
-  const runWorkflow = useCallback(async (workflow: Workflow): Promise<void> => {
+  const runWorkflow = useCallback(async (workflow: Workflow, options?: RunOptions): Promise<void> => {
     setRunning(true);
     const steps: StepLog[] = workflow.steps.map(s => ({
       stepId: s.id, actionType: s.actionType, label: s.label,
@@ -164,18 +224,34 @@ export function useWorkflowRunner() {
       setCurrentLog(prev => prev ? { ...prev, step_logs: [...steps] } : null);
 
       try {
-        const config = injectProjectContext(step.config);
+        const config = injectProjectContext(step.config, options?.projectPath);
         const executor = actionExecutors[step.actionType];
         if (!executor) throw new Error(`Unknown action: ${step.actionType}`);
         const result = await executor(config);
         stepLog.status = result.success ? 'success' : 'failed';
         stepLog.output = result.output;
         stepLog.error = result.error || null;
-        if (!result.success) allSuccess = false;
+        if (!result.success) {
+          allSuccess = false;
+          if (!step.config?.continueOnError) {
+            for (let j = i + 1; j < steps.length; j++) {
+              steps[j].status = 'skipped';
+              steps[j].completedAt = new Date().toISOString();
+            }
+            break;
+          }
+        }
       } catch (e: any) {
         stepLog.status = 'failed';
         stepLog.error = e.message;
         allSuccess = false;
+        if (!step.config?.continueOnError) {
+          for (let j = i + 1; j < steps.length; j++) {
+            steps[j].status = 'skipped';
+            steps[j].completedAt = new Date().toISOString();
+          }
+          break;
+        }
       }
       stepLog.completedAt = new Date().toISOString();
       setCurrentLog(prev => prev ? { ...prev, step_logs: [...steps] } : null);

@@ -1,4 +1,5 @@
 import { database } from '../../database';
+import { loadTelegramConfig, saveTelegramConfig, normalizeChatFilter } from './telegramConfig';
 
 const API = 'https://api.telegram.org/bot';
 const DEDUP_KEY = 'devos_telegram_processed_ids';
@@ -90,7 +91,8 @@ function plainWelcome(): string {
 
 export async function processTelegramUpdates(token: string, chatFilter: string, updates: any[]): Promise<ProcessedUpdate[]> {
   const results: ProcessedUpdate[] = [];
-  const filter = (chatFilter || '').trim();
+  // Only numeric chat ids count as a filter (ignore values like "main")
+  let filter = normalizeChatFilter(chatFilter);
 
   for (const update of updates) {
     const msg = update.message;
@@ -114,7 +116,9 @@ export async function processTelegramUpdates(token: string, chatFilter: string, 
     if (filter && String(chatId) !== filter) {
       entry.skipped = true;
       entry.command = 'skipped';
-      entry.result = `Ignored — chat ${chatId} does not match filter ${filter}. Clear Chat ID in Telegram settings.`;
+      entry.result =
+        `Ignored — this chat is ${chatId}, but Chat ID filter is ${filter}. ` +
+        `In DevOS → Telegram settings, clear Chat ID (or set it to ${chatId}), then send /start again.`;
       results.push(entry);
       continue;
     }
@@ -137,6 +141,15 @@ export async function processTelegramUpdates(token: string, chatFilter: string, 
     const cmdArgs = parts.slice(1).join(' ');
 
     try {
+      // First successful /start (or any command with empty filter) locks this chat
+      if (!filter) {
+        const cfg = loadTelegramConfig();
+        if (!normalizeChatFilter(cfg.chat_id)) {
+          saveTelegramConfig({ ...cfg, chat_id: String(chatId) });
+          filter = String(chatId);
+        }
+      }
+
       if (cmd.startsWith('/')) {
         entry.command = cmd.slice(1);
         entry.args = cmdArgs;

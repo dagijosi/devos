@@ -36,6 +36,8 @@ export interface StepConfig {
   notifType?: 'info' | 'success' | 'warning' | 'error';
   archivePath?: string;
   extractDest?: string;
+  /** If true, keep running later steps when this one fails */
+  continueOnError?: boolean;
 }
 
 export interface ScheduleConfig {
@@ -103,14 +105,13 @@ export const CATEGORY_LABELS: Record<string, string> = {
   system: 'System',
   project: 'Project',
   custom: 'Custom',
-  morning: 'Morning',
 };
 
 export const ACTION_TYPE_LABELS: Record<ActionType, string> = {
   'open-folder': 'Open Folder',
   'open-file': 'Open File',
   'open-url': 'Open URL',
-  'open-vscode': 'Open VS Code',
+  'open-vscode': 'Open Editor',
   'open-terminal': 'Open Terminal',
   'open-application': 'Open Application',
   'run-command': 'Run Command',
