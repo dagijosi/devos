@@ -45,6 +45,31 @@
           "name": "code",
           "cmd": "code",
           "args": true
+        },
+        {
+          "name": "taskmgr",
+          "cmd": "taskmgr",
+          "args": true
+        },
+        {
+          "name": "powershell",
+          "cmd": "powershell",
+          "args": true
+        },
+        {
+          "name": "shutdown",
+          "cmd": "shutdown",
+          "args": true
+        },
+        {
+          "name": "rundll32",
+          "cmd": "rundll32.exe",
+          "args": true
+        },
+        {
+          "name": "ipconfig",
+          "cmd": "ipconfig",
+          "args": true
         }
       ]
     }
