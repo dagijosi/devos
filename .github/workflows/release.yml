@@ -52,16 +52,13 @@ jobs:
           releaseDraft: true
           prerelease: false
 
-      - name: Generate and sign latest.json
+      - name: Generate latest.json
         shell: pwsh
-        env:
-          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         run: |
           $version = "${{ github.ref_name }}"
           $url = "https://github.com/dagijosi/devos/releases/download/$version/DevOS_${version}_x64-setup.exe"
           
-          # Create latest.json
+          # Create latest.json with windows-x86_64 platform
           $json = @{
             version = $version
             notes = "DevOS $version"
@@ -74,15 +71,9 @@ jobs:
             }
           } | ConvertTo-Json -Depth 10
           
-          # Save to temp file
-          $json | Out-File -FilePath "latest.json" -Encoding utf8
-          
-          # Sign it with tauri
-          npm run tauri -- signer sign latest.json
-          
-          # Move signed version to release directory
-          Move-Item -Force -Path "latest.json.sig" -Destination "src-tauri/target/release/bundle/nsis/latest.json.sig"
-          Move-Item -Force -Path "latest.json" -Destination "src-tauri/target/release/bundle/nsis/latest.json"
+          # Save to release directory
+          New-Item -ItemType Directory -Path "src-tauri/target/release/bundle/nsis" -Force | Out-Null
+          $json | Out-File -FilePath "src-tauri/target/release/bundle/nsis/latest.json" -Encoding utf8
 
       - name: Upload latest.json to release
         uses: softprops/action-gh-release@v1
