@@ -38,7 +38,7 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build Tauri app
+      - name: Build Tauri app with signing
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -50,33 +50,6 @@ jobs:
           releaseBody: 'See the assets to download this version and install.'
           releaseDraft: true
           prerelease: false
-
-      - name: Generate latest.json manually
-        run: |
-          $version = "${{ github.ref_name }}"
-          $url = "https://github.com/dagijosi/devos/releases/download/$version/DevOS_${version}_x64-setup.exe"
-          $json = @{
-            version = $version
-            notes = "DevOS $version"
-            pub_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-            platforms = @{
-              windows = @{
-                signature = ""
-                url = $url
-              }
-            }
-          } | ConvertTo-Json -Depth 10
-          $json | Out-File -FilePath "src-tauri/target/release/bundle/nsis/latest.json" -Encoding utf8
-
-      - name: Upload latest.json to release
-        uses: softprops/action-gh-release@v1
-        if: success()
-        with:
-          files: src-tauri/target/release/bundle/nsis/latest.json
-          append_existing: true
-          draft: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # Cleanup old releases to prevent storage from filling up
   cleanup:
@@ -92,3 +65,4 @@ jobs:
           delete_tag_pattern: v*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
