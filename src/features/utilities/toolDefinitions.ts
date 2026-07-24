@@ -83,8 +83,9 @@ const tools: ToolDefinition[] = [
   { id: 'cron-parser', name: 'Cron Parser', description: 'Parse and explain cron expressions', icon: FaTachometerAlt, category: 'developer', keywords: ['cron', 'schedule', 'parse', 'cronjob'] },
   { id: 'gradient-builder', name: 'Gradient Builder', description: 'Create CSS gradients visually', icon: FaPaintBrush, category: 'developer', keywords: ['gradient', 'css', 'color', 'design'] },
   { id: 'env-viewer', name: 'Env Viewer', description: 'Manage environment variables', icon: FaCog, category: 'developer', keywords: ['env', 'environment', 'variables', 'config'] },
-  // ── Integrations ──
-  { id: 'telegram-connector', name: 'Telegram Connector', description: 'Import notes, bugs, and snippets from Telegram', icon: FaTelegram, category: 'integrations', keywords: ['telegram', 'bot', 'import', 'sync', 'phone', 'mobile'] },
+
+  // ── Integrations (pinned near end of defs; sidebar category surfaces them) ──
+  { id: 'telegram-connector', name: 'Telegram', description: 'Save notes, bugs, and todos from Telegram into your Library', icon: FaTelegram, category: 'integrations', keywords: ['telegram', 'bot', 'import', 'sync', 'phone', 'mobile', 'connector'] },
 ];
 
 export default tools;

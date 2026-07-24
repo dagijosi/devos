@@ -8,6 +8,7 @@ import {
   FaRobot,
   FaLightbulb,
   FaSave,
+  FaTelegram,
 } from "react-icons/fa";
 import {
   DASHBOARD,
@@ -44,6 +45,7 @@ export const navigationCategories: NavCategory[] = [
       { name: "Dashboard", href: DASHBOARD, icon: FaChartBar },
       { name: "Projects", href: PROJECTS, icon: FaFolder },
       { name: "Library", href: KNOWLEDGE, icon: FaBook },
+      { name: "Telegram", href: `${UTILITIES}?tool=telegram-connector`, icon: FaTelegram },
     ],
   },
   {

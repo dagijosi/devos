@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { FaTelegram, FaSync, FaTrash, FaCog, FaRobot, FaCheck } from 'react-icons/fa';
+import { FaTelegram, FaSync, FaTrash, FaCog, FaCheck, FaPause, FaPlay } from 'react-icons/fa';
 import { loadTelegramConfig, saveTelegramConfig, UPDATES_KEY, type TelegramConfig } from '../../telegramConfig';
 import { processTelegramUpdates, setBotCommands, type ProcessedUpdate } from '../../telegramBot';
+import { KNOWLEDGE } from '../../../../routes/types/routeConstants';
 
 const API = 'https://api.telegram.org/bot';
 
@@ -20,15 +22,18 @@ export function TelegramConnector() {
   const [loading, setLoading] = useState(false);
   const [showConfig, setShowConfig] = useState(!config.bot_token);
   const [botInfo, setBotInfo] = useState<{ username: string; name: string } | null>(null);
+  const [lastSync, setLastSync] = useState<string | null>(null);
 
   const save = useCallback((patch: Partial<TelegramConfig>) => {
-    const next = { ...config, ...patch };
+    const next = { ...loadTelegramConfig(), ...patch };
+    // Saving a token should start listening unless user explicitly paused in this patch
+    if (patch.bot_token && patch.auto_poll === undefined) next.auto_poll = true;
     setConfig(next);
     saveTelegramConfig(next);
-  }, [config]);
+  }, []);
 
   useEffect(() => {
-    if (!config.bot_token || botInfo) return;
+    if (!config.bot_token) return;
     (async () => {
       try {
         const res = await fetch(`${API}${config.bot_token}/getMe`);
@@ -39,20 +44,21 @@ export function TelegramConnector() {
         }
       } catch {}
     })();
-  }, []);
+  }, [config.bot_token]);
 
   useEffect(() => { saveUpdates(updates); }, [updates]);
 
-  // Background poller writes UPDATES_KEY — keep the Connector list in sync.
   useEffect(() => {
-    const refresh = () => setUpdates(loadUpdates());
+    const refresh = () => {
+      setUpdates(loadUpdates());
+      setConfig(loadTelegramConfig());
+      setLastSync(new Date().toLocaleTimeString());
+    };
     window.addEventListener('telegram-updates', refresh);
-    window.addEventListener('storage', refresh);
-    const id = setInterval(refresh, 3000);
+    window.addEventListener('telegram-config', refresh);
     return () => {
       window.removeEventListener('telegram-updates', refresh);
-      window.removeEventListener('storage', refresh);
-      clearInterval(id);
+      window.removeEventListener('telegram-config', refresh);
     };
   }, []);
 
@@ -64,129 +70,161 @@ export function TelegramConnector() {
       if (data.ok) {
         setBotInfo({ username: data.result.username, name: data.result.first_name });
         const cmdsOk = await setBotCommands(config.bot_token);
-        toast.success(`Connected as @${data.result.username}${cmdsOk ? ' · Commands registered' : ''}`);
+        save({ auto_poll: true });
+        toast.success(`Connected as @${data.result.username}${cmdsOk ? ' · commands registered' : ''}`);
+        // Clear stuck dedup so a previously ignored /start can be retried
+        try { localStorage.removeItem('devos_telegram_processed_ids'); } catch {}
       } else {
         toast.error(`Telegram API: ${data.description}`);
       }
     } catch { toast.error('Connection failed'); }
   };
 
-  const fetchAndProcess = async () => {
+  const syncNow = async () => {
     if (!config.bot_token) { toast.error('Configure bot token first'); return; }
     setLoading(true);
     try {
-      const offset = config.last_update_id ? config.last_update_id + 1 : 0;
-      const res = await fetch(`${API}${config.bot_token}/getUpdates?offset=${offset}&timeout=10`);
+      const c = loadTelegramConfig();
+      const offset = c.last_update_id ? c.last_update_id + 1 : 0;
+      const res = await fetch(`${API}${c.bot_token}/getUpdates?offset=${offset}&timeout=8`);
       const data = await res.json();
       if (!data.ok) { toast.error(`API: ${data.description}`); setLoading(false); return; }
-      if (!data.result?.length) { toast('No new messages'); setLoading(false); return; }
+      if (!data.result?.length) { toast('No new messages'); setLoading(false); setLastSync(new Date().toLocaleTimeString()); return; }
 
-      const processed = await processTelegramUpdates(config.bot_token, config.chat_id, data.result);
-      setUpdates(prev => [...processed, ...prev]);
+      const processed = await processTelegramUpdates(c.bot_token, c.chat_id, data.result);
+      setUpdates(prev => [...processed, ...prev].slice(0, 200));
 
       const maxId = Math.max(...data.result.map((u: any) => u.update_id));
       save({ last_update_id: maxId });
+      setLastSync(new Date().toLocaleTimeString());
 
       const byCmd = processed.reduce((acc, u) => { acc[u.command] = (acc[u.command] || 0) + 1; return acc; }, {} as Record<string, number>);
-      const summary = Object.entries(byCmd).map(([c, n]) => `${n}× /${c}`).join(', ');
-      toast.success(`Processed ${processed.length} message${processed.length !== 1 ? 's' : ''}: ${summary}`);
+      const summary = Object.entries(byCmd).map(([cmd, n]) => `${n}× /${cmd}`).join(', ');
+      toast.success(`Processed ${processed.length}: ${summary || 'messages'}`);
     } catch (e: any) { toast.error(`Error: ${e.message}`); }
     setLoading(false);
   };
 
-  const clearUpdates = () => setUpdates([]);
-
-  const ic = "w-full bg-theme-surface border border-theme-border/20 rounded-lg px-3 py-2 text-xs text-theme-text outline-none focus:border-theme-icon/50";
+  const clearUpdates = () => { setUpdates([]); saveUpdates([]); };
+  const ic = 'w-full bg-theme-surface border border-theme-border/20 rounded-lg px-3 py-2 text-xs text-theme-text outline-none focus:border-theme-icon/50';
 
   return (
-    <div className="space-y-4">
-      {showConfig && (
-        <div className="bg-theme-background border border-theme-border/20 rounded-xl p-4 space-y-3">
-          <p className="text-xs font-medium text-theme-text">🤖 Telegram Bot Configuration</p>
-          <p className="text-[10px] text-theme-text/40">
-            Create a bot via <a href="https://t.me/BotFather" target="_blank" className="text-theme-icon underline">@BotFather</a>, then enter its token here.
-            Send commands from your phone and this tool processes them into your DevOS database.
-          </p>
-          <input value={config.bot_token} onChange={e => save({ bot_token: e.target.value })} placeholder="Bot token: 123456:ABCdef..." className={ic} />
-          <input value={config.chat_id} onChange={e => save({ chat_id: e.target.value })} placeholder="Chat ID (optional — only process messages from this chat)" className={ic} />
-
-          {botInfo && (
-            <div className="flex items-center gap-2 text-xs text-green-400 bg-green-500/10 rounded-lg px-3 py-2">
-              <FaCheck className="w-3 h-3" /> Connected as @{botInfo.username} ({botInfo.name})
-            </div>
-          )}
-
-          <div className="flex gap-2">
-            <button onClick={testConnection} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-icon/10 text-theme-icon border border-theme-icon/20 hover:bg-theme-icon/20 transition-colors">Test Connection</button>
-            <button onClick={() => setShowConfig(false)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-icon text-white hover:bg-theme-icon/90 transition-colors">Save</button>
+    <div className="space-y-5">
+      <div className="rounded-xl border border-theme-border/15 bg-theme-background/40 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-lg bg-[#229ED9]/15 flex items-center justify-center shrink-0">
+            <FaTelegram className="w-4 h-4 text-[#229ED9]" />
           </div>
-        </div>
-      )}
-
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <FaTelegram className="w-4 h-4 text-blue-400" />
-          <span className="text-xs text-theme-text/60 font-medium">Telegram Bot</span>
-          {botInfo && <span className="text-[10px] text-green-400">● @{botInfo.username}</span>}
-          {!showConfig && (
-            <button onClick={() => setShowConfig(true)} className="p-1 rounded text-theme-text/30 hover:text-theme-text"><FaCog className="w-3 h-3" /></button>
-          )}
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-theme-text truncate">
+              {botInfo ? `@${botInfo.username}` : 'Telegram Bot'}
+            </p>
+            <p className="text-[10px] text-theme-text/40">
+              {config.bot_token
+                ? (config.auto_poll !== false ? `Polling every ${config.poll_interval || 15}s` : 'Polling paused')
+                : 'Not configured'}
+              {lastSync ? ` · last sync ${lastSync}` : ''}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <select value={config.poll_interval || 15} onChange={e => save({ poll_interval: Number(e.target.value) })}
-            className="bg-theme-surface border border-theme-border/20 rounded-lg px-1.5 py-1.5 text-[10px] text-theme-text/50 outline-none cursor-pointer">
-            <option value={5}>5s</option>
-            <option value={10}>10s</option>
-            <option value={15}>15s</option>
-            <option value={30}>30s</option>
-            <option value={60}>60s</option>
-            <option value={120}>120s</option>
-          </select>
-          <span className="text-[10px] text-theme-text/20">|</span>
-          <button onClick={fetchAndProcess} disabled={loading}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-icon text-white hover:bg-theme-icon/90 disabled:opacity-50 transition-colors">
-            <FaSync className={`w-2.5 h-2.5 ${loading ? 'animate-spin' : ''}`} /> Fetch
+          {config.bot_token && (
+            <button
+              onClick={() => save({ auto_poll: config.auto_poll === false })}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-medium border border-theme-border/20 text-theme-text/60 hover:text-theme-text hover:bg-theme-surface transition-colors"
+              title={config.auto_poll === false ? 'Resume background polling' : 'Pause background polling'}
+            >
+              {config.auto_poll === false ? <FaPlay className="w-2.5 h-2.5" /> : <FaPause className="w-2.5 h-2.5" />}
+              {config.auto_poll === false ? 'Resume' : 'Pause'}
+            </button>
+          )}
+          <button onClick={() => setShowConfig(v => !v)} className="p-2 rounded-lg text-theme-text/35 hover:text-theme-text hover:bg-theme-surface transition-colors" title="Settings">
+            <FaCog className="w-3.5 h-3.5" />
           </button>
-          <button onClick={clearUpdates} disabled={!updates.length}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium bg-theme-surface border border-theme-border/20 text-theme-text/60 hover:text-red-400 disabled:opacity-30 transition-colors">
-            <FaTrash className="w-2.5 h-2.5" />
+          <button onClick={syncNow} disabled={loading || !config.bot_token}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-icon text-white hover:bg-theme-icon/90 disabled:opacity-40 transition-colors">
+            <FaSync className={`w-2.5 h-2.5 ${loading ? 'animate-spin' : ''}`} />
+            Sync
           </button>
         </div>
       </div>
 
-      <div className="flex items-center gap-3 text-[10px] text-theme-text/30">
-        <span>Commands: /note, /bug, /todo, /snippet, /search, /recent, /help</span>
-        <span className="text-theme-text/20">·</span>
-        <span>Plain text → note</span>
-      </div>
-
-      {updates.length === 0 && !loading && (
-        <div className="text-center py-10">
-          <FaRobot className="w-10 h-10 text-theme-text/15 mx-auto mb-3" />
-          <p className="text-xs text-theme-text/25">Send a command to your bot on Telegram — it will be auto-fetched.</p>
-          <div className="mt-4 max-w-md mx-auto text-left space-y-1.5 text-[10px] text-theme-text/30">
-            <p className="font-medium text-theme-text/40">Example:</p>
-            <code className="block px-3 py-1.5 bg-theme-background rounded-lg">/note My Meeting Notes</code>
-            <code className="block px-3 py-1.5 bg-theme-background rounded-lg">Discussed Q3 roadmap with the team</code>
-            <code className="block px-3 py-1.5 bg-theme-background rounded-lg">Action items: deploy v2 by Friday</code>
+      {showConfig && (
+        <div className="rounded-xl border border-theme-border/20 bg-theme-surface p-4 space-y-3">
+          <div>
+            <p className="text-xs font-medium text-theme-text">Bot setup</p>
+            <p className="text-[10px] text-theme-text/40 mt-0.5">
+              Create a bot with <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" className="text-theme-icon underline">@BotFather</a>, paste the token, then message the bot. Messages save into your Library.
+            </p>
           </div>
+          <input value={config.bot_token} onChange={e => save({ bot_token: e.target.value.trim() })} placeholder="Bot token" className={ic} />
+          <input value={config.chat_id} onChange={e => save({ chat_id: e.target.value.trim() })} placeholder="Chat ID filter (optional)" className={ic} />
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-[10px] text-theme-text/40">Poll every</label>
+            <select value={config.poll_interval || 15} onChange={e => save({ poll_interval: Number(e.target.value) })}
+              className="bg-theme-background border border-theme-border/20 rounded-lg px-2 py-1.5 text-[10px] text-theme-text outline-none">
+              {[5, 10, 15, 30, 60, 120].map(n => <option key={n} value={n}>{n}s</option>)}
+            </select>
+            <div className="flex-1" />
+            <button onClick={testConnection} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-icon/10 text-theme-icon border border-theme-icon/20 hover:bg-theme-icon/20 transition-colors">
+              Test
+            </button>
+            <button onClick={() => setShowConfig(false)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-icon text-white hover:bg-theme-icon/90 transition-colors">
+              Done
+            </button>
+          </div>
+          {botInfo && (
+            <div className="flex items-center gap-2 text-xs text-green-400 bg-green-500/10 rounded-lg px-3 py-2">
+              <FaCheck className="w-3 h-3" /> Connected as @{botInfo.username}
+            </div>
+          )}
         </div>
       )}
 
-      {updates.length > 0 && (
-        <div className="space-y-2 max-h-[500px] overflow-y-auto">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {[
+          { cmd: '/start', tip: 'Welcome + help' },
+          { cmd: '/note Title', tip: 'Save a note' },
+          { cmd: '/bug Title', tip: 'Log a bug' },
+          { cmd: '/todo Task', tip: 'Add a task' },
+        ].map(x => (
+          <div key={x.cmd} className="rounded-lg border border-theme-border/10 bg-theme-background/50 px-3 py-2">
+            <code className="text-[10px] text-theme-icon font-mono">{x.cmd}</code>
+            <p className="text-[9px] text-theme-text/35 mt-0.5">{x.tip}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] text-theme-text/35">
+          Activity · also try /snippet, /search, /recent — or send plain text as a note
+        </p>
+        <button onClick={clearUpdates} disabled={!updates.length}
+          className="inline-flex items-center gap-1 text-[10px] text-theme-text/30 hover:text-red-400 disabled:opacity-20 transition-colors">
+          <FaTrash className="w-2.5 h-2.5" /> Clear
+        </button>
+      </div>
+
+      {updates.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-theme-border/20 py-12 text-center">
+          <FaTelegram className="w-8 h-8 text-theme-text/15 mx-auto mb-3" />
+          <p className="text-xs text-theme-text/35">No messages yet</p>
+          <p className="text-[10px] text-theme-text/25 mt-1 max-w-sm mx-auto">
+            Open your bot in Telegram, send /start, then come back — activity appears here automatically when polling is on.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2 max-h-[480px] overflow-y-auto pr-0.5">
           {updates.map((u, i) => (
-            <div key={`${u.message_id}-${i}`} className="bg-theme-background border border-theme-border/10 rounded-xl overflow-hidden">
+            <div key={`${u.message_id}-${i}`} className="rounded-xl border border-theme-border/10 bg-theme-background/60 overflow-hidden">
               <div className="px-3 py-2 flex items-center gap-2 border-b border-theme-border/5">
-                <span className="text-[10px] font-mono text-theme-text/30">#{u.message_id}</span>
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-theme-icon/10 text-theme-icon">/{u.command}</span>
-                <span className="text-[9px] text-theme-text/30 flex-1 truncate">{u.args || u.text.slice(0, 40)}</span>
-                {u.created_id && <span className="text-[9px] text-green-400">ID: {u.created_id}</span>}
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-theme-icon/10 text-theme-icon">/{u.command || 'msg'}</span>
+                <span className="text-[10px] text-theme-text/40 flex-1 truncate">{u.args || u.text.slice(0, 60)}</span>
+                {u.created_id ? (
+                  <Link to={KNOWLEDGE} className="text-[9px] text-green-400 hover:underline">Library #{u.created_id}</Link>
+                ) : null}
               </div>
-              <div className="px-3 py-2 flex items-start gap-2">
-                <FaRobot className="w-3 h-3 text-theme-icon/50 mt-0.5 shrink-0" />
-                <p className="text-[11px] text-theme-text/60 whitespace-pre-wrap">{u.result}</p>
-              </div>
+              <p className="px-3 py-2 text-[11px] text-theme-text/55 whitespace-pre-wrap">{u.result}</p>
             </div>
           ))}
         </div>

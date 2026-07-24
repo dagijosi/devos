@@ -1,4 +1,5 @@
-import { useMemo, type ComponentType } from 'react';
+import { useMemo, useEffect, type ComponentType } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { FaExclamationTriangle } from 'react-icons/fa';
 import { UtilitiesSidebar } from '../components/UtilitiesSidebar';
 import { ToolGrid } from '../components/ToolGrid';
@@ -122,7 +123,16 @@ const toolComponentMap: Record<string, ComponentType> = {
 };
 
 export function UtilitiesPage() {
-  const { activeTool, searchQuery, activeCategory, showFavoritesOnly, favoriteTools, recentTools } = useUtilitiesStore();
+  const [searchParams] = useSearchParams();
+  const { activeTool, searchQuery, activeCategory, showFavoritesOnly, favoriteTools, recentTools, setActiveTool, logRecentTool } = useUtilitiesStore();
+
+  useEffect(() => {
+    const tool = searchParams.get('tool');
+    if (tool && allTools.some(t => t.id === tool)) {
+      setActiveTool(tool);
+      logRecentTool(tool);
+    }
+  }, [searchParams, setActiveTool, logRecentTool]);
 
   const matchedTool = useMemo(() => {
     if (!activeTool) return null;

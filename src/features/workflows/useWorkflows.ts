@@ -3,121 +3,57 @@ import { database } from '../../database';
 import type { Workflow, WorkflowLog, StepLog } from './types';
 import { actionExecutors } from './actionRegistry';
 
-const SEED_KEY = 'devos_workflows_v4';
+const SEED_KEY = 'devos_workflows_v5';
 
+/** Curated examples that work out of the box on Windows DevOS builds. */
 const SEED_WORKFLOWS = [
-  { name: 'Start Development', description: 'Open VS Code, run backend & frontend, open browser', category: 'development', steps: [
-    { actionType: 'open-vscode', label: 'Open VS Code', config: { path: '.' } },
-    { actionType: 'run-command', label: 'Run Backend', config: { command: 'npm run dev', commandCwd: './backend', waitForCompletion: false } },
-    { actionType: 'run-command', label: 'Run Frontend', config: { command: 'npm run dev', commandCwd: '.', waitForCompletion: false } },
-    { actionType: 'open-url', label: 'Open Browser', config: { url: 'http://localhost:5173' } },
-    { actionType: 'notification', label: 'Ready', config: { notifTitle: 'Ready to Code', notifType: 'success' } },
+  { name: 'Open Task Manager', description: 'Launch Windows Task Manager', category: 'system', steps: [
+    { actionType: 'run-command', label: 'Open Task Manager', config: { command: 'taskmgr' } },
   ]},
-  { name: 'Stop Development', description: 'Gracefully stop all dev servers', category: 'development', steps: [
-    { actionType: 'notification', label: 'Notify', config: { notifTitle: 'Shutting Down', notifType: 'warning' } },
-    { actionType: 'wait', label: 'Wait 3s', config: { waitDuration: 3, waitUnit: 'seconds' } },
-    { actionType: 'notification', label: 'Done', config: { notifTitle: 'Shutdown Complete', notifType: 'info' } },
+  { name: 'Flush DNS Cache', description: 'Clear the Windows DNS resolver cache', category: 'system', steps: [
+    { actionType: 'run-command', label: 'ipconfig /flushdns', config: { command: 'ipconfig /flushdns' } },
+    { actionType: 'notification', label: 'Done', config: { notifTitle: 'DNS cache flushed', notifType: 'success' } },
   ]},
-  { name: 'Build Project', description: 'Install deps, build, open output folder', category: 'development', steps: [
-    { actionType: 'run-command', label: 'npm install', config: { command: 'npm install' } },
-    { actionType: 'run-command', label: 'npm run build', config: { command: 'npm run build' } },
-    { actionType: 'open-folder', label: 'Open Build Folder', config: { path: './dist' } },
-    { actionType: 'notification', label: 'Done', config: { notifTitle: 'Build Complete', notifType: 'success' } },
+  { name: 'Open File Explorer', description: 'Open Explorer in the current folder', category: 'system', steps: [
+    { actionType: 'open-folder', label: 'Open Explorer', config: { path: '.' } },
   ]},
-  { name: 'Run Tests', description: 'Run the test suite', category: 'development', steps: [
-    { actionType: 'run-command', label: 'Run Tests', config: { command: 'npm test' } },
-    { actionType: 'notification', label: 'Done', config: { notifTitle: 'Tests Complete', notifType: 'success' } },
+  { name: 'Empty Recycle Bin', description: 'Empty the Windows Recycle Bin', category: 'system', steps: [
+    { actionType: 'run-command', label: 'Clear Recycle Bin', config: { command: 'powershell -NoProfile -Command "Clear-RecycleBin -Force -ErrorAction SilentlyContinue"' } },
+    { actionType: 'notification', label: 'Done', config: { notifTitle: 'Recycle Bin emptied', notifType: 'info' } },
   ]},
-  { name: 'Open Workspace', description: 'Open project workspace in VS Code', category: 'development', steps: [
-    { actionType: 'open-vscode', label: 'Open VS Code', config: { path: '.' } },
-    { actionType: 'open-terminal', label: 'Open Terminal', config: { path: '.' } },
+  { name: 'Git Status', description: 'Show working tree status', category: 'git', steps: [
+    { actionType: 'run-command', label: 'git status', config: { command: 'git status' } },
   ]},
-  { name: 'Restart Backend', description: 'Restart the backend dev server', category: 'development', steps: [
-    { actionType: 'notification', label: 'Stopping', config: { notifTitle: 'Restarting Backend', notifType: 'warning' } },
-    { actionType: 'run-command', label: 'Restart', config: { command: 'npm run dev', commandCwd: './backend', waitForCompletion: false } },
-    { actionType: 'notification', label: 'Done', config: { notifTitle: 'Backend Restarted', notifType: 'success' } },
+  { name: 'Git Pull', description: 'Pull latest changes from the remote', category: 'git', steps: [
+    { actionType: 'run-command', label: 'git pull', config: { command: 'git pull' } },
+    { actionType: 'notification', label: 'Done', config: { notifTitle: 'Pull finished', notifType: 'success' } },
   ]},
-  { name: 'Pull Latest', description: 'Pull latest changes from git', category: 'git', steps: [
-    { actionType: 'run-command', label: 'Git Pull', config: { command: 'git pull' } },
-    { actionType: 'notification', label: 'Done', config: { notifTitle: 'Pull Complete', notifType: 'info' } },
+  { name: 'Stage All Changes', description: 'git add -A and show status', category: 'git', steps: [
+    { actionType: 'run-command', label: 'git add -A', config: { command: 'git add -A' } },
+    { actionType: 'run-command', label: 'git status', config: { command: 'git status' } },
+    { actionType: 'notification', label: 'Ready', config: { notifTitle: 'Changes staged', notifType: 'info' } },
   ]},
-  { name: 'Push Changes', description: 'Stage and push pending changes', category: 'git', steps: [
-    { actionType: 'run-command', label: 'Git Add', config: { command: 'git add -A' } },
-    { actionType: 'run-command', label: 'Git Commit', config: { command: 'git commit -m "update"' } },
-    { actionType: 'run-command', label: 'Git Push', config: { command: 'git push' } },
-    { actionType: 'notification', label: 'Done', config: { notifTitle: 'Push Complete', notifType: 'success' } },
-  ]},
-  { name: 'Commit', description: 'Quick commit all changes', category: 'git', steps: [
-    { actionType: 'run-command', label: 'Git Add', config: { command: 'git add -A' } },
-    { actionType: 'run-command', label: 'Git Status', config: { command: 'git status' } },
-    { actionType: 'notification', label: 'Ready', config: { notifTitle: 'Ready to Commit', notifType: 'info' } },
-  ]},
-  { name: 'Create Branch', description: 'Create and switch to a new git branch', category: 'git', steps: [
-    { actionType: 'notification', label: 'Create Branch', config: { notifTitle: 'Create New Branch', notifType: 'info' } },
-  ]},
-  { name: 'Merge Branch', description: 'Merge a branch into current', category: 'git', steps: [
-    { actionType: 'notification', label: 'Merge', config: { notifTitle: 'Merge Branch', notifType: 'info' } },
-  ]},
-  { name: 'Open GitHub', description: 'Open repository on GitHub', category: 'git', steps: [
-    { actionType: 'run-command', label: 'Get Remote URL', config: { command: 'git remote get-url origin' } },
+  { name: 'Open GitHub Repo', description: 'Open github.com in your browser', category: 'git', steps: [
     { actionType: 'open-url', label: 'Open GitHub', config: { url: 'https://github.com' } },
   ]},
-  { name: 'Open Project', description: 'Open project folder and tools', category: 'project', steps: [
-    { actionType: 'open-folder', label: 'Open Project', config: { path: '.' } },
-    { actionType: 'open-vscode', label: 'Open VS Code', config: { path: '.' } },
-    { actionType: 'notification', label: 'Ready', config: { notifTitle: 'Project Opened', notifType: 'success' } },
+  { name: 'Open in Editor', description: 'Open the current folder in your preferred editor', category: 'development', steps: [
+    { actionType: 'open-vscode', label: 'Open Editor', config: { path: '.' } },
   ]},
-  { name: 'Open Documentation', description: 'Open project documentation', category: 'project', steps: [
-    { actionType: 'open-url', label: 'Open Docs', config: { url: 'http://localhost:3000/docs' } },
+  { name: 'Open Terminal', description: 'Open a terminal in the current folder', category: 'development', steps: [
+    { actionType: 'open-terminal', label: 'Open Terminal', config: { path: '.' } },
   ]},
-  { name: 'Open API', description: 'Open API documentation', category: 'project', steps: [
-    { actionType: 'open-url', label: 'Open API Docs', config: { url: 'http://localhost:3000/api' } },
+  { name: 'Open Dev Server', description: 'Open the local Vite URL', category: 'development', steps: [
+    { actionType: 'open-url', label: 'localhost:5173', config: { url: 'http://localhost:5173' } },
   ]},
-  { name: 'Backup Project', description: 'Create a project backup archive', category: 'project', steps: [
-    { actionType: 'notification', label: 'Backup', config: { notifTitle: 'Backup Started', notifType: 'info' } },
-    { actionType: 'run-command', label: 'Compress', config: { command: 'tar -czf backup.tar.gz ./src' } },
-    { actionType: 'notification', label: 'Done', config: { notifTitle: 'Backup Complete', notifType: 'success' } },
+  { name: 'Install & Build', description: 'npm install then npm run build', category: 'development', steps: [
+    { actionType: 'run-command', label: 'npm install', config: { command: 'npm install' } },
+    { actionType: 'run-command', label: 'npm run build', config: { command: 'npm run build' } },
+    { actionType: 'notification', label: 'Done', config: { notifTitle: 'Build complete', notifType: 'success' } },
   ]},
-  { name: 'Archive Project', description: 'Archive project to zip file', category: 'project', steps: [
-    { actionType: 'compress-zip', label: 'Compress Project', config: { sourcePath: '.', archivePath: '../project-archive.zip' } },
-    { actionType: 'notification', label: 'Done', config: { notifTitle: 'Archive Complete', notifType: 'info' } },
-  ]},
-  { name: 'Move Files', description: 'Move files from source to destination', category: 'files', steps: [
-    { actionType: 'move-file', label: 'Move Files', config: { sourcePath: '', destPath: '' } },
-  ]},
-  { name: 'Copy Folder', description: 'Copy folder to destination', category: 'files', steps: [
-    { actionType: 'copy-file', label: 'Copy Folder', config: { sourcePath: '', destPath: '' } },
-  ]},
-  { name: 'Delete Temp Files', description: 'Delete temporary build artifacts', category: 'files', steps: [
-    { actionType: 'run-command', label: 'Clean Cache', config: { command: 'rm -rf node_modules/.cache dist' } },
-    { actionType: 'notification', label: 'Done', config: { notifTitle: 'Cleanup Complete', notifType: 'info' } },
-  ]},
-  { name: 'Compress Folder', description: 'Compress a folder into a ZIP archive', category: 'files', steps: [
-    { actionType: 'compress-zip', label: 'Compress', config: { sourcePath: '', archivePath: '' } },
-  ]},
-  { name: 'Extract ZIP', description: 'Extract a ZIP archive', category: 'files', steps: [
-    { actionType: 'extract-zip', label: 'Extract', config: { archivePath: '', extractDest: '.' } },
-  ]},
-  { name: 'Shutdown PC', description: 'Shut down the computer', category: 'system', steps: [
-    { actionType: 'notification', label: 'Shutdown', config: { notifTitle: 'Shutting Down PC', notifType: 'warning' } },
-    { actionType: 'run-command', label: 'Shutdown', config: { command: 'shutdown /s /t 10' } },
-  ]},
-  { name: 'Restart', description: 'Restart the computer', category: 'system', steps: [
-    { actionType: 'notification', label: 'Restart', config: { notifTitle: 'Restarting PC', notifType: 'warning' } },
-    { actionType: 'run-command', label: 'Restart', config: { command: 'shutdown /r /t 10' } },
-  ]},
-  { name: 'Sleep', description: 'Put the computer to sleep', category: 'system', steps: [
+  { name: 'Sleep PC', description: 'Put this PC to sleep', category: 'system', steps: [
+    { actionType: 'notification', label: 'Sleeping', config: { notifTitle: 'Going to sleep…', notifType: 'warning' } },
+    { actionType: 'wait', label: 'Wait 2s', config: { waitDuration: 2, waitUnit: 'seconds' } },
     { actionType: 'run-command', label: 'Sleep', config: { command: 'rundll32.exe powrprof.dll,SetSuspendState 0,1,0' } },
-  ]},
-  { name: 'Clear Cache', description: 'Clear system and app cache', category: 'system', steps: [
-    { actionType: 'run-command', label: 'Clear DNS Cache', config: { command: 'ipconfig /flushdns' } },
-    { actionType: 'notification', label: 'Done', config: { notifTitle: 'Cache Cleared', notifType: 'info' } },
-  ]},
-  { name: 'Empty Trash', description: 'Empty the recycle bin', category: 'system', steps: [
-    { actionType: 'run-command', label: 'Empty Recycle Bin', config: { command: 'powershell -Command "Clear-RecycleBin -Force"' } },
-  ]},
-  { name: 'Open Task Manager', description: 'Open Windows Task Manager', category: 'system', steps: [
-    { actionType: 'run-command', label: 'Open Task Manager', config: { command: 'taskmgr' } },
   ]},
 ];
 
@@ -138,8 +74,12 @@ export function useWorkflows() {
     if (localStorage.getItem(SEED_KEY)) return;
     localStorage.removeItem('devos_workflows_seeded');
     localStorage.removeItem('devos_workflows_v2');
+    localStorage.removeItem('devos_workflows_v4');
     const existing = await database.getWorkflows();
-    for (const wf of existing) { await database.deleteWorkflow(wf.id); }
+    for (const wf of existing) {
+      const tags = Array.isArray(wf.tags) ? wf.tags : [];
+      if (tags.includes('built-in')) await database.deleteWorkflow(wf.id);
+    }
     for (const wf of SEED_WORKFLOWS) {
       await database.createWorkflow({
         name: wf.name,

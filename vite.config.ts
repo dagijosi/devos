@@ -12,12 +12,6 @@ export default defineConfig({
       'Cross-Origin-Embedder-Policy': 'credentialless',
     },
   },
-  build: {
-    rollupOptions: {
-      external: [
-        '@tauri-apps/plugin-shell',
-        '@tauri-apps/plugin-opener',
-      ],
-    },
-  },
+  // Do NOT mark @tauri-apps/plugin-* as external — that breaks dynamic
+  // import() in the packaged webview ("Shell not available").
 })

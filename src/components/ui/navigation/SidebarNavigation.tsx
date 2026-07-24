@@ -55,7 +55,19 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
   };
 
   const isExactActive = (link: NavLink): boolean => {
-    return link.href ? currentPath === link.href : false;
+    if (!link.href) return false;
+    const [path, query = ''] = link.href.split('?');
+    if (currentPath !== path) return false;
+    if (!query) {
+      // Plain /utilities should not stay active when a tool deep-link is open
+      return !location.search || location.search === '?';
+    }
+    const want = new URLSearchParams(query);
+    const have = new URLSearchParams(location.search);
+    for (const [k, v] of want.entries()) {
+      if (have.get(k) !== v) return false;
+    }
+    return true;
   };
 
   // Filter categories and links based on user permissions, roles, and entitlements

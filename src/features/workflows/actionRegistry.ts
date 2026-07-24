@@ -11,14 +11,27 @@ function isTauri(): boolean {
   return typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__;
 }
 
-async function tryShell(): Promise<any> {
-  if (!isTauri()) return null;
-  try { return await import('@tauri-apps/plugin-shell'); } catch { return null; }
+async function tryShell(): Promise<{ mod: any; error?: string }> {
+  if (!isTauri()) return { mod: null, error: 'Not running in the DevOS desktop app' };
+  try {
+    const mod = await import('@tauri-apps/plugin-shell');
+    return { mod };
+  } catch (e: any) {
+    return { mod: null, error: e?.message || 'Failed to load shell plugin' };
+  }
 }
 
 async function tryOpener(): Promise<any> {
   if (!isTauri()) return null;
   try { return await import('@tauri-apps/plugin-opener'); } catch { return null; }
+}
+
+function shellUnavailable(err?: string): StepResult {
+  return {
+    success: false,
+    output: err || 'Shell not available',
+    error: 'Use the DevOS desktop app (not a browser) so system commands can run.',
+  };
 }
 
 function normalizePath(path: string): string {
@@ -48,7 +61,7 @@ function getBrowserCommand(): string {
 const executors: Record<ActionType, (config: any) => Promise<StepResult>> = {
   'open-folder': async (c) => {
     const p = normalizePath(c.path || c.filePath || '.');
-    const shell = await tryShell();
+    const { mod: shell, error } = await tryShell();
     if (shell?.Command) {
       try {
         if (isWindows()) { await shell.Command.create('explorer', [p]).execute(); }
@@ -57,12 +70,12 @@ const executors: Record<ActionType, (config: any) => Promise<StepResult>> = {
       } catch (e: any) { return { success: false, output: `Failed to open folder`, error: e.message }; }
       return { success: true, output: `Opened folder: ${p}` };
     }
-    return { success: false, output: 'Shell not available' };
+    return shellUnavailable(error);
   },
 
   'open-file': async (c) => {
     const p = normalizePath(c.filePath || c.path || '.');
-    const shell = await tryShell();
+    const { mod: shell, error } = await tryShell();
     if (shell?.Command) {
       try {
         if (isWindows()) { await shell.Command.create('explorer', [p]).execute(); }
@@ -71,7 +84,7 @@ const executors: Record<ActionType, (config: any) => Promise<StepResult>> = {
       } catch (e: any) { return { success: false, output: `Failed to open file`, error: e.message }; }
       return { success: true, output: `Opened file: ${p}` };
     }
-    return { success: false, output: 'Shell not available' };
+    return shellUnavailable(error);
   },
 
   'open-url': async (c) => {
@@ -79,7 +92,7 @@ const executors: Record<ActionType, (config: any) => Promise<StepResult>> = {
     if (!url) return { success: false, output: 'No URL specified' };
     const browserCmd = getBrowserCommand();
     if (browserCmd) {
-      const shell = await tryShell();
+      const { mod: shell } = await tryShell();
       if (shell?.Command) {
         try {
           if (isWindows()) { await shell.Command.create('cmd', ['/c', 'start', browserCmd, url]).execute(); }
@@ -91,7 +104,7 @@ const executors: Record<ActionType, (config: any) => Promise<StepResult>> = {
     }
     const opener = await tryOpener();
     if (opener?.openUrl) { try { await opener.openUrl(url); return { success: true, output: `Opened: ${url}` }; } catch {} }
-    const shell = await tryShell();
+    const { mod: shell } = await tryShell();
     if (shell?.open) { try { await shell.open(url); return { success: true, output: `Opened: ${url}` }; } catch {} }
     window.open(url, '_blank');
     return { success: true, output: `Opened: ${url}` };
@@ -100,7 +113,7 @@ const executors: Record<ActionType, (config: any) => Promise<StepResult>> = {
   'open-vscode': async (c) => {
     const p = normalizePath(c.path || '.');
     const cmd = getEditorCommand();
-    const shell = await tryShell();
+    const { mod: shell, error } = await tryShell();
     if (shell?.Command) {
       try {
         if (isWindows()) { await shell.Command.create('cmd', ['/c', 'start', '/B', cmd, p]).execute(); }
@@ -108,12 +121,12 @@ const executors: Record<ActionType, (config: any) => Promise<StepResult>> = {
       } catch (e: any) { return { success: false, output: `"${cmd}" not found in PATH`, error: e.message }; }
       return { success: true, output: `Opening ${cmd}: ${p}` };
     }
-    return { success: false, output: 'Shell not available' };
+    return shellUnavailable(error);
   },
 
   'open-terminal': async (c) => {
     const p = normalizePath(c.path || '.');
-    const shell = await tryShell();
+    const { mod: shell, error } = await tryShell();
     if (shell?.Command) {
       try {
         if (isWindows()) { await shell.Command.create('cmd', ['/c', 'cd', '/d', p, '&&', 'start', 'cmd']).execute(); }
@@ -121,7 +134,7 @@ const executors: Record<ActionType, (config: any) => Promise<StepResult>> = {
       } catch (e: any) { return { success: false, output: 'Failed to open terminal', error: e.message }; }
       return { success: true, output: `Opening terminal: ${p}` };
     }
-    return { success: false, output: 'Shell not available' };
+    return shellUnavailable(error);
   },
 
   'open-application': async (c) => {
@@ -131,7 +144,7 @@ const executors: Record<ActionType, (config: any) => Promise<StepResult>> = {
     if (opener?.openPath) {
       try { await opener.openPath(appPath, c.appArgs || ''); return { success: true, output: `Opened: ${appPath}` }; } catch {}
     }
-    const shell = await tryShell();
+    const { mod: shell, error } = await tryShell();
     if (shell?.Command) {
       try {
         if (isWindows()) { await shell.Command.create('cmd', ['/c', 'start', '', appPath, ...(c.appArgs ? [c.appArgs] : [])]).execute(); }
@@ -139,30 +152,42 @@ const executors: Record<ActionType, (config: any) => Promise<StepResult>> = {
       } catch (e: any) { return { success: false, output: `Failed to open: ${appPath}`, error: e.message }; }
       return { success: true, output: `Opened: ${appPath}` };
     }
-    return { success: false, output: 'Opener not available' };
+    return shellUnavailable(error || 'Opener not available');
   },
 
   'run-command': async (c) => {
-    const cmd = c.command || '';
+    const cmd = (c.command || '').trim();
     if (!cmd) return { success: false, output: 'No command specified' };
-    const shell = await tryShell();
+    const { mod: shell, error } = await tryShell();
     if (shell?.Command) {
       try {
         let r: any;
         const p = c.commandCwd ? normalizePath(c.commandCwd) : '';
-        if (p && isWindows()) { r = await shell.Command.create('cmd', ['/c', `cd /d "${p}" && ${cmd}`]).execute(); }
-        else if (p) { r = await shell.Command.create('sh', ['-c', `cd "${p}" && ${cmd}`]).execute(); }
-        else { r = await shell.Command.create(isWindows() ? 'cmd' : 'sh', [isWindows() ? '/c' : '-c', cmd]).execute(); }
+        // Prefer allowlisted app names when the command is a single token (e.g. taskmgr)
+        const simple = /^[a-zA-Z0-9_.-]+$/.test(cmd) ? cmd : '';
+        if (simple && isWindows() && !p && ['taskmgr', 'explorer', 'powershell', 'cmd', 'ipconfig'].includes(simple.toLowerCase())) {
+          r = await shell.Command.create(simple.toLowerCase() === 'cmd' ? 'cmd' : simple.toLowerCase(), []).execute();
+        } else if (p && isWindows()) {
+          r = await shell.Command.create('cmd', ['/c', `cd /d "${p}" && ${cmd}`]).execute();
+        } else if (p) {
+          r = await shell.Command.create('sh', ['-c', `cd "${p}" && ${cmd}`]).execute();
+        } else {
+          r = await shell.Command.create(isWindows() ? 'cmd' : 'sh', [isWindows() ? '/c' : '-c', cmd]).execute();
+        }
+        const code = typeof r.code === 'number' ? r.code : 0;
+        if (code !== 0 && !r.stdout) {
+          return { success: false, output: r.stderr || `Command exited with code ${code}`, error: r.stderr };
+        }
         return { success: true, output: r.stdout || 'Command executed', error: r.stderr || undefined };
       } catch (e: any) { return { success: false, output: `Command failed: ${cmd}`, error: e.message }; }
     }
-    return { success: false, output: 'Shell not available' };
+    return shellUnavailable(error);
   },
 
   'run-script': async (c) => {
     const scriptPath = c.scriptPath || c.command || '';
     if (!scriptPath) return { success: false, output: 'No script specified' };
-    const shell = await tryShell();
+    const { mod: shell, error } = await tryShell();
     if (shell?.Command) {
       try {
         const args = isWindows() ? ['/c', scriptPath] : ['-c', `bash "${scriptPath}"`];
@@ -170,7 +195,7 @@ const executors: Record<ActionType, (config: any) => Promise<StepResult>> = {
         return { success: true, output: r.stdout || 'Script executed', error: r.stderr || undefined };
       } catch (e: any) { return { success: false, output: `Script failed: ${scriptPath}`, error: e.message }; }
     }
-    return { success: false, output: 'Shell not available' };
+    return shellUnavailable(error);
   },
 
   'wait': async (c) => {
@@ -193,7 +218,7 @@ const executors: Record<ActionType, (config: any) => Promise<StepResult>> = {
     const src = normalizePath(c.sourcePath || c.filePath || '');
     const dest = normalizePath(c.destPath || '');
     if (!src) return { success: false, output: 'No source path' };
-    const shell = await tryShell();
+    const { mod: shell, error } = await tryShell();
     if (shell?.Command) {
       try {
         const args = isWindows() ? ['/c', `copy "${src}" "${dest}"`] : ['-c', `cp "${src}" "${dest}"`];
@@ -201,14 +226,14 @@ const executors: Record<ActionType, (config: any) => Promise<StepResult>> = {
         return { success: true, output: `Copied: ${src} → ${dest}`, error: r.stderr || undefined };
       } catch (e: any) { return { success: false, output: 'Copy failed', error: e.message }; }
     }
-    return { success: false, output: 'Shell not available' };
+    return shellUnavailable(error);
   },
 
   'move-file': async (c) => {
     const src = normalizePath(c.sourcePath || c.filePath || '');
     const dest = normalizePath(c.destPath || '');
     if (!src) return { success: false, output: 'No source path' };
-    const shell = await tryShell();
+    const { mod: shell, error } = await tryShell();
     if (shell?.Command) {
       try {
         const args = isWindows() ? ['/c', `move "${src}" "${dest}"`] : ['-c', `mv "${src}" "${dest}"`];
@@ -216,13 +241,13 @@ const executors: Record<ActionType, (config: any) => Promise<StepResult>> = {
         return { success: true, output: `Moved: ${src} → ${dest}`, error: r.stderr || undefined };
       } catch (e: any) { return { success: false, output: 'Move failed', error: e.message }; }
     }
-    return { success: false, output: 'Shell not available' };
+    return shellUnavailable(error);
   },
 
   'delete-file': async (c) => {
     const fp = normalizePath(c.filePath || c.path || '');
     if (!fp) return { success: false, output: 'No file path' };
-    const shell = await tryShell();
+    const { mod: shell, error } = await tryShell();
     if (shell?.Command) {
       try {
         const args = isWindows() ? ['/c', `del /f "${fp}"`] : ['-c', `rm -f "${fp}"`];
@@ -230,13 +255,13 @@ const executors: Record<ActionType, (config: any) => Promise<StepResult>> = {
         return { success: true, output: `Deleted: ${fp}`, error: r.stderr || undefined };
       } catch (e: any) { return { success: false, output: 'Delete failed', error: e.message }; }
     }
-    return { success: false, output: 'Shell not available' };
+    return shellUnavailable(error);
   },
 
   'compress-zip': async (c) => {
     const src = normalizePath(c.sourcePath || c.path || '.');
     const dest = normalizePath(c.archivePath || `${src}.zip`);
-    const shell = await tryShell();
+    const { mod: shell, error } = await tryShell();
     if (shell?.Command) {
       try {
         const args = isWindows()
@@ -246,14 +271,14 @@ const executors: Record<ActionType, (config: any) => Promise<StepResult>> = {
         return { success: true, output: `Compressed: ${src} → ${dest}`, error: r.stderr || undefined };
       } catch (e: any) { return { success: false, output: 'Compression failed', error: e.message }; }
     }
-    return { success: false, output: 'Shell not available' };
+    return shellUnavailable(error);
   },
 
   'extract-zip': async (c) => {
     const src = normalizePath(c.archivePath || c.filePath || c.path || '');
     const dest = normalizePath(c.extractDest || '.');
     if (!src) return { success: false, output: 'No archive path' };
-    const shell = await tryShell();
+    const { mod: shell, error } = await tryShell();
     if (shell?.Command) {
       try {
         const args = isWindows()
@@ -263,7 +288,7 @@ const executors: Record<ActionType, (config: any) => Promise<StepResult>> = {
         return { success: true, output: `Extracted: ${src} → ${dest}`, error: r.stderr || undefined };
       } catch (e: any) { return { success: false, output: 'Extraction failed', error: e.message }; }
     }
-    return { success: false, output: 'Shell not available' };
+    return shellUnavailable(error);
   },
 };
 

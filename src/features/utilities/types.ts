@@ -14,6 +14,7 @@ export type ToolCategory =
   | 'integrations';
 
 export const CATEGORY_LABELS: Record<ToolCategory, string> = {
+  integrations: 'Integrations',
   formatters: 'Formatters',
   generators: 'Generators',
   encoders: 'Encoders',
@@ -24,7 +25,6 @@ export const CATEGORY_LABELS: Record<ToolCategory, string> = {
   images: 'Images',
   text: 'Text',
   developer: 'Developer',
-  integrations: 'Integrations',
 };
 
 export interface ToolDefinition {
