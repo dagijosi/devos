@@ -59,7 +59,7 @@ jobs:
           $versionWithoutV = $version -replace '^v', ''
           $url = "https://github.com/dagijosi/devos/releases/download/$version/DevOS_${versionWithoutV}_x64-setup.exe"
           
-          # Create latest.json with correct Tauri format
+          # Create latest.json with correct Tauri format (version without v prefix)
           $json = @{
             version = $versionWithoutV
             notes = "DevOS $version"
@@ -70,11 +70,11 @@ jobs:
                 url = $url
               }
             }
-          } | ConvertTo-Json -Depth 10
+          } | ConvertTo-Json -Depth 10 -Compress:$false
           
           # Save to release directory
           New-Item -ItemType Directory -Path "src-tauri/target/release/bundle/nsis" -Force | Out-Null
-          $json | Out-File -FilePath "src-tauri/target/release/bundle/nsis/latest.json" -Encoding utf8
+          $json | Out-File -FilePath "src-tauri/target/release/bundle/nsis/latest.json" -Encoding utf8 -NoNewline
 
       - name: Upload latest.json to release
         uses: softprops/action-gh-release@v1
