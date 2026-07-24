@@ -14,72 +14,28 @@
     "core:window:allow-hide",
     "core:window:allow-show",
     "core:window:allow-center",
-    "sql:allow-execute",
-    "sql:allow-load",
-    "sql:allow-select",
+    "core:window:allow-set-size",
+    "core:window:allow-set-position",
+    "core:window:allow-set-title",
+    "sql:default",
     "opener:default",
-    "shell:allow-open",
-    "shell:allow-execute",
-    "shell:allow-spawn",
     "dialog:default",
+    "shell:default",
+    "updater:default",
     {
       "identifier": "shell:allow-execute",
       "allow": [
-        {
-          "name": "cmd",
-          "cmd": "cmd.exe",
-          "args": true
-        },
-        {
-          "name": "sh",
-          "cmd": "sh",
-          "args": true
-        },
-        {
-          "name": "explorer",
-          "cmd": "explorer",
-          "args": true
-        },
-        {
-          "name": "open",
-          "cmd": "open",
-          "args": true
-        },
-        {
-          "name": "xdg-open",
-          "cmd": "xdg-open",
-          "args": true
-        },
-        {
-          "name": "code",
-          "cmd": "code",
-          "args": true
-        },
-        {
-          "name": "taskmgr",
-          "cmd": "taskmgr",
-          "args": true
-        },
-        {
-          "name": "powershell",
-          "cmd": "powershell",
-          "args": true
-        },
-        {
-          "name": "shutdown",
-          "cmd": "shutdown",
-          "args": true
-        },
-        {
-          "name": "rundll32",
-          "cmd": "rundll32.exe",
-          "args": true
-        },
-        {
-          "name": "ipconfig",
-          "cmd": "ipconfig",
-          "args": true
-        }
+        { "name": "cmd", "cmd": "cmd.exe", "args": true },
+        { "name": "sh", "cmd": "sh", "args": true },
+        { "name": "explorer", "cmd": "explorer", "args": true },
+        { "name": "open", "cmd": "open", "args": true },
+        { "name": "xdg-open", "cmd": "xdg-open", "args": true },
+        { "name": "code", "cmd": "code", "args": true },
+        { "name": "taskmgr", "cmd": "taskmgr", "args": true },
+        { "name": "powershell", "cmd": "powershell", "args": true },
+        { "name": "shutdown", "cmd": "shutdown", "args": true },
+        { "name": "rundll32", "cmd": "rundll32.exe", "args": true },
+        { "name": "ipconfig", "cmd": "ipconfig", "args": true }
       ]
     }
   ]
