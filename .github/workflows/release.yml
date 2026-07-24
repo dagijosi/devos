@@ -52,6 +52,48 @@ jobs:
           releaseDraft: true
           prerelease: false
 
+      - name: Generate and sign latest.json
+        shell: pwsh
+        env:
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+        run: |
+          $version = "${{ github.ref_name }}"
+          $url = "https://github.com/dagijosi/devos/releases/download/$version/DevOS_${version}_x64-setup.exe"
+          
+          # Create latest.json
+          $json = @{
+            version = $version
+            notes = "DevOS $version"
+            pub_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            platforms = @{
+              "windows-x86_64" = @{
+                signature = ""
+                url = $url
+              }
+            }
+          } | ConvertTo-Json -Depth 10
+          
+          # Save to temp file
+          $json | Out-File -FilePath "latest.json" -Encoding utf8
+          
+          # Sign it with tauri
+          npm run tauri -- signer sign latest.json
+          
+          # Move signed version to release directory
+          Move-Item -Force -Path "latest.json.sig" -Destination "src-tauri/target/release/bundle/nsis/latest.json.sig"
+          Move-Item -Force -Path "latest.json" -Destination "src-tauri/target/release/bundle/nsis/latest.json"
+
+      - name: Upload latest.json to release
+        uses: softprops/action-gh-release@v1
+        if: success()
+        with:
+          files: src-tauri/target/release/bundle/nsis/latest.json
+          append_existing: true
+          draft: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   # Cleanup old releases to prevent storage from filling up
   cleanup:
     runs-on: ubuntu-latest
