@@ -65,7 +65,7 @@ jobs:
             notes = "DevOS $version"
             pub_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
             platforms = @{
-              "windows-x86_64" = @{
+              "windows-x86_64-nsis" = @{
                 signature = ""
                 url = $url
               }
