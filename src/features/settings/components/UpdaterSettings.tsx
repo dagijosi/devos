@@ -1,13 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FaSync, FaDownload, FaCheckCircle, FaExclamationTriangle, FaSpinner } from 'react-icons/fa';
 import { toast } from 'sonner';
 import { checkForUpdates, installUpdate, type UpdateInfo } from '../../../utils/updater';
+import { getVersion } from '@tauri-apps/api/app';
 
 export function UpdaterSettings() {
   const [checking, setChecking] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [checked, setChecked] = useState(false);
+  const [currentVersion, setCurrentVersion] = useState<string>('');
+
+  useEffect(() => {
+    getVersion().then(setCurrentVersion).catch(() => setCurrentVersion('unknown'));
+  }, []);
 
   const handleCheck = async () => {
     setChecking(true);
@@ -46,7 +52,7 @@ export function UpdaterSettings() {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold text-theme-text">Application Updates</h3>
-          <p className="text-xs text-theme-text/50 mt-0.5">Current version: v1.0.5</p>
+          <p className="text-xs text-theme-text/50 mt-0.5">Current version: v{currentVersion}</p>
         </div>
         <button
           onClick={handleCheck}

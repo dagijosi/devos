@@ -13,6 +13,7 @@ const UPDATE_CHECK_KEY = 'devos_update_check';
 
 export async function checkForUpdates(): Promise<UpdateInfo> {
   try {
+    logger.info('Updater', 'Starting update check...');
     const update = await check();
 
     if (update) {
@@ -26,9 +27,10 @@ export async function checkForUpdates(): Promise<UpdateInfo> {
       };
     }
 
+    logger.info('Updater', 'No updates available');
     return { available: false };
   } catch (e: any) {
-    logger.warn('Updater', 'Failed to check for updates', e.message);
+    logger.error('Updater', 'Failed to check for updates', e);
     return { available: false };
   }
 }

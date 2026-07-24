@@ -56,11 +56,12 @@ jobs:
         shell: pwsh
         run: |
           $version = "${{ github.ref_name }}"
-          $url = "https://github.com/dagijosi/devos/releases/download/$version/DevOS_${version}_x64-setup.exe"
+          $versionWithoutV = $version -replace '^v', ''
+          $url = "https://github.com/dagijosi/devos/releases/download/$version/DevOS_${versionWithoutV}_x64-setup.exe"
           
-          # Create latest.json with windows-x86_64 platform
+          # Create latest.json with correct Tauri format
           $json = @{
-            version = $version
+            version = $versionWithoutV
             notes = "DevOS $version"
             pub_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
             platforms = @{
