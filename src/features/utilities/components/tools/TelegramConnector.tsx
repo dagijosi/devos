@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import { FaTelegram, FaSync, FaTrash, FaCog, FaRobot, FaCheck, FaClock } from 'react-icons/fa';
+import { FaTelegram, FaSync, FaTrash, FaCog, FaRobot, FaCheck } from 'react-icons/fa';
 import { loadTelegramConfig, saveTelegramConfig, UPDATES_KEY, type TelegramConfig } from '../../telegramConfig';
 import { processTelegramUpdates, setBotCommands, type ProcessedUpdate } from '../../telegramBot';
 
