@@ -49,6 +49,10 @@ desktop.ini
 .env.test.local
 .env.production.local
 
+# Tauri signing keys
+*.pem
+private-key*
+
 # Testing
 coverage/
 *.lcov

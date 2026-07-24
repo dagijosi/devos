@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { FaSync, FaDownload, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
+import { FaSync, FaDownload, FaCheckCircle, FaExclamationTriangle, FaSpinner } from 'react-icons/fa';
 import { toast } from 'sonner';
-import { checkForUpdates, type UpdateInfo } from '../../../utils/updater';
+import { checkForUpdates, installUpdate, type UpdateInfo } from '../../../utils/updater';
 
 export function UpdaterSettings() {
   const [checking, setChecking] = useState(false);
+  const [installing, setInstalling] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [checked, setChecked] = useState(false);
 
@@ -28,16 +29,28 @@ export function UpdaterSettings() {
     }
   };
 
+  const handleInstall = async () => {
+    setInstalling(true);
+    try {
+      await installUpdate();
+      toast.success('Update installed! Restarting...');
+    } catch {
+      toast.error('Failed to install update');
+    } finally {
+      setInstalling(false);
+    }
+  };
+
   return (
     <div className="bg-theme-surface border border-theme-border/30 rounded-2xl p-5 space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold text-theme-text">Application Updates</h3>
-          <p className="text-xs text-theme-text/50 mt-0.5">Current version: v0.1.0</p>
+          <p className="text-xs text-theme-text/50 mt-0.5">Current version: v1.0.0</p>
         </div>
         <button
           onClick={handleCheck}
-          disabled={checking}
+          disabled={checking || installing}
           className="flex items-center gap-2 px-4 py-2 bg-theme-icon text-white rounded-xl text-sm font-medium hover:bg-theme-icon/90 transition-colors disabled:opacity-50"
         >
           <FaSync className={`w-3 h-3 ${checking ? 'animate-spin' : ''}`} />
@@ -64,14 +77,14 @@ export function UpdaterSettings() {
                   </pre>
                 </details>
               )}
-              <a
-                href={updateInfo.downloadUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-xl text-sm font-medium hover:bg-green-600 transition-colors"
+              <button
+                onClick={handleInstall}
+                disabled={installing}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-xl text-sm font-medium hover:bg-green-600 transition-colors disabled:opacity-50"
               >
-                <FaDownload className="w-3 h-3" /> Download Update
-              </a>
+                {installing ? <FaSpinner className="w-3 h-3 animate-spin" /> : <FaDownload className="w-3 h-3" />}
+                {installing ? 'Installing...' : 'Install & Restart'}
+              </button>
             </div>
           ) : (
             <div className="flex items-center gap-2">

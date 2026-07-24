@@ -55,5 +55,14 @@
         "depends": ["webkit2gtk4.1"]
       }
     }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/dagijosi/devos/releases/latest/download/latest.json"
+      ],
+      "dialog": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM3QjAzRUYyREM4MTVBRkYKUldUL1dvSGM4ajZ3TndFTTA0ZncxWmVNUWpuR08zYkgzUmx3ZDJNUUlpZGVFYzRENTh6TVpGUkEK"
+    }
   }
 }

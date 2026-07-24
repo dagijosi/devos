@@ -1,3 +1,4 @@
+import { check, Update } from '@tauri-apps/plugin-updater';
 import { logger } from './logger';
 
 export interface UpdateInfo {
@@ -5,32 +6,23 @@ export interface UpdateInfo {
   version?: string;
   releaseDate?: string;
   releaseNotes?: string;
-  downloadUrl?: string;
+  manifest?: Update;
 }
 
 const UPDATE_CHECK_KEY = 'devos_update_check';
-const GITHUB_RELEASES_URL = 'https://api.github.com/repos/devos/app/releases/latest';
 
 export async function checkForUpdates(): Promise<UpdateInfo> {
   try {
-    const response = await fetch(GITHUB_RELEASES_URL, {
-      headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const update = await check();
 
-    const data = await response.json();
-    const currentVersion = '0.1.0';
-    const latestVersion = (data.tag_name || data.name || '').replace(/^v/, '');
-
-    if (latestVersion && latestVersion > currentVersion) {
-      logger.info('Updater', `Update available: v${latestVersion}`);
+    if (update) {
+      logger.info('Updater', `Update available: v${update.version}`);
       return {
         available: true,
-        version: latestVersion,
-        releaseDate: data.published_at,
-        releaseNotes: data.body,
-        downloadUrl: data.html_url || data.zipball_url,
+        version: update.version,
+        releaseDate: update.date,
+        releaseNotes: update.body,
+        manifest: update,
       };
     }
 
@@ -38,6 +30,19 @@ export async function checkForUpdates(): Promise<UpdateInfo> {
   } catch (e: any) {
     logger.warn('Updater', 'Failed to check for updates', e.message);
     return { available: false };
+  }
+}
+
+export async function installUpdate(): Promise<void> {
+  try {
+    const update = await check();
+    if (update) {
+      await update.downloadAndInstall();
+      logger.info('Updater', 'Update installed successfully');
+    }
+  } catch (e: any) {
+    logger.error('Updater', 'Failed to install update', e.message);
+    throw e;
   }
 }
 

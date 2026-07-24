@@ -23,6 +23,7 @@
     "@tauri-apps/plugin-opener": "^2.5.4",
     "@tauri-apps/plugin-shell": "^2.3.5",
     "@tauri-apps/plugin-sql": "^2.4.0",
+    "@tauri-apps/plugin-updater": "^2.0.0",
     "apexcharts": "^5.15.0",
     "framer-motion": "^12.23.24",
     "lucide-react": "^0.548.0",
