@@ -81,7 +81,7 @@ jobs:
         if: success()
         with:
           files: src-tauri/target/release/bundle/nsis/latest.json
-          append_existing: true
+          tag_name: ${{ github.ref_name }}
           draft: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
