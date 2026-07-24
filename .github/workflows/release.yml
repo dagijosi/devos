@@ -68,23 +68,13 @@ jobs:
           } | ConvertTo-Json -Depth 10
           $json | Out-File -FilePath "src-tauri/target/release/bundle/nsis/latest.json" -Encoding utf8
 
-      - name: Upload installers to release
-        uses: softprops/action-gh-release@v1
-        if: success()
-        with:
-          files: |
-            src-tauri/target/release/bundle/nsis/DevOS_${{ github.ref_name }}_x64-setup.exe
-            src-tauri/target/release/bundle/msi/DevOS_${{ github.ref_name }}_x64_en-US.msi
-          append_existing: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Upload latest.json to release
         uses: softprops/action-gh-release@v1
         if: success()
         with:
           files: src-tauri/target/release/bundle/nsis/latest.json
           append_existing: true
+          draft: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
