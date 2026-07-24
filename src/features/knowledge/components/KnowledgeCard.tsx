@@ -1,4 +1,4 @@
-import { FaStar, FaRegStar, FaThumbtack, FaCode, FaBug, FaBook, FaRobot, FaFileAlt, FaBookmark, FaClipboardList, FaExternalLinkAlt, FaFolder } from 'react-icons/fa';
+import { FaStar, FaRegStar, FaThumbtack, FaCode, FaBug, FaBook, FaRobot, FaFileAlt, FaBookmark, FaClipboardList, FaExternalLinkAlt, FaFolder, FaCheckSquare, FaSquare } from 'react-icons/fa';
 import type { KnowledgeItem } from '../types';
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
@@ -13,12 +13,14 @@ const TYPE_COLORS: Record<string, string> = {
 interface KnowledgeCardProps {
   item: KnowledgeItem;
   selected: boolean;
+  checked: boolean;
   onSelect: (item: KnowledgeItem) => void;
+  onToggleCheck: (id: number) => void;
   onToggleFavorite: (id: number) => void;
   projectName?: string;
 }
 
-export function KnowledgeCard({ item, selected, onSelect, onToggleFavorite, projectName }: KnowledgeCardProps) {
+export function KnowledgeCard({ item, selected, checked, onSelect, onToggleCheck, onToggleFavorite, projectName }: KnowledgeCardProps) {
   const Icon = TYPE_ICONS[item.type] || FaFileAlt;
   const color = TYPE_COLORS[item.type] || 'text-theme-text/50';
   const snippet = (item.content || item.description || item.problem || '').slice(0, 120);
@@ -29,9 +31,15 @@ export function KnowledgeCard({ item, selected, onSelect, onToggleFavorite, proj
       className={`group relative p-4 rounded-2xl border cursor-pointer transition-all ${
         selected
           ? 'bg-theme-icon/8 border-theme-icon/30'
-          : 'bg-theme-surface border-theme-border/20 hover:border-theme-border/40 hover:shadow-sm'
+          : checked
+            ? 'bg-theme-icon/5 border-theme-icon/20'
+            : 'bg-theme-surface border-theme-border/20 hover:border-theme-border/40 hover:shadow-sm'
       }`}>
       <div className="flex items-start gap-3">
+        <button onClick={e => { e.stopPropagation(); onToggleCheck(item.id); }}
+          className="mt-0.5 shrink-0 text-theme-text/20 hover:text-theme-icon transition-colors">
+          {checked ? <FaCheckSquare className="w-4 h-4 text-theme-icon" /> : <FaSquare className="w-4 h-4" />}
+        </button>
         <div className={`w-9 h-9 rounded-xl bg-theme-background/50 flex items-center justify-center shrink-0 ${color}`}>
           <Icon className="w-4 h-4" />
         </div>

@@ -57,6 +57,7 @@ import { FindReplace } from '../components/tools/FindReplace';
 import { CronParser } from '../components/tools/CronParser';
 import { GradientBuilder } from '../components/tools/GradientBuilder';
 import { EnvViewer } from '../components/tools/EnvViewer';
+import { TelegramConnector } from '../components/tools/TelegramConnector';
 
 const Placeholder = () => (
   <div className="flex flex-col items-center justify-center py-12 text-theme-text/30">
@@ -117,6 +118,7 @@ const toolComponentMap: Record<string, ComponentType> = {
   'cron-parser': CronParser,
   'gradient-builder': GradientBuilder,
   'env-viewer': EnvViewer,
+  'telegram-connector': TelegramConnector,
 };
 
 export function UtilitiesPage() {

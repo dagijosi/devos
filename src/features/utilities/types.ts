@@ -10,7 +10,8 @@ export type ToolCategory =
   | 'network'
   | 'images'
   | 'text'
-  | 'developer';
+  | 'developer'
+  | 'integrations';
 
 export const CATEGORY_LABELS: Record<ToolCategory, string> = {
   formatters: 'Formatters',
@@ -23,6 +24,7 @@ export const CATEGORY_LABELS: Record<ToolCategory, string> = {
   images: 'Images',
   text: 'Text',
   developer: 'Developer',
+  integrations: 'Integrations',
 };
 
 export interface ToolDefinition {

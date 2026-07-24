@@ -8,7 +8,7 @@ import {
   FaNetworkWired, FaSearch, FaServer, FaMapPin,
   FaImage, FaCrop, FaPalette, FaVectorSquare,
   FaFont, FaCodeBranch, FaRuler, FaEraser,
-  FaRegClock, FaPaintBrush, FaTachometerAlt, FaCog,
+  FaRegClock, FaPaintBrush, FaTachometerAlt, FaCog, FaTelegram,
 } from 'react-icons/fa';
 import type { ToolDefinition } from './types';
 
@@ -83,6 +83,8 @@ const tools: ToolDefinition[] = [
   { id: 'cron-parser', name: 'Cron Parser', description: 'Parse and explain cron expressions', icon: FaTachometerAlt, category: 'developer', keywords: ['cron', 'schedule', 'parse', 'cronjob'] },
   { id: 'gradient-builder', name: 'Gradient Builder', description: 'Create CSS gradients visually', icon: FaPaintBrush, category: 'developer', keywords: ['gradient', 'css', 'color', 'design'] },
   { id: 'env-viewer', name: 'Env Viewer', description: 'Manage environment variables', icon: FaCog, category: 'developer', keywords: ['env', 'environment', 'variables', 'config'] },
+  // ── Integrations ──
+  { id: 'telegram-connector', name: 'Telegram Connector', description: 'Import notes, bugs, and snippets from Telegram', icon: FaTelegram, category: 'integrations', keywords: ['telegram', 'bot', 'import', 'sync', 'phone', 'mobile'] },
 ];
 
 export default tools;

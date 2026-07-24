@@ -12,6 +12,7 @@ import { CrashRecoveryOverlay } from './components/feedback/CrashRecoveryOverlay
 import { SkipToContent } from './components/accessibility/SkipToContent';
 import { AriaAnnouncer } from './components/accessibility/AriaAnnouncer';
 import { setupCrashDetection } from './utils/crashRecovery';
+import { TelegramPollingProvider } from './features/utilities/TelegramPollingProvider';
 import './utils/logger';
 
 setupCrashDetection();
@@ -48,9 +49,11 @@ function App() {
         <CrashRecoveryOverlay />
         <CommandPalette />
         <Toaster richColors position="bottom-right" />
-        <Routes>
-          {renderRoutes(routes)}
-        </Routes>
+        <TelegramPollingProvider>
+          <Routes>
+            {renderRoutes(routes)}
+          </Routes>
+        </TelegramPollingProvider>
       </Router>
     </ThemeProvider>
   );

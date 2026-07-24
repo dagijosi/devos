@@ -46,7 +46,7 @@ export function UpdaterSettings() {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold text-theme-text">Application Updates</h3>
-          <p className="text-xs text-theme-text/50 mt-0.5">Current version: v1.0.3</p>
+          <p className="text-xs text-theme-text/50 mt-0.5">Current version: v1.0.4</p>
         </div>
         <button
           onClick={handleCheck}

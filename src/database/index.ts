@@ -2015,7 +2015,7 @@ export const database = {
       data.tags ?? '[]', data.favorite ?? 0, data.pinned ?? 0,
       data.status ?? 'active', data.project_id ?? null, data.folder_id ?? null,
     ]);
-    const rows = await inst.select<Row>(KNOWLEDGE_QUERIES.getAll);
+    const rows = await inst.select<Row>('SELECT * FROM knowledge_items WHERE id = (SELECT MAX(id) FROM knowledge_items)');
     return rows.length ? toKnowledgeItem(rows[0]) : null;
   },
 

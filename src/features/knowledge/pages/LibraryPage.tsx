@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { FaSearch, FaTimes } from 'react-icons/fa';
+import { FaSearch, FaTimes, FaTrash } from 'react-icons/fa';
 import { database } from '../../../database';
 import { LibrarySidebar } from '../components/LibrarySidebar';
 import { KnowledgeCard } from '../components/KnowledgeCard';
@@ -17,6 +17,7 @@ export function LibraryPage({ projectId }: LibraryPageProps) {
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [selected, setSelected] = useState<KnowledgeItem | null>(null);
+  const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [projectNames, setProjectNames] = useState<Record<number, string>>({});
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -60,6 +61,12 @@ export function LibraryPage({ projectId }: LibraryPageProps) {
     load(activeCategory, undefined, projectId);
     loadCounts();
   }, [activeCategory, projectId]);
+
+  useEffect(() => {
+    const handler = () => { load(activeCategory, undefined, projectId); loadCounts(); };
+    window.addEventListener('knowledge-updated', handler);
+    return () => window.removeEventListener('knowledge-updated', handler);
+  }, [activeCategory, projectId, load, loadCounts]);
 
   const handleCreate = useCallback(async (type: KnowledgeType) => {
     const created = await database.createKnowledgeItem({
@@ -108,6 +115,25 @@ export function LibraryPage({ projectId }: LibraryPageProps) {
     loadCounts();
   }, [loadCounts]);
 
+  const handleToggleCheck = useCallback((id: number) => {
+    setCheckedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleBulkDelete = useCallback(async () => {
+    const ids = [...checkedIds];
+    if (!ids.length) return;
+    for (const id of ids) await database.deleteKnowledgeItem(id);
+    setItems(prev => prev.filter(i => !checkedIds.has(i.id)));
+    setCheckedIds(new Set());
+    if (selected && checkedIds.has(selected.id)) setSelected(null);
+    loadCounts();
+  }, [checkedIds, selected, loadCounts]);
+
   const handleRestore = useCallback(async (id: number) => {
     await database.restoreKnowledgeItem(id);
     load(activeCategory);
@@ -136,6 +162,19 @@ export function LibraryPage({ projectId }: LibraryPageProps) {
           {!isTrash && <CreateMenu onCreate={handleCreate} />}
         </div>
 
+        {/* Bulk actions */}
+        {checkedIds.size > 0 && (
+          <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-theme-icon/5 border border-theme-icon/20 rounded-xl">
+            <span className="text-xs text-theme-text/60">{checkedIds.size} selected</span>
+            <span className="text-theme-text/20">·</span>
+            <button onClick={() => setCheckedIds(new Set())} className="text-xs text-theme-text/40 hover:text-theme-text">Clear</button>
+            <span className="text-theme-text/20">·</span>
+            <button onClick={handleBulkDelete} className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300">
+              <FaTrash className="w-2.5 h-2.5" /> Delete {checkedIds.size > 1 ? 'all' : ''}
+            </button>
+          </div>
+        )}
+
         {/* Content area */}
         <div className="flex-1 flex gap-6 overflow-hidden">
           {/* List */}
@@ -155,7 +194,8 @@ export function LibraryPage({ projectId }: LibraryPageProps) {
               <div className="grid grid-cols-1 gap-3">
                 {items.map(item => (
                   <KnowledgeCard key={item.id} item={item} selected={selected?.id === item.id}
-                    onSelect={setSelected} onToggleFavorite={handleToggleFavorite}
+                    checked={checkedIds.has(item.id)} onSelect={setSelected}
+                    onToggleCheck={handleToggleCheck} onToggleFavorite={handleToggleFavorite}
                     projectName={projectNames[item.project_id ?? -1]} />
                 ))}
               </div>
