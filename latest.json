@@ -1,0 +1,11 @@
+{
+  "version": "1.0.1",
+  "notes": "Initial release with automatic updates support",
+  "pub_date": "2024-01-22T12:00:00Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUL1dvSGM4ajZ3Ti9LRUtpSzExWDJnNmpMelJXN3Y2WEhJQVRJR0lDTU5MZmxiU2luRXE1aEpBMHNiQXpIcFdPTmg1U3VXMG1YUWVZZ2RobEI2QWFWTmxqalYvREFmaEFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg0ODczNjcxCWZpbGU6RGV2T1NfMS4wLjFfeDY0LXNldHVwLmV4ZQpKcjVXUDRlRjV0eURoMDNpTzBHbkkraUVROVVYdjJkdWx6QVl4Q1BSTHlLM3EwOU5YM1pXKzh1S0tQZkpJU002WjI1Y3g1V0VxUmVlOURXMWpGUVlBQT09Cg==",
+      "url": "https://github.com/dagijosi/devos/releases/download/v1.0.1/DevOS_1.0.1_x64-setup.exe"
+    }
+  }
+}
