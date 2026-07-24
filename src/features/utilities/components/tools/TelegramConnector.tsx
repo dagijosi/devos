@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { FaTelegram, FaSync, FaTrash, FaCog, FaCheck, FaPause, FaPlay } from 'react-icons/fa';
 import { loadTelegramConfig, saveTelegramConfig, UPDATES_KEY, type TelegramConfig } from '../../telegramConfig';
-import { processTelegramUpdates, setBotCommands, type ProcessedUpdate } from '../../telegramBot';
+import { processTelegramUpdates, setBotCommands, clearTelegramDedup, type ProcessedUpdate } from '../../telegramBot';
 import { KNOWLEDGE } from '../../../../routes/types/routeConstants';
 
 const API = 'https://api.telegram.org/bot';
@@ -72,8 +72,7 @@ export function TelegramConnector() {
         const cmdsOk = await setBotCommands(config.bot_token);
         save({ auto_poll: true });
         toast.success(`Connected as @${data.result.username}${cmdsOk ? ' · commands registered' : ''}`);
-        // Clear stuck dedup so a previously ignored /start can be retried
-        try { localStorage.removeItem('devos_telegram_processed_ids'); } catch {}
+        clearTelegramDedup();
       } else {
         toast.error(`Telegram API: ${data.description}`);
       }
@@ -84,12 +83,19 @@ export function TelegramConnector() {
     if (!config.bot_token) { toast.error('Configure bot token first'); return; }
     setLoading(true);
     try {
+      // Allow retrying the next messages even if an earlier attempt marked them processed
+      clearTelegramDedup();
       const c = loadTelegramConfig();
       const offset = c.last_update_id ? c.last_update_id + 1 : 0;
       const res = await fetch(`${API}${c.bot_token}/getUpdates?offset=${offset}&timeout=8`);
       const data = await res.json();
       if (!data.ok) { toast.error(`API: ${data.description}`); setLoading(false); return; }
-      if (!data.result?.length) { toast('No new messages'); setLoading(false); setLastSync(new Date().toLocaleTimeString()); return; }
+      if (!data.result?.length) {
+        toast('No pending messages — send /start to your bot, then Sync again');
+        setLoading(false);
+        setLastSync(new Date().toLocaleTimeString());
+        return;
+      }
 
       const processed = await processTelegramUpdates(c.bot_token, c.chat_id, data.result);
       setUpdates(prev => [...processed, ...prev].slice(0, 200));
@@ -98,9 +104,10 @@ export function TelegramConnector() {
       save({ last_update_id: maxId });
       setLastSync(new Date().toLocaleTimeString());
 
-      const byCmd = processed.reduce((acc, u) => { acc[u.command] = (acc[u.command] || 0) + 1; return acc; }, {} as Record<string, number>);
+      const replied = processed.filter(p => !p.skipped && p.result);
+      const byCmd = replied.reduce((acc, u) => { acc[u.command] = (acc[u.command] || 0) + 1; return acc; }, {} as Record<string, number>);
       const summary = Object.entries(byCmd).map(([cmd, n]) => `${n}× /${cmd}`).join(', ');
-      toast.success(`Processed ${processed.length}: ${summary || 'messages'}`);
+      toast.success(`Processed ${replied.length}: ${summary || 'messages'}`);
     } catch (e: any) { toast.error(`Error: ${e.message}`); }
     setLoading(false);
   };
