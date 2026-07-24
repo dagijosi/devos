@@ -43,6 +43,19 @@ export function TelegramConnector() {
 
   useEffect(() => { saveUpdates(updates); }, [updates]);
 
+  // Background poller writes UPDATES_KEY — keep the Connector list in sync.
+  useEffect(() => {
+    const refresh = () => setUpdates(loadUpdates());
+    window.addEventListener('telegram-updates', refresh);
+    window.addEventListener('storage', refresh);
+    const id = setInterval(refresh, 3000);
+    return () => {
+      window.removeEventListener('telegram-updates', refresh);
+      window.removeEventListener('storage', refresh);
+      clearInterval(id);
+    };
+  }, []);
+
   const testConnection = async () => {
     if (!config.bot_token) { toast.error('Enter bot token first'); return; }
     try {

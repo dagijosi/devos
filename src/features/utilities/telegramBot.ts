@@ -14,13 +14,30 @@ function markProcessed(id: number) {
   if (arr.length > 1000) arr.splice(0, arr.length - 1000);
   localStorage.setItem(DEDUP_KEY, JSON.stringify(arr));
 }
+function unmarkProcessed(id: number) {
+  const set = getProcessed();
+  set.delete(id);
+  localStorage.setItem(DEDUP_KEY, JSON.stringify([...set]));
+}
 
 async function sendMsg(token: string, chatId: number, text: string) {
-  await fetch(`${API}${token}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' }),
-  });
+  const post = async (body: Record<string, unknown>) => {
+    const res = await fetch(`${API}${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return res.json().catch(() => ({ ok: false, description: 'Invalid response' }));
+  };
+
+  // Legacy Markdown often rejects messages; retry plain text so the user still gets a reply.
+  let data = await post({ chat_id: chatId, text, parse_mode: 'Markdown' });
+  if (!data.ok) {
+    data = await post({ chat_id: chatId, text });
+  }
+  if (!data.ok) {
+    throw new Error(data.description || 'sendMessage failed');
+  }
 }
 
 export interface ProcessedUpdate {
@@ -52,13 +69,14 @@ async function resolveProject(text: string): Promise<{ text: string; projectId: 
 
 export async function processTelegramUpdates(token: string, chatFilter: string, updates: any[]): Promise<ProcessedUpdate[]> {
   const results: ProcessedUpdate[] = [];
+  const filter = (chatFilter || '').trim();
 
   for (const update of updates) {
     const msg = update.message;
     if (!msg?.text) continue;
-    if (chatFilter && String(msg.chat.id) !== chatFilter) continue;
+    if (filter && String(msg.chat.id) !== filter) continue;
 
-    // Mark immediately to prevent any concurrent call from re-processing
+    // Mark immediately to prevent concurrent polls from double-handling
     if (getProcessed().has(msg.message_id)) continue;
     markProcessed(msg.message_id);
 
@@ -66,7 +84,9 @@ export async function processTelegramUpdates(token: string, chatFilter: string, 
     const firstLine = text.split('\n')[0];
     const rest = text.slice(firstLine.length).trim();
     const parts = firstLine.split(/\s+/);
-    const cmd = parts[0].toLowerCase();
+    // /start@MyBot → /start
+    const rawCmd = parts[0].toLowerCase();
+    const cmd = rawCmd.startsWith('/') ? rawCmd.split('@')[0] : rawCmd;
     const cmdArgs = parts.slice(1).join(' ');
     const chatId = msg.chat.id;
 
@@ -97,7 +117,11 @@ export async function processTelegramUpdates(token: string, chatFilter: string, 
       }
     } catch (e: any) {
       entry.result = `❌ Error: ${e.message}`;
-      try { await sendMsg(token, chatId, entry.result); } catch {}
+      try {
+        await sendMsg(token, chatId, entry.result);
+      } catch {
+        unmarkProcessed(msg.message_id);
+      }
     }
 
     results.push(entry);

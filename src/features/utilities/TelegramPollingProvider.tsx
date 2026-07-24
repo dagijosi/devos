@@ -1,6 +1,17 @@
 import { useEffect, useRef } from 'react';
-import { loadTelegramConfig } from './telegramConfig';
-import { processTelegramUpdates, setBotCommands } from './telegramBot';
+import { loadTelegramConfig, saveTelegramConfig, UPDATES_KEY } from './telegramConfig';
+import { processTelegramUpdates, setBotCommands, type ProcessedUpdate } from './telegramBot';
+
+function appendProcessedUpdates(processed: ProcessedUpdate[]) {
+  if (!processed.length) return;
+  try {
+    const prev: ProcessedUpdate[] = JSON.parse(localStorage.getItem(UPDATES_KEY) || '[]');
+    localStorage.setItem(UPDATES_KEY, JSON.stringify([...processed, ...prev].slice(0, 200)));
+  } catch {
+    localStorage.setItem(UPDATES_KEY, JSON.stringify(processed.slice(0, 200)));
+  }
+  try { window.dispatchEvent(new CustomEvent('telegram-updates')); } catch {}
+}
 
 export function TelegramPollingProvider({ children }: { children: React.ReactNode }) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -20,10 +31,10 @@ export function TelegramPollingProvider({ children }: { children: React.ReactNod
         const res = await fetch(`https://api.telegram.org/bot${c.bot_token}/getUpdates?offset=${offset}&timeout=5`);
         const data = await res.json();
         if (data.ok && data.result?.length) {
-          await processTelegramUpdates(c.bot_token, c.chat_id, data.result);
+          const processed = await processTelegramUpdates(c.bot_token, c.chat_id, data.result);
+          appendProcessedUpdates(processed);
           const maxId = Math.max(...data.result.map((u: any) => u.update_id));
-          const updated = { ...c, last_update_id: maxId };
-          localStorage.setItem('devos_telegram_config', JSON.stringify(updated));
+          saveTelegramConfig({ ...c, last_update_id: maxId });
         }
       } catch { /* network error — retry next cycle */ }
     };

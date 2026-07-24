@@ -49,7 +49,8 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'DevOS ${{ github.ref_name }}'
           releaseBody: 'See the assets to download this version and install.'
-          releaseDraft: true
+          # Must be published (not draft) so /releases/latest/download/latest.json resolves for the updater
+          releaseDraft: false
           prerelease: false
 
       - name: Generate latest.json
@@ -57,24 +58,46 @@ jobs:
         run: |
           $version = "${{ github.ref_name }}"
           $versionWithoutV = $version -replace '^v', ''
-          $url = "https://github.com/dagijosi/devos/releases/download/$version/DevOS_${versionWithoutV}_x64-setup.exe"
-          
-          # Create latest.json with correct Tauri format (version without v prefix)
-          $json = @{
+          $nsisDir = "src-tauri/target/release/bundle/nsis"
+          New-Item -ItemType Directory -Path $nsisDir -Force | Out-Null
+
+          $setup = Get-ChildItem -Path $nsisDir -Filter "*-setup.exe" -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+          if (-not $setup) {
+            throw "NSIS setup.exe not found in $nsisDir"
+          }
+
+          $sigPath = "$($setup.FullName).sig"
+          if (-not (Test-Path $sigPath)) {
+            $sigPath = Get-ChildItem -Path $nsisDir -Filter "*.sig" -ErrorAction SilentlyContinue |
+              Select-Object -First 1 -ExpandProperty FullName
+          }
+          if (-not $sigPath -or -not (Test-Path $sigPath)) {
+            throw "Updater signature (.sig) not found next to $($setup.Name). Ensure TAURI_PRIVATE_KEY is set."
+          }
+          $signature = (Get-Content -Path $sigPath -Raw).Trim()
+
+          $url = "https://github.com/dagijosi/devos/releases/download/$version/$($setup.Name)"
+          $platform = @{
+            signature = $signature
+            url = $url
+          }
+          $payload = [ordered]@{
             version = $versionWithoutV
             notes = "DevOS $version"
             pub_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-            platforms = @{
-              "windows-x86_64-nsis" = @{
-                signature = ""
-                url = $url
-              }
+            platforms = [ordered]@{
+              "windows-x86_64-nsis" = $platform
+              "windows-x86_64" = $platform
             }
-          } | ConvertTo-Json -Depth 10 -Compress:$false
-          
-          # Save to release directory
-          New-Item -ItemType Directory -Path "src-tauri/target/release/bundle/nsis" -Force | Out-Null
-          $json | Out-File -FilePath "src-tauri/target/release/bundle/nsis/latest.json" -Encoding utf8 -NoNewline
+          }
+          $outPath = Join-Path $nsisDir "latest.json"
+          # UTF-8 without BOM — BOM breaks updater JSON parsing
+          $utf8 = New-Object System.Text.UTF8Encoding $false
+          [System.IO.File]::WriteAllText($outPath, ($payload | ConvertTo-Json -Depth 10), $utf8)
+          Write-Host "Wrote $outPath"
+          Get-Content $outPath
 
       - name: Upload latest.json to release
         run: |

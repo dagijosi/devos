@@ -156,7 +156,11 @@ export function useWorkflows() {
     await load();
   }, [load]);
 
-  useEffect(() => { ensureSeeded(); }, [ensureSeeded]);
+  useEffect(() => {
+    ensureSeeded().catch((e) => {
+      console.error('[Workflows] Seed failed:', e);
+    });
+  }, [ensureSeeded]);
 
   const createWorkflow = useCallback(async (data: any) => {
     const created = await database.createWorkflow(data);

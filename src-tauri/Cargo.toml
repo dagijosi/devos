@@ -1,6 +1,6 @@
 [package]
 name = "devos"
-version = "1.1.4"
+version = "1.1.5"
 description = "Developer OS desktop application"
 authors = ["DevOS"]
 license = ""
