@@ -43,6 +43,10 @@ jobs:
         uses: tauri-apps/tauri-action@v0.5.12
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Tauri v2 signing env vars (required for .sig + updater)
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          # Legacy aliases kept for older CLI / tooling
           TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         with:
@@ -52,14 +56,26 @@ jobs:
           # Must be published (not draft) so /releases/latest/download/latest.json resolves for the updater
           releaseDraft: false
           prerelease: false
+          uploadUpdaterJson: true
+          updaterJsonPreferNsis: true
 
       - name: Generate latest.json
         shell: pwsh
         run: |
           $version = "${{ github.ref_name }}"
           $versionWithoutV = $version -replace '^v', ''
-          $nsisDir = "src-tauri/target/release/bundle/nsis"
+          $bundleRoot = "src-tauri/target/release/bundle"
+          $nsisDir = Join-Path $bundleRoot "nsis"
           New-Item -ItemType Directory -Path $nsisDir -Force | Out-Null
+
+          Write-Host "Bundle tree:"
+          Get-ChildItem -Path $bundleRoot -Recurse -File -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty FullName |
+            ForEach-Object { Write-Host "  $_" }
+
+          if (-not $env:TAURI_SIGNING_PRIVATE_KEY -and -not $env:TAURI_PRIVATE_KEY) {
+            throw "TAURI_PRIVATE_KEY secret is empty. Add the minisign private key as repo secret TAURI_PRIVATE_KEY."
+          }
 
           $setup = Get-ChildItem -Path $nsisDir -Filter "*-setup.exe" -ErrorAction SilentlyContinue |
             Sort-Object LastWriteTime -Descending |
@@ -70,13 +86,22 @@ jobs:
 
           $sigPath = "$($setup.FullName).sig"
           if (-not (Test-Path $sigPath)) {
-            $sigPath = Get-ChildItem -Path $nsisDir -Filter "*.sig" -ErrorAction SilentlyContinue |
+            $sigPath = Get-ChildItem -Path $bundleRoot -Recurse -Filter "*.sig" -ErrorAction SilentlyContinue |
+              Where-Object { $_.Name -like "*setup*.sig" -or $_.Name -like "*.exe.sig" } |
+              Sort-Object LastWriteTime -Descending |
               Select-Object -First 1 -ExpandProperty FullName
           }
           if (-not $sigPath -or -not (Test-Path $sigPath)) {
-            throw "Updater signature (.sig) not found next to $($setup.Name). Ensure TAURI_PRIVATE_KEY is set."
+            throw @"
+Updater signature (.sig) not found next to $($setup.Name).
+Signing did not run. Ensure repo secret TAURI_PRIVATE_KEY holds the minisign private key
+(contents of the .key file from ``tauri signer generate``), matching the pubkey in tauri.conf.json.
+"@
           }
           $signature = (Get-Content -Path $sigPath -Raw).Trim()
+          if (-not $signature) {
+            throw "Signature file is empty: $sigPath"
+          }
 
           $url = "https://github.com/dagijosi/devos/releases/download/$version/$($setup.Name)"
           $platform = @{
@@ -96,8 +121,11 @@ jobs:
           # UTF-8 without BOM — BOM breaks updater JSON parsing
           $utf8 = New-Object System.Text.UTF8Encoding $false
           [System.IO.File]::WriteAllText($outPath, ($payload | ConvertTo-Json -Depth 10), $utf8)
-          Write-Host "Wrote $outPath"
+          Write-Host "Wrote $outPath from $sigPath"
           Get-Content $outPath
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
 
       - name: Upload latest.json to release
         run: |
