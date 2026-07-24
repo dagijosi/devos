@@ -11,11 +11,7 @@ export function Upcoming() {
   const [goals, setGoals] = useState<Goal[]>(() => {
     try {
       const saved = localStorage.getItem('devos_dashboard_goals');
-      return saved ? JSON.parse(saved) : [
-        { id: '1', text: 'Complete Project Scanner', done: false },
-        { id: '2', text: 'Deploy ERP Update', done: false },
-        { id: '3', text: 'Review Pull Requests', done: false },
-      ];
+      return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
 

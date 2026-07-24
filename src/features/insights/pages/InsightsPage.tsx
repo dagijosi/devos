@@ -74,11 +74,8 @@ export function InsightsPage() {
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const todayActs = activities.filter((a) => a.started_at?.startsWith(todayStr));
-  const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-  const yesterdayActs = activities.filter((a) => a.started_at?.startsWith(yesterdayStr));
 
   const todayFocus = todayActs.reduce((s, a) => s + (a.duration || 0), 0);
-  const yesterdayFocus = yesterdayActs.reduce((s, a) => s + (a.duration || 0), 0);
   const weekFocus = activities.reduce((s, a) => s + (a.duration || 0), 0);
 
   const projectsWorked = new Set(todayActs.filter((a) => a.project_id).map((a) => a.project_id)).size;
@@ -134,25 +131,11 @@ export function InsightsPage() {
     return { label: desc.length > 30 ? desc.slice(0, 30) + '...' : desc, minutes: total };
   }).filter((e) => e.minutes > 0);
 
-  const languages = ['TypeScript', 'Rust', 'SQL', 'Markdown', 'JSON', 'Other'].map((name) => ({
-    name,
-    percentage: Math.round((Math.random() * 40 + 5)),
-  })).sort((a, b) => b.percentage - a.percentage);
-  const langTotal = languages.reduce((s, l) => s + l.percentage, 0);
-  const languagesNormalized = languages.map((l) => ({ ...l, percentage: Math.round((l.percentage / langTotal) * 100) }));
+  const languages: { name: string; percentage: number }[] = [];
 
-  const learningTopics = [...new Set(projects.map((p: any) => p.technology).flat().filter(Boolean))].slice(0, 5).map((tech) => ({
-    name: tech as string,
-    progress: Math.min(100, Math.round(Math.random() * 100)),
-  }));
+  const learningTopics: { name: string; progress: number }[] = [];
 
-  const trendsItems = [
-    { label: 'Focus Time', change: Math.round(((todayFocus - yesterdayFocus) / Math.max(yesterdayFocus, 1)) * 100) },
-    { label: 'Tasks', change: 12 },
-    { label: 'Projects', change: -5 },
-    { label: 'Notes', change: 30 },
-    { label: 'Bugs Solved', change: 40 },
-  ];
+  const trendsItems: { label: string; change: number }[] = [];
 
   const achievementsList = [
     { label: '100 Notes', unlocked: notesCreated >= 100 },
@@ -227,7 +210,7 @@ export function InsightsPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <CodingActivity weekData={weekDays} maxHours={maxHours} />
-            <LanguageUsage languages={languagesNormalized} />
+            <LanguageUsage languages={languages} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">

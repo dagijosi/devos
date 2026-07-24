@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaServer, FaCircle, FaDatabase, FaCog } from 'react-icons/fa';
+import { FaCircle } from 'react-icons/fa';
 
 interface Service {
   name: string;
@@ -8,13 +8,6 @@ interface Service {
   icon: any;
 }
 
-const defaultServices: Service[] = [
-  { name: 'Frontend', status: 'running', port: 5173, icon: FaServer },
-  { name: 'Backend', status: 'stopped', port: 3000, icon: FaServer },
-  { name: 'Database', status: 'connected', icon: FaDatabase },
-  { name: 'LM Studio', status: 'stopped', icon: FaCog },
-];
-
 const statusConfig = {
   running: { color: 'text-green-400', dot: 'text-green-400', label: 'Running' },
   connected: { color: 'text-blue-400', dot: 'text-blue-400', label: 'Connected' },
@@ -22,7 +15,7 @@ const statusConfig = {
 };
 
 export function RunningServices() {
-  const [services] = useState<Service[]>(defaultServices);
+  const [services] = useState<Service[]>([]);
   const [detecting, setDetecting] = useState(true);
 
   useEffect(() => {

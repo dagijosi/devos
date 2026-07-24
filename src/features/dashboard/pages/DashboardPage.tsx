@@ -41,7 +41,7 @@ export function DashboardPage() {
   return (
     <div className="space-y-5 max-w-[1600px]">
       {/* Section 1 — Today's Overview (full width) */}
-      <TodayOverview stats={stats} focusGoal="Complete Project Scanner" />
+      <TodayOverview stats={stats} />
 
       {/* 12-column grid */}
       <div className="grid grid-cols-12 gap-5">
