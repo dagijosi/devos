@@ -51,6 +51,23 @@ jobs:
           releaseDraft: true
           prerelease: false
 
+      - name: Generate latest.json manually
+        run: |
+          $version = "${{ github.ref_name }}"
+          $url = "https://github.com/dagijosi/devos/releases/download/$version/DevOS_${version}_x64-setup.exe"
+          $json = @{
+            version = $version
+            notes = "DevOS $version"
+            pub_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            platforms = @{
+              windows = @{
+                signature = ""
+                url = $url
+              }
+            }
+          } | ConvertTo-Json -Depth 10
+          $json | Out-File -FilePath "src-tauri/target/release/bundle/nsis/latest.json" -Encoding utf8
+
       - name: Upload latest.json to release
         uses: softprops/action-gh-release@v1
         with:
