@@ -43,14 +43,10 @@ jobs:
         uses: tauri-apps/tauri-action@v0.5.12
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Tauri v2 signing (required for .sig + updater)
+          # Unencrypted private key (no password). Set repo secret TAURI_PRIVATE_KEY
+          # to the full contents of .tauri-updater.key — do NOT set TAURI_KEY_PASSWORD.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          # Do NOT pass a password env unless the key was generated with one.
-          # A wrong TAURI_KEY_PASSWORD secret causes: "Wrong password for that key".
-          # To use a password-protected key, uncomment and set repo secret TAURI_KEY_PASSWORD:
-          # TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-          # TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'DevOS ${{ github.ref_name }}'

@@ -65,3 +65,9 @@ coverage/
 .cache/
 .temp/
 tmp/
+
+# Updater signing keys (never commit)
+.tauri-updater.key
+.tauri-updater.key.pub
+.tauri-*.key
+.tauri-*.key.pub
