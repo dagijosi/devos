@@ -1,44 +1,44 @@
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaCode, FaFingerprint, FaLock, FaQrcode, FaKey, FaPalette, FaClock, FaTerminal, FaSearch, FaExternalLinkAlt, FaDatabase, FaFileCode, FaMarkdown, FaRandom, FaCube, FaGlobe, FaPlug, FaCrop, FaCodeBranch, FaRuler, FaPaintBrush, FaCog, FaNetworkWired } from 'react-icons/fa';
+import { FaCode, FaLock, FaKey, FaPalette, FaClock, FaTerminal, FaSearch, FaExternalLinkAlt, FaCube, FaCog, FaNetworkWired } from 'react-icons/fa';
 import { UTILITIES } from '../../../../routes/types/routeConstants';
+import { useUtilitiesStore } from '../../../utilities/store/utilities.store';
+import allTools from '../../../utilities/toolDefinitions';
 
 interface Props {
   project: { id: number; name: string; local_path?: string };
 }
 
-const TOOLS = [
-  // Formatters
-  { id: 'json-formatter', name: 'JSON Formatter', icon: FaCode, desc: 'Format & validate JSON' },
-  { id: 'xml-formatter', name: 'XML Formatter', icon: FaFileCode, desc: 'Format XML' },
-  { id: 'markdown-preview', name: 'Markdown', icon: FaMarkdown, desc: 'Preview markdown' },
-  { id: 'yaml-formatter', name: 'YAML Formatter', icon: FaDatabase, desc: 'Format YAML/JSON' },
-  // Generators
-  { id: 'uuid-generator', name: 'UUID Generator', icon: FaCube, desc: 'Generate unique IDs' },
-  { id: 'nanoid-generator', name: 'Nano ID', icon: FaFingerprint, desc: 'Compact unique IDs' },
-  { id: 'password-generator', name: 'Passwords', icon: FaKey, desc: 'Generate passwords' },
-  { id: 'lorem-ipsum', name: 'Lorem Ipsum', icon: FaRandom, desc: 'Placeholder text' },
-  // Encoders
-  { id: 'base64', name: 'Base64', icon: FaLock, desc: 'Encode / decode Base64' },
-  { id: 'url-encode', name: 'URL Encode', icon: FaGlobe, desc: 'Encode / decode URLs' },
-  { id: 'jwt-decoder', name: 'JWT Decoder', icon: FaKey, desc: 'Decode JWT tokens' },
-  // API/Database
-  { id: 'api-tester', name: 'API Tester', icon: FaNetworkWired, desc: 'Send HTTP requests' },
-  { id: 'graphql-client', name: 'GraphQL', icon: FaPlug, desc: 'Query GraphQL APIs' },
-  // Developer
-  { id: 'regex-tester', name: 'Regex Tester', icon: FaSearch, desc: 'Test regular expressions' },
-  { id: 'color-picker', name: 'Color Picker', icon: FaPalette, desc: 'Pick & convert colors' },
-  { id: 'timestamp-converter', name: 'Timestamp', icon: FaClock, desc: 'Convert timestamps' },
-  { id: 'hash-generator', name: 'Hash', icon: FaTerminal, desc: 'SHA hashes' },
-  { id: 'qr-generator', name: 'QR Code', icon: FaQrcode, desc: 'Generate QR codes' },
-  { id: 'diff-viewer', name: 'Diff Viewer', icon: FaCodeBranch, desc: 'Compare text' },
-  { id: 'word-counter', name: 'Word Counter', icon: FaRuler, desc: 'Count words/chars' },
-  { id: 'resize-image', name: 'Resize Image', icon: FaCrop, desc: 'Resize images' },
-  { id: 'gradient-builder', name: 'Gradient', icon: FaPaintBrush, desc: 'CSS gradients' },
-  { id: 'env-viewer', name: 'Env Viewer', icon: FaCog, desc: 'Parse .env files' },
+const FALLBACK_TOOLS = [
+  { id: 'json-formatter', icon: FaCode, desc: 'Format & validate JSON' },
+  { id: 'base64', icon: FaLock, desc: 'Encode / decode Base64' },
+  { id: 'jwt-decoder', icon: FaKey, desc: 'Decode JWT tokens' },
+  { id: 'api-tester', icon: FaNetworkWired, desc: 'Send HTTP requests' },
+  { id: 'regex-tester', icon: FaSearch, desc: 'Test regular expressions' },
+  { id: 'timestamp-converter', icon: FaClock, desc: 'Convert timestamps' },
+  { id: 'hash-generator', icon: FaTerminal, desc: 'SHA hashes' },
+  { id: 'uuid-generator', icon: FaCube, desc: 'Generate unique IDs' },
+  { id: 'color-picker', icon: FaPalette, desc: 'Pick & convert colors' },
+  { id: 'env-viewer', icon: FaCog, desc: 'Parse .env files' },
 ];
 
 export function UtilitiesTab({ project }: Props) {
   const navigate = useNavigate();
+  const { favoriteTools } = useUtilitiesStore();
+
+  const displayTools = useMemo(() => {
+    if (favoriteTools.length > 0) {
+      return favoriteTools.map(id => {
+        const def = allTools.find(t => t.id === id);
+        if (!def) return null;
+        return { id: def.id, name: def.name, icon: def.icon, desc: def.description };
+      }).filter(Boolean) as { id: string; name: string; icon: any; desc: string }[];
+    }
+    return FALLBACK_TOOLS.map(t => {
+      const def = allTools.find(d => d.id === t.id);
+      return { id: t.id, name: def?.name || t.id, icon: t.icon, desc: t.desc };
+    });
+  }, [favoriteTools]);
 
   return (
     <div className="space-y-4">
@@ -53,7 +53,7 @@ export function UtilitiesTab({ project }: Props) {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-        {TOOLS.map(tool => {
+        {displayTools.map(tool => {
           const Icon = tool.icon;
           return (
             <button key={tool.id} onClick={() => navigate(`${UTILITIES}?tool=${tool.id}`)}

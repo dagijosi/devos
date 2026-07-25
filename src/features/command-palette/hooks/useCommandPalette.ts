@@ -1,10 +1,12 @@
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../../stores/app.store';
 import { database } from '../../../database';
 import { DASHBOARD, PROJECTS, KNOWLEDGE, UTILITIES, WORKFLOWS, SETTING } from '../../../routes/types/routeConstants';
 import type { Project } from '../../projects/types';
 import type { Note } from '../../knowledge/types';
+import allTools from '../../utilities/toolDefinitions';
+import { useUtilitiesStore } from '../../utilities/store/utilities.store';
 
 interface Command {
   id: string;
@@ -35,6 +37,10 @@ export function useCommandPalette() {
     loadData();
   }, []);
 
+  const { favoriteTools } = useUtilitiesStore();
+
+  const TOP_TOOL_IDS = ['json-formatter', 'base64', 'jwt-decoder', 'regex-tester', 'api-tester', 'timestamp-converter', 'telegram-connector'];
+
   const baseCommands: Command[] = [
     { id: 'go-dashboard', label: 'Go to Dashboard', description: 'Navigate to the dashboard', category: 'Navigation', action: () => navigate(DASHBOARD) },
     { id: 'go-projects', label: 'Go to Projects', description: 'View and manage projects', category: 'Navigation', action: () => navigate(PROJECTS) },
@@ -50,6 +56,21 @@ export function useCommandPalette() {
       window.location.reload();
     }},
   ];
+
+  const toolCommands: Command[] = useMemo(() => {
+    const ids = [...new Set([...favoriteTools, ...TOP_TOOL_IDS])];
+    return ids.map(id => {
+      const def = allTools.find(t => t.id === id);
+      if (!def) return null;
+      return {
+        id: `tool-${def.id}`,
+        label: def.name,
+        description: def.description,
+        category: 'Utilities',
+        action: () => navigate(`${UTILITIES}?tool=${def.id}`),
+      };
+    }).filter(Boolean) as Command[];
+  }, [favoriteTools, navigate]);
 
   const projectCommands: Command[] = projects.map((p) => ({
     id: `project-${p.id}`,
@@ -70,7 +91,7 @@ export function useCommandPalette() {
     },
   }));
 
-  const commands = [...baseCommands, ...projectCommands, ...noteCommands];
+  const commands = [...baseCommands, ...toolCommands, ...projectCommands, ...noteCommands];
 
   const filteredCommands = query
     ? commands.filter(

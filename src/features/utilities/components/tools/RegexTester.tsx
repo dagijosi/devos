@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 
 interface MatchResult {
   full: string;
@@ -6,11 +6,26 @@ interface MatchResult {
   index: number;
 }
 
+const STORAGE_KEY = 'devos-tool-regex';
+
+function loadRegexState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return null;
+}
+
 export function RegexTester() {
-  const [pattern, setPattern] = useState('');
-  const [flags, setFlags] = useState({ g: true, i: false, m: false, s: false });
-  const [testText, setTestText] = useState('');
+  const saved = loadRegexState();
+  const [pattern, setPattern] = useState(saved?.pattern || '');
+  const [flags, setFlags] = useState<{ g: boolean; i: boolean; m: boolean; s: boolean }>(saved?.flags || { g: true, i: false, m: false, s: false });
+  const [testText, setTestText] = useState(saved?.testText || '');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ pattern, flags, testText })); } catch {}
+  }, [pattern, flags, testText]);
 
   const flagString = useMemo(() =>
     Object.entries(flags).filter(([, v]) => v).map(([k]) => k).join(''),

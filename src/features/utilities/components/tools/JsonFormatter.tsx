@@ -1,11 +1,19 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { FaCopy, FaCheck } from 'react-icons/fa';
 
+const STORAGE_KEY = 'devos-tool-json-input';
+
 export function JsonFormatter() {
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(() => {
+    try { return localStorage.getItem(STORAGE_KEY) || ''; } catch { return ''; }
+  });
   const [output, setOutput] = useState('');
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, input); } catch {}
+  }, [input]);
 
   const format = useCallback(() => {
     setError('');

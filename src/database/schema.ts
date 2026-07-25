@@ -465,6 +465,7 @@ export const PROJECT_QUERIES = {
   getFavorites: `SELECT * FROM projects WHERE favorite = 1 ORDER BY updated_at DESC`,
   getPinned: `SELECT * FROM projects WHERE pinned = 1 ORDER BY updated_at DESC`,
   search: `SELECT * FROM projects WHERE name LIKE ? OR description LIKE ? ORDER BY updated_at DESC`,
+  getByIdDesc: `SELECT * FROM projects ORDER BY id DESC LIMIT 1`,
 };
 
 export const ACTIVITY_QUERIES = {

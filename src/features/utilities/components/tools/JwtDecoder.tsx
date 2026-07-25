@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { FaCopy, FaCheck } from 'react-icons/fa';
 
 function base64UrlDecode(str: string): string {
@@ -19,13 +19,21 @@ function formatJson(str: string): string {
   }
 }
 
+const STORAGE_KEY = 'devos-tool-jwt-token';
+
 export function JwtDecoder() {
-  const [token, setToken] = useState('');
+  const [token, setToken] = useState(() => {
+    try { return localStorage.getItem(STORAGE_KEY) || ''; } catch { return ''; }
+  });
   const [header, setHeader] = useState('');
   const [payload, setPayload] = useState('');
   const [signature, setSignature] = useState('');
   const [error, setError] = useState('');
   const [copiedField, setCopiedField] = useState('');
+
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, token); } catch {}
+  }, [token]);
 
   const decode = useCallback(() => {
     setError('');

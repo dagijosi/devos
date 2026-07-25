@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getVersion } from '@tauri-apps/api/app';
+import { version as pkgVersion } from '../../../package.json';
 
 const LOADING_STEPS = [
   'Initializing system...',
@@ -17,6 +19,11 @@ interface SplashScreenProps {
 export function SplashScreen({ onFinish, minDuration = 2000 }: SplashScreenProps) {
   const [step, setStep] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [appVersion, setAppVersion] = useState('');
+
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => setAppVersion(pkgVersion));
+  }, []);
 
   useEffect(() => {
     void Date.now();
@@ -83,7 +90,7 @@ export function SplashScreen({ onFinish, minDuration = 2000 }: SplashScreenProps
           </AnimatePresence>
         </div>
 
-        <p className="text-[10px] text-theme-text/20 mt-6">DevOS v0.1.0</p>
+        <p className="text-[10px] text-theme-text/20 mt-6">DevOS v{appVersion || '...'}</p>
       </div>
     </motion.div>
   );

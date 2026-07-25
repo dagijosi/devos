@@ -1,5 +1,5 @@
-import { useMemo, useEffect, type ComponentType } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useMemo, useEffect, useRef, type ComponentType } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { FaExclamationTriangle } from 'react-icons/fa';
 import { UtilitiesSidebar } from '../components/UtilitiesSidebar';
 import { ToolGrid } from '../components/ToolGrid';
@@ -123,16 +123,36 @@ const toolComponentMap: Record<string, ComponentType> = {
 };
 
 export function UtilitiesPage() {
-  const [searchParams] = useSearchParams();
-  const { activeTool, searchQuery, activeCategory, showFavoritesOnly, favoriteTools, recentTools, setActiveTool, logRecentTool } = useUtilitiesStore();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { activeTool, searchQuery, activeCategory, showFavoritesOnly, showRecentOnly, favoriteTools, recentTools, setActiveTool, logRecentTool } = useUtilitiesStore();
 
+  // One-time sync from URL → state on mount (deep-link support)
   useEffect(() => {
-    const tool = searchParams.get('tool');
-    if (tool && allTools.some(t => t.id === tool)) {
-      setActiveTool(tool);
-      logRecentTool(tool);
+    const urlTool = searchParams.get('tool');
+    if (urlTool && allTools.some(t => t.id === urlTool)) {
+      setActiveTool(urlTool);
+      logRecentTool(urlTool);
     }
-  }, [searchParams, setActiveTool, logRecentTool]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync state → URL whenever activeTool changes (never URL → state after mount)
+  // Skipped on first render to avoid clearing URL before deep-link state applies
+  const didFirstRender = useRef(false);
+  useEffect(() => {
+    if (!didFirstRender.current) {
+      didFirstRender.current = true;
+      return;
+    }
+    const urlTool = searchParams.get('tool');
+    if (activeTool && activeTool !== urlTool) {
+      navigate(`?tool=${activeTool}`, { replace: true });
+    } else if (!activeTool && urlTool) {
+      setSearchParams({}, { replace: true });
+    }
+    // Intentionally only depends on activeTool to avoid loops from URL changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTool]);
 
   const matchedTool = useMemo(() => {
     if (!activeTool) return null;
@@ -142,8 +162,13 @@ export function UtilitiesPage() {
   const visibleTools = useMemo(() => {
     let list = [...allTools];
     if (showFavoritesOnly) list = list.filter((t) => favoriteTools.includes(t.id));
+    if (showRecentOnly) {
+      const recentSet = new Set(recentTools);
+      list = list.filter((t) => recentSet.has(t.id));
+      list.sort((a, b) => recentTools.indexOf(a.id) - recentTools.indexOf(b.id));
+    }
     if (activeCategory) list = list.filter((t) => t.category === activeCategory);
-    if (searchQuery && searchQuery !== 'recent:') {
+    if (searchQuery) {
       const q = searchQuery.toLowerCase();
       list = list.filter((t) =>
         t.name.toLowerCase().includes(q) ||
@@ -151,13 +176,8 @@ export function UtilitiesPage() {
         t.keywords.some((k) => k.includes(q))
       );
     }
-    if (searchQuery === 'recent:') {
-      const recentSet = new Set(recentTools);
-      list = list.filter((t) => recentSet.has(t.id));
-      list.sort((a, b) => recentTools.indexOf(a.id) - recentTools.indexOf(b.id));
-    }
     return list;
-  }, [searchQuery, activeCategory, showFavoritesOnly, favoriteTools, recentTools]);
+  }, [searchQuery, activeCategory, showFavoritesOnly, showRecentOnly, favoriteTools, recentTools]);
 
   if (matchedTool) {
     const Icon = matchedTool.icon;

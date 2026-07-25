@@ -682,6 +682,15 @@ class LocalDatabase {
       const rows = sortBy(lsGet<Row>('_db_projects'), 'updated_at');
       return (bind?.length ? rows.slice(0, bind[0] as number) : rows).map(parseProject) as T[];
     }
+    if (sql.startsWith('SELECT * FROM PROJECTS ORDER BY ID DESC')) {
+      const rows = sortBy(lsGet<Row>('_db_projects'), 'id');
+      return (bind?.length ? rows.slice(0, bind[0] as number) : rows).map(parseProject) as T[];
+    }
+    if (sql.startsWith('SELECT LAST_INSERT_ROWID')) {
+      const rows = lsGet<Row>('_db_projects');
+      const lastId = rows.length ? Math.max(...rows.map(r => Number(r.id))) : 0;
+      return [{ id: lastId }] as T[];
+    }
     // Notes
     if (sql.startsWith('SELECT * FROM NOTES WHERE FAVORITE = 1')) {
       return lsGet<Row>('_db_notes').filter((r) => r.favorite === 1).map(toNote) as T[];
@@ -1028,7 +1037,14 @@ export const database = {
       data.tags ?? '[]', data.technology ?? '[]',
       data.repository_url ?? '', data.local_path ?? '',
     ]);
-    const rows = await inst.select<Row>(PROJECT_QUERIES.getAll);
+    // Use last_insert_rowid() for SQLite, fallback to id DESC for LocalDatabase
+    try {
+      const idRows = await inst.select<Row>('SELECT last_insert_rowid() as id');
+      if (idRows.length && idRows[0].id != null) {
+        return await this.getProject(Number(idRows[0].id));
+      }
+    } catch {}
+    const rows = await inst.select<Row>(PROJECT_QUERIES.getByIdDesc);
     return rows.length ? toProject(rows[0]) : null;
   },
 

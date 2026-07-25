@@ -1,6 +1,9 @@
 import { useState } from 'react';
+import { getProjectContext } from '../../../projects/utils/projectContext';
 
 export function EnvViewer() {
+  const project = getProjectContext();
+  const envPath = project?.localPath ? `${project.localPath}\\.env` : '';
   const [input, setInput] = useState('DATABASE_URL=postgres://localhost:5432/mydb\nAPI_KEY=sk-abc123\nNODE_ENV=development\nPORT=3000\nDEBUG=true');
   const [parsed, setParsed] = useState<{ key: string; value: string }[]>([]);
   const [mask, setMask] = useState(true);
@@ -18,6 +21,11 @@ export function EnvViewer() {
 
   return (
     <div className="space-y-4">
+      {envPath && (
+        <div className="flex items-center gap-2 text-[10px] text-theme-text/40 px-1">
+          <span className="font-mono truncate" title={envPath}>{envPath}</span>
+        </div>
+      )}
       <textarea value={input} onChange={e => setInput(e.target.value)} rows={6} placeholder="KEY=VALUE" className={ic} />
       <button onClick={parse} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-icon text-white hover:bg-theme-icon/90 transition-colors">Parse</button>
       {parsed.length > 0 && (

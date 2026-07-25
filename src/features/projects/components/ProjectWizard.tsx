@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaArrowLeft, FaArrowRight, FaFolder, FaCheck, FaTimes, FaPlus } from 'react-icons/fa';
+import { FaArrowLeft, FaArrowRight, FaFolder, FaCheck, FaTimes, FaPlus, FaSpinner } from 'react-icons/fa';
+import { toast } from 'sonner';
 import { PROJECTS } from '../../../routes/types/routeConstants';
 import { database } from '../../../database';
 import type { ProjectFormData } from '../types';
@@ -15,6 +16,7 @@ interface WizardStepProps {
   setData: (d: any) => void;
   onNext: () => void;
   onBack: () => void;
+  busy?: boolean;
 }
 
 function StepName({ data, setData, onNext }: WizardStepProps) {
@@ -186,7 +188,7 @@ function StepScripts({ data, setData, onNext, onBack }: WizardStepProps) {
   );
 }
 
-function StepFinish({ data, onBack, onFinish }: WizardStepProps & { onFinish: () => void }) {
+function StepFinish({ data, onBack, onFinish, busy }: WizardStepProps & { onFinish: () => void }) {
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
@@ -214,8 +216,9 @@ function StepFinish({ data, onBack, onFinish }: WizardStepProps & { onFinish: ()
 
       <div className="flex justify-between">
         <button onClick={onBack} className="flex items-center gap-2 px-4 py-2.5 text-sm text-theme-text/60 hover:text-theme-text"><FaArrowLeft className="w-3 h-3" /> Back</button>
-        <button onClick={onFinish} className="flex items-center gap-2 px-5 py-2.5 bg-green-500 text-white rounded-xl text-sm font-medium hover:bg-green-600 transition-colors">
-          <FaCheck className="w-3 h-3" /> Create Project
+        <button onClick={onFinish} disabled={busy} className="flex items-center gap-2 px-5 py-2.5 bg-green-500 text-white rounded-xl text-sm font-medium hover:bg-green-600 disabled:opacity-50 transition-colors">
+          {busy ? <FaSpinner className="w-3 h-3 animate-spin" /> : <FaCheck className="w-3 h-3" />}
+          {busy ? 'Creating...' : 'Create Project'}
         </button>
       </div>
     </div>
@@ -234,7 +237,6 @@ export function ProjectWizard({ onClose, initialData }: { onClose: () => void; i
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
-  void busy;
   const [data, setData] = useState({
     name: '', description: '', category: '', local_path: '', repository_url: '',
     technology: [] as string[], scripts: [] as { name: string; command: string }[],
@@ -260,6 +262,7 @@ export function ProjectWizard({ onClose, initialData }: { onClose: () => void; i
 
   const handleFinish = async () => {
     setBusy(true);
+    let projectId: number | null = null;
     try {
       const scriptsObj: Record<string, string> = {};
       data.scripts.forEach((s: any) => { if (s.name && s.command) scriptsObj[s.name] = s.command; });
@@ -269,17 +272,25 @@ export function ProjectWizard({ onClose, initialData }: { onClose: () => void; i
         icon: 'folder', color: '#6366f1', category: data.category,
         scripts: scriptsObj, environment: {},
       } as any);
-      if (project?.id) {
+      projectId = project?.id ?? null;
+      if (projectId) {
         for (const s of data.scripts) {
-          if (s.name && s.command) await database.addProjectScript(project.id, s.name, s.command);
+          if (s.name && s.command) await database.addProjectScript(projectId, s.name, s.command);
         }
-        await database.addProjectActivity(project.id, 'Project created', 'create');
+        await database.addProjectActivity(projectId, 'Project created', 'create');
+        await database.logActivity({ type: 'project', description: `Created project: "${data.name}"`, project_id: projectId });
       }
-      navigate(`${PROJECTS}/${project?.id}`);
+      toast.success(`Project "${data.name}" created`);
     } catch (e) {
       console.error(e);
+      toast.error('Project created but some post-creation steps failed');
     } finally {
       setBusy(false);
+    }
+    if (projectId) {
+      navigate(`${PROJECTS}/${projectId}`);
+    } else {
+      navigate(PROJECTS);
     }
   };
 
@@ -302,7 +313,7 @@ export function ProjectWizard({ onClose, initialData }: { onClose: () => void; i
       </div>
 
       <div className="bg-theme-surface border border-theme-border/30 rounded-2xl p-6">
-        <StepComponent step={step} data={data} setData={setData}
+        <StepComponent step={step} data={data} setData={setData} busy={busy}
           onNext={() => setStep(s => Math.min(s + 1, STEPS.length - 1))}
           onBack={() => setStep(s => Math.max(s - 1, 0))}
           onFinish={handleFinish}

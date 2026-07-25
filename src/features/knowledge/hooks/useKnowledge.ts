@@ -19,6 +19,7 @@ export function useNotes() {
     const created = await database.createNote(data);
     if (created) {
       await database.addActivity('note', created.id, 'created', `Note "${created.title}" created`);
+      await database.logActivity({ type: 'note', description: `Created note: "${created.title}"`, project_id: created.project_id ?? undefined });
       setNotes((prev) => [created, ...prev]);
     }
     return created;
@@ -81,6 +82,7 @@ export function useSnippets() {
     const created = await database.createSnippet(data);
     if (created) {
       await database.addActivity('snippet', created.id, 'created', `Snippet "${created.title}" created`);
+      await database.logActivity({ type: 'snippet', description: `Created snippet: "${created.title}"`, project_id: created.project_id ?? undefined });
       setSnippets((prev) => [created, ...prev]);
     }
     return created;
@@ -111,6 +113,7 @@ export function useBugs() {
     const created = await database.createBug(data);
     if (created) {
       await database.addActivity('bug', created.id, 'created', `Bug "${created.title}" created`);
+      await database.logActivity({ type: 'bug', description: `Created bug: "${created.title}"`, project_id: created.project_id ?? undefined });
       setBugs((prev) => [created, ...prev]);
     }
     return created;

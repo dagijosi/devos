@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { FaPlay, FaCopy, FaTimes, FaPlus } from 'react-icons/fa';
 
 interface HeaderEntry {
@@ -16,14 +16,29 @@ interface ApiResponse {
   duration: number;
 }
 
+const STORAGE_KEY = 'devos-tool-rest';
+
+function loadRestState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return null;
+}
+
 export function ApiTester() {
-  const [url, setUrl] = useState('');
-  const [method, setMethod] = useState<Method>('GET');
-  const [headers, setHeaders] = useState<HeaderEntry[]>([{ key: '', value: '' }]);
-  const [body, setBody] = useState('');
+  const saved = loadRestState();
+  const [url, setUrl] = useState(saved?.url || '');
+  const [method, setMethod] = useState<Method>(saved?.method || 'GET');
+  const [headers, setHeaders] = useState<HeaderEntry[]>(saved?.headers || [{ key: '', value: '' }]);
+  const [body, setBody] = useState(saved?.body || '');
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<ApiResponse | null>(null);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ url, method, headers, body })); } catch {}
+  }, [url, method, headers, body]);
 
   const updateHeader = (idx: number, field: 'key' | 'value', val: string) => {
     setHeaders(prev => prev.map((h, i) => i === idx ? { ...h, [field]: val } : h));

@@ -51,8 +51,8 @@ const tools: ToolDefinition[] = [
   { id: 'schema-viewer', name: 'Schema Viewer', description: 'Visualize database schemas', icon: FaEye, category: 'database', keywords: ['schema', 'db', 'structure', 'tables'] },
 
   // ── Security ──
-  { id: 'sha256', name: 'SHA-256', description: 'Generate SHA-256 hash', icon: FaHashtag, category: 'security', keywords: ['sha256', 'sha-256', 'hash', 'security'] },
-  { id: 'md5', name: 'MD5 Hash', description: 'Generate MD5 hash', icon: FaHashtag, category: 'security', keywords: ['md5', 'hash', 'checksum'] },
+  { id: 'sha256', name: 'SHA-256', description: 'Generate SHA-256 hash (also in Hash Generator)', icon: FaHashtag, category: 'security', keywords: ['sha256', 'sha-256', 'hash', 'security'] },
+  { id: 'md5', name: 'MD5 Hash', description: 'Generate MD5 hash (also in Hash Generator)', icon: FaHashtag, category: 'security', keywords: ['md5', 'hash', 'checksum'] },
   { id: 'bcrypt', name: 'Bcrypt', description: 'Hash and verify passwords with bcrypt', icon: FaKey, category: 'security', keywords: ['bcrypt', 'password', 'hash', 'salt'] },
   { id: 'token-inspector', name: 'Token Inspector', description: 'Inspect OAuth tokens', icon: FaBug, category: 'security', keywords: ['token', 'oauth', 'jwt', 'bearer'] },
   { id: 'checksum', name: 'Checksum', description: 'Generate file checksums', icon: FaShieldAlt, category: 'security', keywords: ['checksum', 'sha', 'md5', 'file', 'verify'] },

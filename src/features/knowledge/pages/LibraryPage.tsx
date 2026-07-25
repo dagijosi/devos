@@ -77,6 +77,7 @@ export function LibraryPage({ projectId }: LibraryPageProps) {
       setItems(prev => [created, ...prev]);
       setSelected(created);
       await database.addActivity('knowledge', created.id, 'created', `${type} "${created.title}" created`);
+      await database.logActivity({ type, description: `Created ${type}: "${created.title}"`, project_id: projectId ?? undefined });
       loadCounts();
     }
   }, [loadCounts, projectId]);
