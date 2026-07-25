@@ -248,6 +248,10 @@ export const PROJECTS_ADD_TAGS = `ALTER TABLE projects ADD COLUMN tags TEXT DEFA
 export const PROJECTS_ADD_TECHNOLOGY = `ALTER TABLE projects ADD COLUMN technology TEXT DEFAULT '[]';`;
 export const PROJECTS_ADD_SCRIPTS = `ALTER TABLE projects ADD COLUMN scripts TEXT DEFAULT '{}';`;
 export const PROJECTS_ADD_ENVIRONMENT = `ALTER TABLE projects ADD COLUMN environment TEXT DEFAULT '{}';`;
+export const PROJECTS_ADD_FAVORITE = `ALTER TABLE projects ADD COLUMN favorite INTEGER DEFAULT 0;`;
+export const PROJECTS_ADD_PINNED = `ALTER TABLE projects ADD COLUMN pinned INTEGER DEFAULT 0;`;
+export const PROJECTS_ADD_REPOSITORY_URL = `ALTER TABLE projects ADD COLUMN repository_url TEXT DEFAULT '';`;
+export const PROJECTS_ADD_LOCAL_PATH = `ALTER TABLE projects ADD COLUMN local_path TEXT DEFAULT '';`;
 
 // ── Unified Knowledge / Library tables ─────────────────────────────────
 
@@ -418,6 +422,10 @@ export const ALL_MIGRATIONS = [
   PROJECTS_ADD_TECHNOLOGY,
   PROJECTS_ADD_SCRIPTS,
   PROJECTS_ADD_ENVIRONMENT,
+  PROJECTS_ADD_FAVORITE,
+  PROJECTS_ADD_PINNED,
+  PROJECTS_ADD_REPOSITORY_URL,
+  PROJECTS_ADD_LOCAL_PATH,
   // FTS cleanup (drop old triggers that fail when fts5 module is unavailable)
   NOTES_FTS_DROP_TRIGGERS,
   // FTS - will silently fail if fts5 unavailable (sql.js default build)

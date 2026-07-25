@@ -9,6 +9,7 @@ import {
   FaLightbulb,
   FaSave,
   FaTelegram,
+  FaCode,
 } from "react-icons/fa";
 import {
   DASHBOARD,
@@ -20,6 +21,8 @@ import {
   INSIGHTS,
   BACKUP,
   SETTING,
+  API_TYPE_GENERATOR,
+  TELEGRAM,
 } from "../routes/types/routeConstants";
 
 export interface NavLink {
@@ -45,7 +48,7 @@ export const navigationCategories: NavCategory[] = [
       { name: "Dashboard", href: DASHBOARD, icon: FaChartBar },
       { name: "Projects", href: PROJECTS, icon: FaFolder },
       { name: "Library", href: KNOWLEDGE, icon: FaBook },
-      { name: "Telegram", href: `${UTILITIES}?tool=telegram-connector`, icon: FaTelegram },
+      { name: "Telegram", href: TELEGRAM, icon: FaTelegram },
     ],
   },
   {
@@ -54,6 +57,7 @@ export const navigationCategories: NavCategory[] = [
       { name: "AI Assistant", href: AI, icon: FaRobot },
       { name: "Insights", href: INSIGHTS, icon: FaLightbulb },
       { name: "Utilities", href: UTILITIES, icon: FaWrench },
+      { name: "API Types", href: API_TYPE_GENERATOR, icon: FaCode },
       { name: "Workflows", href: WORKFLOWS, icon: FaPlay },
       { name: "Backup", href: BACKUP, icon: FaSave },
       { name: "Settings", href: SETTING, icon: FaCog },

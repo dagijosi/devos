@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { CATCH_ALL, DASHBOARD, SETTING, PROFILE, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, UTILITIES, WORKFLOWS, AI, INSIGHTS, BACKUP } from './types/routeConstants';
+import { CATCH_ALL, DASHBOARD, SETTING, PROFILE, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, UTILITIES, WORKFLOWS, AI, INSIGHTS, BACKUP, API_TYPE_GENERATOR, TELEGRAM } from './types/routeConstants';
 import { createRoute } from './types/createRoute';
 import { AppLayout } from '../components/layout/AppLayout';
 
@@ -52,6 +52,14 @@ const BackupPage = React.lazy(() =>
   import('../features/backup/pages/BackupPage').then((m) => ({ default: m.BackupPage }))
 );
 
+const ApiTypeGeneratorPage = React.lazy(() =>
+  import('../features/api-type-generator/pages/ApiTypeGeneratorPage').then((m) => ({ default: m.ApiTypeGeneratorPage }))
+);
+
+const TelegramPage = React.lazy(() =>
+  import('../features/telegram/pages/TelegramPage').then((m) => ({ default: m.TelegramPage }))
+);
+
 const ErrorPage = React.lazy(() => import('../pages/ErrorPage'));
 
 const routes = [
@@ -69,6 +77,8 @@ const routes = [
   createRoute(AI, AiPage, { layout: AppLayout }),
   createRoute(INSIGHTS, InsightsPage, { layout: AppLayout }),
   createRoute(BACKUP, BackupPage, { layout: AppLayout }),
+  createRoute(API_TYPE_GENERATOR, ApiTypeGeneratorPage, { layout: AppLayout }),
+  createRoute(TELEGRAM, TelegramPage, { layout: AppLayout }),
   createRoute(CATCH_ALL, ErrorPage),
 ];
 

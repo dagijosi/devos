@@ -34,8 +34,16 @@ export function OverviewTab({ project, onRefresh: _onRefresh }: OverviewTabProps
     else toast.error(r.message);
   };
 
-  const techs = (project.technology || []).slice(0, 6);
-  const scriptEntries = Object.entries(project.scripts || {});
+  const techArr = Array.isArray(project.technology)
+    ? project.technology
+    : typeof project.technology === 'string'
+      ? (() => { try { return JSON.parse(project.technology); } catch { return []; } })()
+      : [];
+  const techs = techArr.slice(0, 6);
+  const rawScriptsObj = typeof project.scripts === 'string'
+    ? (() => { try { return JSON.parse(project.scripts); } catch { return {}; } })()
+    : (project.scripts && typeof project.scripts === 'object' ? project.scripts : {});
+  const scriptEntries = Object.entries(rawScriptsObj);
   const allScripts = [
     ...scriptEntries.map(([k, v]) => ({ name: k, command: v })),
     ...scripts,
@@ -54,7 +62,7 @@ export function OverviewTab({ project, onRefresh: _onRefresh }: OverviewTabProps
             <p className="text-sm text-theme-text/50 mt-0.5">{project.description || 'No description'}</p>
             {techs.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-3">
-                {techs.map(t => <TechnologyBadge key={t} name={t} />)}
+                {techs.map((t: string) => <TechnologyBadge key={t} name={t} />)}
               </div>
             )}
             <div className="flex items-center gap-3 mt-3 text-xs text-theme-text/40">

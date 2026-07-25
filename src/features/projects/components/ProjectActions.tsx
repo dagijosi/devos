@@ -13,10 +13,10 @@ export function ProjectActions({ project, onOpen }: Props) {
     { label: 'VS Code', icon: FaCode, action: () => project.local_path && openVSCode(project.local_path), disabled: !project.local_path },
     { label: 'Terminal', icon: FaTerminal, action: () => project.local_path && openTerminal(project.local_path), disabled: !project.local_path },
     { label: 'Repository', icon: FaExternalLinkAlt, action: () => project.repository_url && openBrowser(project.repository_url), disabled: !project.repository_url },
-    ...Object.entries(project.scripts).slice(0, 3).map(([name, cmd]) => ({
+    ...Object.entries(typeof project.scripts === 'string' ? (() => { try { return JSON.parse(project.scripts); } catch { return {}; } })() : project.scripts || {}).slice(0, 3).map(([name, cmd]) => ({
       label: `Run: ${name}`,
       icon: FaPlayCircle,
-      action: () => runScript(cmd, project.local_path || undefined),
+      action: () => runScript(cmd as string, project.local_path || undefined),
       disabled: false,
     })),
   ];

@@ -17,7 +17,8 @@ export function ProjectsPage() {
   const [showScanner, setShowScanner] = useState(false);
 
   const techs = useMemo(() => {
-    const all = projects.flatMap(p => p.technology || []);
+    const raw = projects.flatMap(p => Array.isArray(p.technology) ? p.technology : []);
+    const all = raw.filter((t): t is string => typeof t === 'string');
     return [...new Set(all)].slice(0, 8);
   }, [projects]);
 
@@ -32,11 +33,11 @@ export function ProjectsPage() {
       list = list.filter(p =>
         p.name.toLowerCase().includes(q) ||
         p.description.toLowerCase().includes(q) ||
-        (p.tags || []).some(t => t.toLowerCase().includes(q)) ||
-        (p.technology || []).some(t => t.toLowerCase().includes(q))
+        (Array.isArray(p.tags) ? p.tags : []).some(t => t.toLowerCase().includes(q)) ||
+        (Array.isArray(p.technology) ? p.technology : []).some(t => t.toLowerCase().includes(q))
       );
     }
-    if (selectedTech) list = list.filter(p => (p.technology || []).includes(selectedTech));
+    if (selectedTech) list = list.filter(p => (Array.isArray(p.technology) ? p.technology : []).includes(selectedTech));
     return list;
   }, [projects, filter, search, selectedTech]);
 

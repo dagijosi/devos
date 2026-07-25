@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../stores/app.store';
 import { NotificationCenter } from '../../features/notifications/components/NotificationCenter';
 import { ThemeSwitcher } from '../../theme-system';
-import { DASHBOARD, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, UTILITIES, WORKFLOWS, SETTING } from '../../routes/types/routeConstants';
+import { DASHBOARD, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, UTILITIES, WORKFLOWS, SETTING, AI, INSIGHTS, TELEGRAM, BACKUP, API_TYPE_GENERATOR, PROFILE } from '../../routes/types/routeConstants';
 
 interface TopbarProps {
   sidebarOpen: boolean;
@@ -17,7 +17,13 @@ const breadcrumbMap: Record<string, string> = {
   [KNOWLEDGE]: 'Library',
   [UTILITIES]: 'Utilities',
   [WORKFLOWS]: 'Workflows',
+  [AI]: 'AI Assistant',
+  [INSIGHTS]: 'Insights',
+  [TELEGRAM]: 'Telegram',
+  [BACKUP]: 'Backup',
+  [API_TYPE_GENERATOR]: 'API Type Generator',
   [SETTING]: 'Settings',
+  [PROFILE]: 'Profile',
 };
 
 const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
@@ -53,7 +59,12 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       ];
     }
 
-    return [{ name: 'Dashboard', path: DASHBOARD }];
+    const fallbackName = pathname === '/' ? 'Dashboard'
+      : pathname.split('/').filter(Boolean).pop()?.replace(/[-_]/g, ' ') ?? 'Dashboard';
+    return [
+      { name: 'Dashboard', path: DASHBOARD },
+      { name: fallbackName.replace(/\b\w/g, c => c.toUpperCase()), path: pathname },
+    ];
   };
 
   const breadcrumbs = getBreadcrumbs();

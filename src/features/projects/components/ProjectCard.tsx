@@ -18,7 +18,12 @@ const statusConfig = {
 export function ProjectCard({ project, onToggleFavorite }: Props) {
   const navigate = useNavigate();
   const status = statusConfig[project.status];
-  const techs = (project.technology || []).slice(0, 3);
+  const techArr = Array.isArray(project.technology)
+    ? project.technology
+    : typeof project.technology === 'string'
+      ? (() => { try { return JSON.parse(project.technology); } catch { return []; } })()
+      : [];
+  const techs = techArr.slice(0, 3);
   const lastOpened = project.last_opened
     ? (() => {
         const diff = Date.now() - new Date(project.last_opened).getTime();
@@ -54,7 +59,7 @@ export function ProjectCard({ project, onToggleFavorite }: Props) {
 
         {techs.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-3">
-            {techs.map(t => <TechnologyBadge key={t} name={t} />)}
+            {techs.map((t: string) => <TechnologyBadge key={t} name={t} />)}
           </div>
         )}
 
