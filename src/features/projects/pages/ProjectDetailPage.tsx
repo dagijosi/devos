@@ -38,9 +38,13 @@ export function ProjectDetailPage() {
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
-    const p = await getProject(Number(id));
-    setProject(p);
-    if (p) await updateLastOpened(p.id);
+    try {
+      const p = await getProject(Number(id));
+      setProject(p);
+      if (p) await updateLastOpened(p.id).catch(() => {});
+    } catch {
+      setProject(null);
+    }
     setLoading(false);
   }, [id, getProject, updateLastOpened]);
 

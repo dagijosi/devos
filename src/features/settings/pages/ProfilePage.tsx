@@ -1,18 +1,34 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FaUser, FaEnvelope, FaShieldAlt, FaCamera, FaSave, FaEdit, FaTimes, FaBell, FaLock, FaGlobe } from 'react-icons/fa';
+import { useAuthStore } from '../../../store/authStore';
 
-export function ProfilePage() {
-  const [user, setUser] = useState({
+function loadProfile() {
+  try {
+    const saved = localStorage.getItem('devos_profile');
+    if (saved) return JSON.parse(saved);
+  } catch { /* ignore */ }
+  return {
     name: 'Developer',
     email: 'developer@example.com',
     role: 'Admin',
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
-  });
+  };
+}
+
+function saveProfile(data: { name: string; email: string; role: string; avatar: string }) {
+  localStorage.setItem('devos_profile', JSON.stringify(data));
+}
+
+export function ProfilePage() {
+  const setAuth = useAuthStore(s => s.setAuth);
+  const [user, setUser] = useState(loadProfile);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({ ...user });
 
   const handleSave = () => {
     setUser({ ...formData });
+    saveProfile(formData);
+    setAuth('mock-token', { id: '1', name: formData.name, email: formData.email, role: formData.role, permissions: [], businessModules: [], avatar: formData.avatar });
     setIsEditing(false);
   };
 
@@ -20,6 +36,10 @@ export function ProfilePage() {
     setFormData({ ...user });
     setIsEditing(false);
   };
+
+  useEffect(() => {
+    setFormData({ ...user });
+  }, [user]);
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">

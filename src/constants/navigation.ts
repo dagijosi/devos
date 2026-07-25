@@ -48,17 +48,22 @@ export const navigationCategories: NavCategory[] = [
       { name: "Dashboard", href: DASHBOARD, icon: FaChartBar },
       { name: "Projects", href: PROJECTS, icon: FaFolder },
       { name: "Library", href: KNOWLEDGE, icon: FaBook },
+      { name: "AI Assistant", href: AI, icon: FaRobot },
+    ],
+  },
+  {
+    name: "Productivity",
+    links: [
+      { name: "Workflows", href: WORKFLOWS, icon: FaPlay },
+      { name: "Insights", href: INSIGHTS, icon: FaLightbulb },
       { name: "Telegram", href: TELEGRAM, icon: FaTelegram },
     ],
   },
   {
-    name: "Utilities",
+    name: "Tools",
     links: [
-      { name: "AI Assistant", href: AI, icon: FaRobot },
-      { name: "Insights", href: INSIGHTS, icon: FaLightbulb },
       { name: "Utilities", href: UTILITIES, icon: FaWrench },
       { name: "API Types", href: API_TYPE_GENERATOR, icon: FaCode },
-      { name: "Workflows", href: WORKFLOWS, icon: FaPlay },
       { name: "Backup", href: BACKUP, icon: FaSave },
       { name: "Settings", href: SETTING, icon: FaCog },
     ],

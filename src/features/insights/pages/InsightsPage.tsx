@@ -11,6 +11,9 @@ import { ProjectHealth } from '../components/ProjectHealth';
 import { CodingActivity } from '../components/CodingActivity';
 import { GoalsWidget } from '../components/GoalsWidget';
 import { Timeline } from '../components/Timeline';
+import { Achievements } from '../components/Achievements';
+import { LanguageUsage } from '../components/LanguageUsage';
+import { LearningProgress } from '../components/LearningProgress';
 import { InsightWidget } from '../components/InsightWidget';
 import type { TimeRange, Goal, ActivityLog } from '../types';
 
@@ -190,6 +193,48 @@ export function InsightsPage() {
   const currentTasks = activities.filter((a) => a.type === 'task').length;
   const currentCommits = activities.filter((a) => a.type === 'commit').length;
 
+  // Achievements data
+  const achievements = [
+    { label: 'First Project Created', unlocked: projects.length >= 1 },
+    { label: 'First Note Taken', unlocked: totalNotes >= 1 },
+    { label: '10 Notes Written', unlocked: totalNotes >= 10 },
+    { label: 'Bug Hunter', unlocked: totalBugs >= 5 },
+    { label: 'Snippet Collector', unlocked: totalSnippets >= 5 },
+    { label: '7-Day Streak', unlocked: activities.filter(a => a.started_at?.startsWith(todayStr)).length >= 5 },
+    { label: 'Goal Setter', unlocked: goals.length >= 1 },
+    { label: 'Power User', unlocked: projects.length >= 3 && totalNotes >= 5 && totalSnippets >= 3 },
+  ];
+
+  // Language usage derived from snippet languages
+  const languages = (() => {
+    const langMap = new Map<string, number>();
+    activities.filter(a => a.type === 'snippet').forEach(a => {
+      const lang = a.description || 'Unknown';
+      langMap.set(lang, (langMap.get(lang) || 0) + 1);
+    });
+    if (langMap.size === 0) return [];
+    const total = [...langMap.values()].reduce((s, v) => s + v, 0);
+    return [...langMap.entries()]
+      .map(([name, count]) => ({ name, percentage: Math.round((count / total) * 100) }))
+      .sort((a, b) => b.percentage - a.percentage)
+      .slice(0, 6);
+  })();
+
+  // Learning progress from notes tag topics
+  const topics = (() => {
+    const topicMap = new Map<string, number>();
+    activities.filter(a => a.type === 'note').forEach(a => {
+      const topic = a.description?.split(' ').slice(0, 3).join(' ') || 'General';
+      topicMap.set(topic, (topicMap.get(topic) || 0) + 1);
+    });
+    if (topicMap.size === 0) return [];
+    const max = Math.max(...topicMap.values(), 1);
+    return [...topicMap.entries()]
+      .map(([name, count]) => ({ name, progress: Math.min(100, Math.round((count / max) * 100)) }))
+      .sort((a, b) => b.progress - a.progress)
+      .slice(0, 5);
+  })();
+
   const pct = (current: number, prev: number) =>
     prev > 0 ? Math.round(((current - prev) / prev) * 100) : current > 0 ? 100 : 0;
 
@@ -299,6 +344,13 @@ export function InsightsPage() {
           {/* Row 5: Goals */}
           <div className="grid grid-cols-1 gap-5">
             <GoalsWidget goals={goals} onRefresh={loadData} />
+          </div>
+
+          {/* Row 6: Achievements, Language, Learning */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <Achievements achievements={achievements} />
+            <LanguageUsage languages={languages} />
+            <LearningProgress topics={topics} />
           </div>
         </>
       )}

@@ -4,6 +4,7 @@ import routes from './routes/routes';
 import { renderRoutes } from './routes/RouteRenderer';
 import { ThemeProvider } from './theme-system';
 import { CommandPalette } from './features/command-palette';
+import { GlobalSearch } from './features/global-search/components/GlobalSearch';
 import { useEffect, useState } from 'react';
 import { database } from './database';
 import { useAuthStore } from './store/authStore';
@@ -48,6 +49,7 @@ function App() {
         <AriaAnnouncer />
         <CrashRecoveryOverlay />
         <CommandPalette />
+        <GlobalSearch />
         <Toaster richColors position="bottom-right" />
         <TelegramPollingProvider>
           <Routes>

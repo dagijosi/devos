@@ -14,19 +14,24 @@ import { useNotifications } from '../../notifications/hooks/useNotifications';
 
 export function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [failedCount, setFailedCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const { notifications, unreadCount, markAllAsRead } = useNotifications();
 
   const stats = {
     active: projects.filter(p => p.status === 'active').length,
-    failed: 0,
+    failed: failedCount,
     tasks: projects.filter(p => p.status !== 'completed').length,
   };
 
   useEffect(() => {
     const load = async () => {
-      const all = await database.getProjects();
+      const [all, deployments] = await Promise.all([
+        database.getProjects(),
+        database.getAllDeployments(),
+      ]);
       setProjects(all);
+      setFailedCount(deployments.filter((d: any) => d.status === 'failed').length);
       setLoading(false);
     };
     load();

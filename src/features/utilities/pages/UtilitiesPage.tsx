@@ -58,7 +58,7 @@ import { FindReplace } from '../components/tools/FindReplace';
 import { CronParser } from '../components/tools/CronParser';
 import { GradientBuilder } from '../components/tools/GradientBuilder';
 import { EnvViewer } from '../components/tools/EnvViewer';
-import { TelegramConnector } from '../components/tools/TelegramConnector';
+import { TELEGRAM } from '../../../routes/types/routeConstants';
 
 const Placeholder = () => (
   <div className="flex flex-col items-center justify-center py-12 text-theme-text/30">
@@ -119,7 +119,6 @@ const toolComponentMap: Record<string, ComponentType> = {
   'cron-parser': CronParser,
   'gradient-builder': GradientBuilder,
   'env-viewer': EnvViewer,
-  'telegram-connector': TelegramConnector,
 };
 
 export function UtilitiesPage() {
@@ -135,6 +134,14 @@ export function UtilitiesPage() {
       logRecentTool(urlTool);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Redirect Telegram tool to its dedicated page
+  useEffect(() => {
+    if (activeTool === 'telegram-connector') {
+      setActiveTool(null);
+      navigate(TELEGRAM, { replace: true });
+    }
+  }, [activeTool]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync state → URL whenever activeTool changes (never URL → state after mount)
   // Skipped on first render to avoid clearing URL before deep-link state applies

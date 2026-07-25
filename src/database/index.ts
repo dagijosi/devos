@@ -1196,6 +1196,12 @@ export const database = {
   },
 
   // ── Deployments ───────────────────────────────────────────────────
+  async getAllDeployments(): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select<any>(DEPLOYMENT_QUERIES.getAll);
+  },
+
   async getProjectDeployments(projectId: number): Promise<any[]> {
     const inst = await getDatabase();
     if (!inst) return [];

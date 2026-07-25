@@ -18,6 +18,9 @@ export const PROJECTS_TABLE = `CREATE TABLE IF NOT EXISTS projects (
   name TEXT NOT NULL,
   description TEXT DEFAULT '',
   status TEXT NOT NULL DEFAULT 'active',
+  icon TEXT DEFAULT 'folder',
+  color TEXT DEFAULT '#6366f1',
+  category TEXT DEFAULT '',
   tags TEXT DEFAULT '[]',
   technology TEXT DEFAULT '[]',
   favorite INTEGER DEFAULT 0,
@@ -252,6 +255,8 @@ export const PROJECTS_ADD_FAVORITE = `ALTER TABLE projects ADD COLUMN favorite I
 export const PROJECTS_ADD_PINNED = `ALTER TABLE projects ADD COLUMN pinned INTEGER DEFAULT 0;`;
 export const PROJECTS_ADD_REPOSITORY_URL = `ALTER TABLE projects ADD COLUMN repository_url TEXT DEFAULT '';`;
 export const PROJECTS_ADD_LOCAL_PATH = `ALTER TABLE projects ADD COLUMN local_path TEXT DEFAULT '';`;
+export const PROJECTS_ADD_LAST_OPENED = `ALTER TABLE projects ADD COLUMN last_opened DATETIME;`;
+export const PROJECTS_ADD_UPDATED_AT = `ALTER TABLE projects ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;`;
 
 // ── Unified Knowledge / Library tables ─────────────────────────────────
 
@@ -426,6 +431,8 @@ export const ALL_MIGRATIONS = [
   PROJECTS_ADD_PINNED,
   PROJECTS_ADD_REPOSITORY_URL,
   PROJECTS_ADD_LOCAL_PATH,
+  PROJECTS_ADD_LAST_OPENED,
+  PROJECTS_ADD_UPDATED_AT,
   // FTS cleanup (drop old triggers that fail when fts5 module is unavailable)
   NOTES_FTS_DROP_TRIGGERS,
   // FTS - will silently fail if fts5 unavailable (sql.js default build)
@@ -737,6 +744,7 @@ export const RECENT_TOOL_QUERIES = {
 };
 
 export const DEPLOYMENT_QUERIES = {
+  getAll: `SELECT * FROM deployments ORDER BY created_at DESC`,
   getByProject: `SELECT * FROM deployments WHERE project_id = ? ORDER BY created_at DESC`,
   insert: `INSERT INTO deployments (project_id, name, provider, url, build_command, branch, auto_deploy, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   update: `UPDATE deployments SET name = ?, provider = ?, url = ?, build_command = ?, branch = ?, auto_deploy = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,

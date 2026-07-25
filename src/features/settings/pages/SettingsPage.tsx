@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { FaPalette, FaDatabase, FaFolderOpen, FaInfoCircle, FaDownload, FaUpload, FaTachometerAlt, FaUniversalAccess, FaBug, FaCloudUploadAlt } from 'react-icons/fa';
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FaPalette, FaDatabase, FaFolderOpen, FaInfoCircle, FaDownload, FaUpload, FaTachometerAlt, FaUniversalAccess, FaBug, FaCloudUploadAlt, FaExternalLinkAlt, FaSearch, FaTimes } from 'react-icons/fa';
 import { ThemeSettings } from '../components/ThemeSettings';
 import { PerformanceSettings } from '../components/PerformanceSettings';
 import { AccessibilitySettings } from '../components/AccessibilitySettings';
@@ -7,6 +8,7 @@ import { LogViewer } from '../components/LogViewer';
 import { UpdaterSettings } from '../components/UpdaterSettings';
 import { database } from '../../../database';
 import { toast } from 'sonner';
+import { BACKUP } from '../../../routes/types/routeConstants';
 
 const tabs = [
   { id: 'theme' as const, label: 'Theme', icon: FaPalette },
@@ -22,11 +24,16 @@ const tabs = [
 type SettingsTab = 'theme' | 'performance' | 'accessibility' | 'database' | 'backup' | 'logs' | 'updates' | 'about';
 
 export function SettingsPage() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<SettingsTab>('theme');
-  const [backupInterval, setBackupInterval] = useState(() => {
-    try { return localStorage.getItem('devos_auto_backup') || 'never'; } catch { return 'never'; }
-  });
+  const [settingsSearch, setSettingsSearch] = useState('');
   const [dbSize, setDbSize] = useState({ used: 0, total: 10 });
+
+  const filteredTabs = useMemo(() => {
+    if (!settingsSearch) return tabs;
+    const q = settingsSearch.toLowerCase();
+    return tabs.filter(t => t.label.toLowerCase().includes(q));
+  }, [settingsSearch]);
 
   useEffect(() => {
     (async () => {
@@ -80,22 +87,41 @@ export function SettingsPage() {
         <p className="text-sm text-theme-text/60 mt-1">Configure your Developer OS</p>
       </div>
 
-      <div className="flex gap-1 p-1 bg-theme-surface border border-theme-border/30 rounded-xl overflow-x-auto">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
-              activeTab === tab.id
-                ? 'bg-theme-icon/20 text-theme-icon shadow-sm'
-                : 'text-theme-text/40 hover:text-theme-text hover:bg-theme-background/50'
-            }`}
-          >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
-          </button>
-        ))}
+      <div className="flex items-center gap-2 p-1 bg-theme-surface border border-theme-border/30 rounded-xl overflow-x-auto">
+        <div className="relative flex-1 min-w-[120px] max-w-[200px]">
+          <FaSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-theme-text/30" />
+          <input
+            value={settingsSearch}
+            onChange={e => setSettingsSearch(e.target.value)}
+            placeholder="Search settings..."
+            className="w-full pl-7 pr-7 py-1.5 bg-theme-background/50 border border-theme-border/20 rounded-lg text-xs text-theme-text placeholder-theme-text/40 focus:outline-none focus:border-theme-icon/50"
+          />
+          {settingsSearch && (
+            <button onClick={() => setSettingsSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-theme-text/30 hover:text-theme-text">
+              <FaTimes className="w-2.5 h-2.5" />
+            </button>
+          )}
+        </div>
+        <div className="flex gap-1">
+          {filteredTabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => { setActiveTab(tab.id); setSettingsSearch(''); }}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
+                activeTab === tab.id
+                  ? 'bg-theme-icon/20 text-theme-icon shadow-sm'
+                  : 'text-theme-text/40 hover:text-theme-text hover:bg-theme-background/50'
+              }`}
+            >
+              <tab.icon className="w-3.5 h-3.5" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
+      {filteredTabs.length === 0 && (
+        <p className="text-xs text-theme-text/40 text-center py-4">No settings found for &ldquo;{settingsSearch}&rdquo;</p>
+      )}
 
       <div className="bg-theme-surface border border-theme-border/30 rounded-2xl p-6">
         {activeTab === 'theme' && <ThemeSettings />}
@@ -169,47 +195,20 @@ export function SettingsPage() {
 
         {activeTab === 'backup' && (
           <div className="space-y-6">
-            <div>
-              <h3 className="text-sm font-semibold text-theme-text mb-1">Backup Directory</h3>
-              <p className="text-xs text-theme-text/40 mb-3">Where automatic backups are stored</p>
-              <div className="flex items-center gap-2 p-3 bg-theme-background/50 rounded-xl border border-theme-border/20">
-                <FaFolderOpen className="w-4 h-4 text-theme-text/40 flex-shrink-0" />
-                <code className="text-sm text-theme-text/60 font-mono truncate">
-                  ~/.developer-os/backups/
-                </code>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-sm font-semibold text-theme-text mb-1">Auto Backup</h3>
-              <p className="text-xs text-theme-text/40 mb-3">Schedule automatic database backups</p>
-              <select
-                value={backupInterval}
-                onChange={e => { setBackupInterval(e.target.value); try { localStorage.setItem('devos_auto_backup', e.target.value); } catch {} }}
-                className="w-full max-w-xs px-3 py-2 bg-theme-background border border-theme-border/30 rounded-xl text-sm text-theme-text focus:outline-none focus:border-theme-icon/50"
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <FaFolderOpen className="w-12 h-12 text-theme-text/20 mb-4" />
+              <h3 className="text-sm font-semibold text-theme-text mb-1">Backup & Restore</h3>
+              <p className="text-xs text-theme-text/40 mb-6 max-w-sm">
+                Full backup management including manual backups, scheduling, encryption, restore, and history is available on the dedicated Backup page.
+              </p>
+              <button
+                onClick={() => navigate(BACKUP)}
+                className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-theme-icon rounded-xl hover:opacity-90 transition-opacity"
               >
-                <option value="hour">Every hour</option>
-                <option value="6hours">Every 6 hours</option>
-                <option value="day">Every day</option>
-                <option value="week">Every week</option>
-                <option value="never">Never</option>
-              </select>
+                <FaExternalLinkAlt className="w-3.5 h-3.5" />
+                Open Backup Page
+              </button>
             </div>
-
-            <button
-              onClick={async () => {
-                try {
-                  const { createBackup } = await import('../../backup/services/backupService');
-                  await createBackup();
-                  toast.success('Backup created');
-                } catch {
-                  toast.error('Failed to create backup');
-                }
-              }}
-              className="px-4 py-2 text-sm font-medium text-theme-icon bg-theme-icon/10 border border-theme-icon/30 rounded-xl hover:bg-theme-icon/20 transition-colors"
-            >
-              Create Backup Now
-            </button>
           </div>
         )}
 
