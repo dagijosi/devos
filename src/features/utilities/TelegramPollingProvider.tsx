@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 import { loadTelegramConfig, saveTelegramConfig, UPDATES_KEY } from './telegramConfig';
 import { processTelegramUpdates, setBotCommands, type ProcessedUpdate } from './telegramBot';
+import { tryTelegramAutoImport } from './telegramAutoImport';
 
 function appendProcessedUpdates(processed: ProcessedUpdate[]) {
   if (!processed.length) return;
@@ -20,6 +22,9 @@ export function TelegramPollingProvider({ children }: { children: React.ReactNod
   const commandsSetFor = useRef('');
 
   useEffect(() => {
+    // Auto-import pending messages on startup
+    tryTelegramAutoImport();
+
     const stop = () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -49,6 +54,7 @@ export function TelegramPollingProvider({ children }: { children: React.ReactNod
         }
       } catch (e) {
         console.warn('[Telegram] poll error:', e);
+        toast.error('Telegram poll failed. Check your bot token.');
       } finally {
         pollingRef.current = false;
       }

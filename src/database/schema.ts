@@ -244,6 +244,10 @@ export const PROJECT_ACTIVITY_TABLE = `CREATE TABLE IF NOT EXISTS project_activi
 export const PROJECTS_ADD_ICON = `ALTER TABLE projects ADD COLUMN icon TEXT DEFAULT 'folder';`;
 export const PROJECTS_ADD_COLOR = `ALTER TABLE projects ADD COLUMN color TEXT DEFAULT '#6366f1';`;
 export const PROJECTS_ADD_CATEGORY = `ALTER TABLE projects ADD COLUMN category TEXT DEFAULT '';`;
+export const PROJECTS_ADD_TAGS = `ALTER TABLE projects ADD COLUMN tags TEXT DEFAULT '[]';`;
+export const PROJECTS_ADD_TECHNOLOGY = `ALTER TABLE projects ADD COLUMN technology TEXT DEFAULT '[]';`;
+export const PROJECTS_ADD_SCRIPTS = `ALTER TABLE projects ADD COLUMN scripts TEXT DEFAULT '{}';`;
+export const PROJECTS_ADD_ENVIRONMENT = `ALTER TABLE projects ADD COLUMN environment TEXT DEFAULT '{}';`;
 
 // ── Unified Knowledge / Library tables ─────────────────────────────────
 
@@ -410,6 +414,10 @@ export const ALL_MIGRATIONS = [
   PROJECTS_ADD_ICON,
   PROJECTS_ADD_COLOR,
   PROJECTS_ADD_CATEGORY,
+  PROJECTS_ADD_TAGS,
+  PROJECTS_ADD_TECHNOLOGY,
+  PROJECTS_ADD_SCRIPTS,
+  PROJECTS_ADD_ENVIRONMENT,
   // FTS cleanup (drop old triggers that fail when fts5 module is unavailable)
   NOTES_FTS_DROP_TRIGGERS,
   // FTS - will silently fail if fts5 unavailable (sql.js default build)
@@ -582,13 +590,13 @@ export const INSIGHTS_ACTIVITY_QUERIES = {
 };
 
 export const INSIGHTS_DAILY_QUERIES = {
-  upsert: `INSERT INTO daily_stats (date, focus_time, projects, tasks, commits, notes, bugs) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(date) DO UPDATE SET focus_time = excluded.focus_time, projects = excluded.projects, tasks = excluded.tasks, commits = excluded.commits, notes = excluded.notes, bugs = excluded.bugs`,
+  upsert: `INSERT INTO daily_stats (date, focus_time, projects, tasks, commits, notes, bugs) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(date) DO UPDATE SET focus_time = focus_time + excluded.focus_time, projects = projects + excluded.projects, tasks = tasks + excluded.tasks, commits = commits + excluded.commits, notes = notes + excluded.notes, bugs = bugs + excluded.bugs`,
   getByRange: `SELECT * FROM daily_stats WHERE date >= ? AND date <= ? ORDER BY date ASC`,
   getLatest: `SELECT * FROM daily_stats ORDER BY date DESC LIMIT ?`,
 };
 
 export const INSIGHTS_PROJECT_STATS_QUERIES = {
-  upsert: `INSERT INTO project_stats (project_id, total_time, last_opened, commits, notes, bugs) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(project_id) DO UPDATE SET total_time = excluded.total_time, last_opened = excluded.last_opened, commits = excluded.commits, notes = excluded.notes, bugs = excluded.bugs`,
+  upsert: `INSERT INTO project_stats (project_id, total_time, last_opened, commits, notes, bugs) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(project_id) DO UPDATE SET total_time = total_time + excluded.total_time, last_opened = excluded.last_opened, commits = commits + excluded.commits, notes = notes + excluded.notes, bugs = bugs + excluded.bugs`,
   getAll: `SELECT ps.*, p.name, p.status FROM project_stats ps JOIN projects p ON ps.project_id = p.id ORDER BY ps.total_time DESC`,
   getByProject: `SELECT * FROM project_stats WHERE project_id = ?`,
 };

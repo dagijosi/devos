@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FaPalette, FaDatabase, FaFolderOpen, FaInfoCircle, FaDownload, FaUpload, FaTachometerAlt, FaUniversalAccess, FaBug, FaCloudUploadAlt } from 'react-icons/fa';
 import { ThemeSettings } from '../components/ThemeSettings';
 import { PerformanceSettings } from '../components/PerformanceSettings';
@@ -23,6 +23,22 @@ type SettingsTab = 'theme' | 'performance' | 'accessibility' | 'database' | 'bac
 
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('theme');
+  const [backupInterval, setBackupInterval] = useState(() => {
+    try { return localStorage.getItem('devos_auto_backup') || 'never'; } catch { return 'never'; }
+  });
+  const [dbSize, setDbSize] = useState({ used: 0, total: 10 });
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await database.exportAllData();
+        const json = JSON.stringify(data);
+        const bytes = new TextEncoder().encode(json).length;
+        const mb = bytes / (1024 * 1024);
+        setDbSize({ used: Math.round(mb * 10) / 10, total: 10 });
+      } catch { /* silent */ }
+    })();
+  }, []);
 
   const handleExport = async () => {
     try {
@@ -124,13 +140,27 @@ export function SettingsPage() {
               <h3 className="text-sm font-semibold text-theme-text mb-1">Database Size</h3>
               <p className="text-xs text-theme-text/40 mb-3">Current storage usage</p>
               <div className="h-2 bg-theme-background/50 rounded-full overflow-hidden">
-                <div className="h-full w-1/4 bg-theme-icon rounded-full" />
+                <div className="h-full bg-theme-icon rounded-full transition-all" style={{ width: `${Math.min(100, (dbSize.used / dbSize.total) * 100)}%` }} />
               </div>
-              <p className="text-xs text-theme-text/40 mt-1">2.4 MB / 10 MB</p>
+              <p className="text-xs text-theme-text/40 mt-1">{dbSize.used.toFixed(1)} MB / {dbSize.total} MB</p>
             </div>
 
             <div className="pt-3 border-t border-theme-border/10">
-              <button className="px-4 py-2 text-sm font-medium text-red-400 bg-red-500/10 border border-red-500/30 rounded-xl hover:bg-red-500/20 transition-colors">
+              <button
+                onClick={async () => {
+                  if (!window.confirm('Are you sure you want to reset the database? This will permanently delete ALL data including projects, notes, snippets, and settings. This cannot be undone.')) return;
+                  if (!window.confirm('This is your final warning. All data will be lost. Proceed?')) return;
+                  try {
+                    await database.resetDatabase();
+                    toast.success('Database reset. Reloading...');
+                    setTimeout(() => window.location.reload(), 1000);
+                  } catch (error) {
+                    toast.error('Failed to reset database');
+                    console.error(error);
+                  }
+                }}
+                className="px-4 py-2 text-sm font-medium text-red-400 bg-red-500/10 border border-red-500/30 rounded-xl hover:bg-red-500/20 transition-colors"
+              >
                 Reset Database
               </button>
             </div>
@@ -153,16 +183,31 @@ export function SettingsPage() {
             <div>
               <h3 className="text-sm font-semibold text-theme-text mb-1">Auto Backup</h3>
               <p className="text-xs text-theme-text/40 mb-3">Schedule automatic database backups</p>
-              <select className="w-full max-w-xs px-3 py-2 bg-theme-background border border-theme-border/30 rounded-xl text-sm text-theme-text focus:outline-none focus:border-theme-icon/50">
-                <option>Every hour</option>
-                <option>Every 6 hours</option>
-                <option>Every day</option>
-                <option>Every week</option>
-                <option>Never</option>
+              <select
+                value={backupInterval}
+                onChange={e => { setBackupInterval(e.target.value); try { localStorage.setItem('devos_auto_backup', e.target.value); } catch {} }}
+                className="w-full max-w-xs px-3 py-2 bg-theme-background border border-theme-border/30 rounded-xl text-sm text-theme-text focus:outline-none focus:border-theme-icon/50"
+              >
+                <option value="hour">Every hour</option>
+                <option value="6hours">Every 6 hours</option>
+                <option value="day">Every day</option>
+                <option value="week">Every week</option>
+                <option value="never">Never</option>
               </select>
             </div>
 
-            <button className="px-4 py-2 text-sm font-medium text-theme-icon bg-theme-icon/10 border border-theme-icon/30 rounded-xl hover:bg-theme-icon/20 transition-colors">
+            <button
+              onClick={async () => {
+                try {
+                  const { createBackup } = await import('../../backup/services/backupService');
+                  await createBackup();
+                  toast.success('Backup created');
+                } catch {
+                  toast.error('Failed to create backup');
+                }
+              }}
+              className="px-4 py-2 text-sm font-medium text-theme-icon bg-theme-icon/10 border border-theme-icon/30 rounded-xl hover:bg-theme-icon/20 transition-colors"
+            >
               Create Backup Now
             </button>
           </div>

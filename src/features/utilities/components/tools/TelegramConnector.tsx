@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { FaTelegram, FaSync, FaTrash, FaCog, FaCheck, FaPause, FaPlay } from 'react-icons/fa';
+import { FaTelegram, FaSync, FaTrash, FaCog, FaCheck, FaPause, FaPlay, FaSearch, FaTimes } from 'react-icons/fa';
 import { loadTelegramConfig, saveTelegramConfig, UPDATES_KEY, type TelegramConfig } from '../../telegramConfig';
 import { processTelegramUpdates, setBotCommands, clearTelegramDedup, type ProcessedUpdate } from '../../telegramBot';
 import { KNOWLEDGE } from '../../../../routes/types/routeConstants';
@@ -23,6 +23,7 @@ export function TelegramConnector() {
   const [showConfig, setShowConfig] = useState(!config.bot_token);
   const [botInfo, setBotInfo] = useState<{ username: string; name: string } | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(null);
+  const [logFilter, setLogFilter] = useState('');
 
   const save = useCallback((patch: Partial<TelegramConfig>) => {
     const next = { ...loadTelegramConfig(), ...patch };
@@ -212,10 +213,18 @@ export function TelegramConnector() {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {[
-          { cmd: '/start', tip: 'Welcome + help' },
-          { cmd: '/note Title', tip: 'Save a note' },
-          { cmd: '/bug Title', tip: 'Log a bug' },
-          { cmd: '/todo Task', tip: 'Add a task' },
+          { cmd: '/note Title', tip: '📝 Save a note — use #tags' },
+          { cmd: '/bug Title', tip: '🐛 Log a bug' },
+          { cmd: '/todo Task', tip: '✅ Add a task' },
+          { cmd: '/snippet Title', tip: '📋 Save code snippet' },
+          { cmd: '/list notes|bugs|...', tip: '📋 List by type' },
+          { cmd: '/recent notes', tip: '📋 Recent items (filtered)' },
+          { cmd: '/today', tip: '📋 Today\'s activity' },
+          { cmd: '/weekly', tip: '📅 This week\'s stats' },
+          { cmd: '/projects', tip: '📁 List projects' },
+          { cmd: '/stats', tip: '📊 Full knowledge stats' },
+          { cmd: '/undo', tip: '↩️ Delete last item' },
+          { cmd: '/search q', tip: '🔍 Search knowledge' },
         ].map(x => (
           <div key={x.cmd} className="rounded-lg border border-theme-border/10 bg-theme-background/50 px-3 py-2">
             <code className="text-[10px] text-theme-icon font-mono">{x.cmd}</code>
@@ -224,10 +233,22 @@ export function TelegramConnector() {
         ))}
       </div>
 
-      <div className="flex items-center justify-between">
-        <p className="text-[10px] text-theme-text/35">
-          Activity · also try /snippet, /search, /recent — or send plain text as a note
-        </p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex-1 max-w-[200px] relative">
+          <FaSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 text-theme-text/30" />
+          <input
+            value={logFilter}
+            onChange={e => setLogFilter(e.target.value)}
+            placeholder="Filter activity..."
+            className="w-full bg-theme-background border border-theme-border/20 rounded-lg pl-7 pr-7 py-1.5 text-[10px] text-theme-text outline-none focus:border-theme-icon/50"
+          />
+          {logFilter && (
+            <button onClick={() => setLogFilter('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-theme-text/20 hover:text-theme-text">
+              <FaTimes className="w-2.5 h-2.5" />
+            </button>
+          )}
+        </div>
+        <p className="text-[10px] text-theme-text/35 shrink-0">{updates.length} events</p>
         <button onClick={clearUpdates} disabled={!updates.length}
           className="inline-flex items-center gap-1 text-[10px] text-theme-text/30 hover:text-red-400 disabled:opacity-20 transition-colors">
           <FaTrash className="w-2.5 h-2.5" /> Clear
@@ -244,7 +265,9 @@ export function TelegramConnector() {
         </div>
       ) : (
         <div className="space-y-2 max-h-[480px] overflow-y-auto pr-0.5">
-          {updates.map((u, i) => (
+          {updates
+            .filter(u => !logFilter || u.text?.toLowerCase().includes(logFilter.toLowerCase()) || u.command?.toLowerCase().includes(logFilter.toLowerCase()) || u.result?.toLowerCase().includes(logFilter.toLowerCase()))
+            .map((u, i) => (
             <div key={`${u.message_id}-${i}`} className="rounded-xl border border-theme-border/10 bg-theme-background/60 overflow-hidden">
               <div className="px-3 py-2 flex items-center gap-2 border-b border-theme-border/5">
                 <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-theme-icon/10 text-theme-icon">/{u.command || 'msg'}</span>

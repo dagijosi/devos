@@ -1,26 +1,33 @@
 import { useState } from 'react';
 import { FaUniversalAccess, FaFont, FaTextHeight, FaMousePointer } from 'react-icons/fa';
 
+function lsGet(key: string, def: string): string {
+  try { return localStorage.getItem(key) || def; } catch { return def; }
+}
+function lsSet(key: string, value: string) {
+  try { localStorage.setItem(key, value); } catch { /* storage unavailable */ }
+}
+
 export function AccessibilitySettings() {
   const [fontSize, setFontSize] = useState(() => {
-    return parseInt(localStorage.getItem('devos_font_size') || '100');
+    return parseInt(lsGet('devos_font_size', '100'));
   });
 
   const [highContrast, setHighContrast] = useState(
-    () => localStorage.getItem('devos_high_contrast') === 'true'
+    () => lsGet('devos_high_contrast', 'false') === 'true'
   );
 
   const handleFontSize = (delta: number) => {
     const next = Math.min(Math.max(fontSize + delta, 80), 150);
     setFontSize(next);
-    localStorage.setItem('devos_font_size', String(next));
+    lsSet('devos_font_size', String(next));
     document.documentElement.style.fontSize = `${next}%`;
   };
 
   const toggleHighContrast = () => {
     const next = !highContrast;
     setHighContrast(next);
-    localStorage.setItem('devos_high_contrast', String(next));
+    lsSet('devos_high_contrast', String(next));
     document.documentElement.classList.toggle('high-contrast', next);
   };
 

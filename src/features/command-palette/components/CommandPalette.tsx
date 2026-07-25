@@ -46,8 +46,6 @@ export function CommandPalette() {
     }
   }, [selectedIndex]);
 
-  if (!isOpen) return null;
-
   const content = (
     <AnimatePresence>
       {isOpen && (

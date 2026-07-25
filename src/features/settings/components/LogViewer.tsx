@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { FaDownload, FaTrash, FaSearch, FaBug, FaInfoCircle, FaExclamationTriangle, FaTimes } from 'react-icons/fa';
+import type { IconType } from 'react-icons/lib';
 import { logger, type LogEntry, type LogLevel } from '../../../utils/logger';
 
 const LEVEL_COLORS: Record<LogLevel, string> = {
@@ -9,7 +10,7 @@ const LEVEL_COLORS: Record<LogLevel, string> = {
   error: 'text-red-400',
 };
 
-const LEVEL_ICONS: Record<LogLevel, any> = {
+const LEVEL_ICONS: Record<LogLevel, IconType> = {
   debug: FaBug,
   info: FaInfoCircle,
   warn: FaExclamationTriangle,

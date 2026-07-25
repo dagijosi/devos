@@ -12,27 +12,22 @@ export interface UpdateInfo {
 const UPDATE_CHECK_KEY = 'devos_update_check';
 
 export async function checkForUpdates(): Promise<UpdateInfo> {
-  try {
-    logger.info('Updater', 'Starting update check...');
-    const update = await check();
+  logger.info('Updater', 'Starting update check...');
+  const update = await check();
 
-    if (update) {
-      logger.info('Updater', `Update available: v${update.version}`);
-      return {
-        available: true,
-        version: update.version,
-        releaseDate: update.date,
-        releaseNotes: update.body,
-        manifest: update,
-      };
-    }
-
-    logger.info('Updater', 'No updates available');
-    return { available: false };
-  } catch (e: any) {
-    logger.error('Updater', 'Failed to check for updates', e);
-    return { available: false };
+  if (update) {
+    logger.info('Updater', `Update available: v${update.version}`);
+    return {
+      available: true,
+      version: update.version,
+      releaseDate: update.date,
+      releaseNotes: update.body,
+      manifest: update,
+    };
   }
+
+  logger.info('Updater', 'No updates available');
+  return { available: false };
 }
 
 export async function installUpdate(): Promise<void> {
@@ -62,7 +57,12 @@ export async function checkForUpdatesPeriodically() {
     const hoursSince = (Date.now() - new Date(last).getTime()) / (1000 * 60 * 60);
     if (hoursSince < 24) return;
   }
-  const result = await checkForUpdates();
-  setLastUpdateCheck();
-  return result;
+  try {
+    const result = await checkForUpdates();
+    setLastUpdateCheck();
+    return result;
+  } catch (e: any) {
+    logger.error('Updater', 'Periodic check failed', e);
+    return { available: false };
+  }
 }

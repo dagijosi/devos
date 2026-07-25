@@ -1868,6 +1868,33 @@ export const database = {
     await inst.execute(BACKUP_QUERIES.deleteAll);
   },
 
+  // ── Database Reset ──────────────────────────────────────────────────
+  async resetDatabase(): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+
+    const tables = [
+      'projects', 'notes', 'folders', 'code_snippets', 'bugs',
+      'tags', 'settings', 'notifications', 'users', 'attachments',
+      'workflows', 'workflow_logs', 'ai_conversations', 'ai_messages',
+      'analytics_sessions', 'goals', 'backups',
+      'project_paths', 'project_scripts', 'project_links',
+      'project_tasks', 'project_activity', 'knowledge_items',
+      'relations', 'knowledge_folders', 'tools', 'recent_tools',
+      'deployments', 'deployment_logs', 'recent_activity', 'tool_settings',
+    ];
+    for (const table of tables) {
+      try { await inst.execute(`DELETE FROM ${table}`); } catch { /* table may not exist */ }
+    }
+
+    // Clear localStorage so sql.js / LocalDatabase start fresh on reload
+    try { localStorage.removeItem('devos_sqlite_db'); } catch { }
+    const lsKeys = Object.keys(localStorage).filter(k => k.startsWith('_db_'));
+    for (const key of lsKeys) {
+      try { localStorage.removeItem(key); } catch { }
+    }
+  },
+
   // ── Data Export/Import for syncing between environments ──────────────
   async exportAllData() {
     return {
@@ -2151,6 +2178,28 @@ export const database = {
     const inst = await getDatabase();
     if (!inst) return;
     await inst.execute(INSIGHTS_ACTIVITY_QUERIES.insert, [data.project_id ?? null, data.type, data.description, data.started_at ?? new Date().toISOString(), data.ended_at ?? null, data.duration ?? 0]);
+
+    // Update daily aggregated stats
+    const today = new Date().toISOString().slice(0, 10);
+    await this.upsertDailyStats(today, {
+      focus_time: data.duration ?? 0,
+      projects: data.project_id ? 1 : 0,
+      tasks: data.type === 'task' ? 1 : 0,
+      commits: data.type === 'commit' ? 1 : 0,
+      notes: data.type === 'note' || data.type === 'snippet' ? 1 : 0,
+      bugs: data.type === 'bug' ? 1 : 0,
+    });
+
+    // Update per-project aggregated stats
+    if (data.project_id) {
+      await this.upsertProjectStats(data.project_id, {
+        total_time: data.duration ?? 0,
+        last_opened: new Date().toISOString(),
+        commits: data.type === 'commit' ? 1 : 0,
+        notes: data.type === 'note' || data.type === 'snippet' ? 1 : 0,
+        bugs: data.type === 'bug' ? 1 : 0,
+      });
+    }
   },
 
   async getActivityByRange(from: string, to: string): Promise<any[]> {

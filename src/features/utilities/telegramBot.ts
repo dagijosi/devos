@@ -3,6 +3,7 @@ import { loadTelegramConfig, saveTelegramConfig, normalizeChatFilter } from './t
 
 const API = 'https://api.telegram.org/bot';
 const DEDUP_KEY = 'devos_telegram_processed_ids';
+const LAST_CREATED_KEY = 'devos_telegram_last_created';
 
 function getProcessed(): Set<number> {
   try { return new Set(JSON.parse(localStorage.getItem(DEDUP_KEY) || '[]')); }
@@ -24,7 +25,7 @@ function unmarkProcessed(id: number) {
 /** In-flight locks so concurrent polls don't double-send before markProcessed. */
 const inFlight = new Set<number>();
 
-async function sendMsg(token: string, chatId: number, text: string) {
+async function sendMsg(token: string, chatId: number, text: string, extra?: Record<string, unknown>) {
   const post = async (body: Record<string, unknown>) => {
     const res = await fetch(`${API}${token}/sendMessage`, {
       method: 'POST',
@@ -35,14 +36,49 @@ async function sendMsg(token: string, chatId: number, text: string) {
   };
 
   // Prefer plain text — Legacy Markdown often rejects bot replies silently.
-  let data = await post({ chat_id: chatId, text });
-  if (!data.ok) {
-    data = await post({ chat_id: chatId, text, parse_mode: 'Markdown' });
+  let data = await post({ chat_id: chatId, text, ...extra });
+  if (!data.ok && !extra?.parse_mode) {
+    data = await post({ chat_id: chatId, text, parse_mode: 'Markdown', ...extra });
   }
   if (!data.ok) {
     throw new Error(data.description || 'sendMessage failed');
   }
 }
+
+function getLastCreated(chatId: number): { id: number; type: string } | null {
+  try {
+    const map: Record<string, { id: number; type: string }> = JSON.parse(localStorage.getItem(LAST_CREATED_KEY) || '{}');
+    return map[String(chatId)] ?? null;
+  } catch { return null; }
+}
+function setLastCreated(chatId: number, id: number, type: string) {
+  try {
+    const map: Record<string, { id: number; type: string }> = JSON.parse(localStorage.getItem(LAST_CREATED_KEY) || '{}');
+    map[String(chatId)] = { id, type };
+    localStorage.setItem(LAST_CREATED_KEY, JSON.stringify(map));
+  } catch { /* ignore */ }
+}
+function removeLastCreated(chatId: number) {
+  try {
+    const map: Record<string, { id: number; type: string }> = JSON.parse(localStorage.getItem(LAST_CREATED_KEY) || '{}');
+    delete map[String(chatId)];
+    localStorage.setItem(LAST_CREATED_KEY, JSON.stringify(map));
+  } catch { /* ignore */ }
+}
+
+function extractTags(text: string): { clean: string; tags: string[] } {
+  const tags: string[] = [];
+  const clean = text.replace(/#(\w+)/g, (_, tag) => { tags.push(tag); return ''; }).trim();
+  return { clean, tags };
+}
+
+function buildTags(...extra: string[]): string {
+  return JSON.stringify([...new Set(['telegram', ...extra])]);
+}
+
+const today = () => new Date().toISOString().slice(0, 10);
+const weekAgo = () => { const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString().slice(0, 10); };
+const weeksAgo = (n: number) => { const d = new Date(); d.setDate(d.getDate() - 7 * n); return d.toISOString().slice(0, 10); };
 
 export interface ProcessedUpdate {
   update_id: number;
@@ -74,18 +110,29 @@ async function resolveProject(text: string): Promise<{ text: string; projectId: 
 
 function plainWelcome(): string {
   return (
-    'DevOS Bot\n\n' +
-    'I connect Telegram to your DevOS dashboard.\n\n' +
+    'DevOS Bot 🤖\n\n' +
+    'Send any text → saved as a note. Use #tags to categorize.\n\n' +
     'Commands:\n' +
-    '• Send any text → saves as a note\n' +
-    '• /note Title  (body on next lines)\n' +
-    '• /bug Title  (problem on next lines)\n' +
-    '• /snippet Title  (code on next lines)\n' +
-    '• /todo Task name\n' +
-    '• /search query\n' +
-    '• /recent\n' +
-    '• /help\n\n' +
-    'Tip: add @ProjectName to link an item to a project.'
+    '📝 /note Title then body on next line\n' +
+    '🐛 /bug Title then problem on next line\n' +
+    '📋 /snippet Title then code on next line\n' +
+    '✅ /todo Task name\n' +
+    '🔍 /search query\n' +
+    '📁 /projects — list all projects\n' +
+    '📁 /project #id — project details with stats\n' +
+    '📊 /stats — full knowledge base stats\n' +
+    '📋 /today — today\'s activity summary\n' +
+    '📅 /weekly — this week\'s stats vs last week\n' +
+    '📋 /list notes|bugs|snippets|prompts|docs|bookmarks|templates|all — list items\n' +
+    '📋 /recent — last 8 items\n' +
+    '↩️ /undo — delete last saved item\n' +
+    '🗑 /delete <id> — delete a specific item\n' +
+    '📌 /pin <id> — toggle favorite on an item\n' +
+    '🆔 /id — show this chat ID\n' +
+    '🔇 /mute — pause polling\n' +
+    '🔊 /unmute — resume polling\n' +
+    '❓ /help\n\n' +
+    'Tip: use @ProjectName to attach to a project. Use #tags to organize.'
   );
 }
 
@@ -186,36 +233,51 @@ export async function processTelegramUpdates(token: string, chatFilter: string, 
   return results;
 }
 
+const REPLY_KEYBOARD = {
+  keyboard: [
+    [{ text: '📝 Note' }, { text: '🐛 Bug' }, { text: '✅ Todo' }, { text: '📋 Snippet' }],
+    [{ text: '📊 Stats' }, { text: '📁 Projects' }, { text: '📋 List' }, { text: '🔍 Search' }],
+    [{ text: '↩️ Undo' }, { text: '🔇 Mute' }, { text: '🔊 Unmute' }, { text: '🆔 ID' }],
+  ],
+  resize_keyboard: true,
+  one_time_keyboard: false,
+};
+
 async function handleCommand(token: string, entry: ProcessedUpdate) {
   const chatId = entry.chat_id;
 
   switch (entry.command) {
     case 'start':
       entry.result = plainWelcome();
-      await sendMsg(token, chatId, entry.result);
+      await sendMsg(token, chatId, entry.result, { reply_markup: REPLY_KEYBOARD });
       break;
 
     case 'note': {
-      const { text: cleanArgs, projectId } = await resolveProject(entry.args);
+      const { text: rawArgs, projectId } = await resolveProject(entry.args);
+      const { clean: cleanArgs, tags } = extractTags(rawArgs);
+      const userTags = buildTags(...tags);
       if (entry.body) {
-        await saveNote(token, entry, cleanArgs, entry.body, projectId);
+        await saveNote(token, entry, cleanArgs, entry.body, projectId, userTags);
       } else if (cleanArgs) {
-        await saveNote(token, entry, cleanArgs, cleanArgs, projectId);
+        await saveNote(token, entry, cleanArgs, cleanArgs, projectId, userTags);
       } else {
-        entry.result = 'Send: /note Title then your content on the next line.';
+        entry.result = 'Send: /note Title then your content on the next line.\nTip: add #tags to organize.';
         await sendMsg(token, chatId, entry.result);
       }
       break;
     }
 
     case 'bug': {
-      const { text: cleanTitle, projectId } = await resolveProject(entry.args);
+      const { text: rawTitle, projectId } = await resolveProject(entry.args);
+      const { clean: cleanTitle, tags } = extractTags(rawTitle);
       const title = cleanTitle?.slice(0, 80) || 'Untitled Bug';
       const problem = entry.body || cleanTitle || '';
       try {
-        await database.createKnowledgeItem({ type: 'bug', title, content: problem, tags: '["telegram"]', status: 'open', project_id: projectId ?? null });
+        const item = await database.createKnowledgeItem({ type: 'bug', title, content: problem, tags: buildTags(...tags), status: 'open', project_id: projectId ?? null });
+        entry.created_id = item?.id;
+        if (item?.id) setLastCreated(chatId, item.id, 'bug');
         entry.saved = true;
-        entry.result = `Bug saved!\n${title}`;
+        entry.result = `🐛 Bug saved!\n${title}`;
       } catch (e: any) {
         entry.result = `Failed: ${e.message}`;
       }
@@ -225,13 +287,15 @@ async function handleCommand(token: string, entry: ProcessedUpdate) {
 
     case 'todo': {
       const raw = entry.args || entry.body || 'Untitled task';
-      const { text: cleanTask, projectId } = await resolveProject(raw);
+      const { text: rawTask, projectId } = await resolveProject(raw);
+      const { clean: cleanTask, tags } = extractTags(rawTask);
       const taskTitle = cleanTask.slice(0, 80);
       try {
-        const item = await database.createKnowledgeItem({ type: 'note', title: taskTitle, content: '', tags: '["telegram","todo"]', favorite: 0, project_id: projectId ?? null });
+        const item = await database.createKnowledgeItem({ type: 'note', title: taskTitle, content: '', tags: buildTags('todo', ...tags), favorite: 0, project_id: projectId ?? null });
         entry.created_id = item?.id;
+        if (item?.id) setLastCreated(chatId, item.id, 'todo');
         entry.saved = true;
-        entry.result = `Task added!\n${taskTitle}`;
+        entry.result = `✅ Task added!\n${taskTitle}`;
       } catch (e: any) {
         entry.result = `Failed: ${e.message}`;
       }
@@ -240,7 +304,8 @@ async function handleCommand(token: string, entry: ProcessedUpdate) {
     }
 
     case 'snippet': {
-      const { text: cleanTitle, projectId } = await resolveProject(entry.args);
+      const { text: rawTitle, projectId } = await resolveProject(entry.args);
+      const { clean: cleanTitle, tags } = extractTags(rawTitle);
       const title = cleanTitle?.slice(0, 80) || 'Untitled';
       const code = entry.body || '';
       if (!code) {
@@ -249,9 +314,11 @@ async function handleCommand(token: string, entry: ProcessedUpdate) {
         break;
       }
       try {
-        await database.createKnowledgeItem({ type: 'snippet', title, content: code, language: 'text', description: 'From Telegram', tags: '["telegram"]', favorite: 0, project_id: projectId ?? null });
+        const item = await database.createKnowledgeItem({ type: 'snippet', title, content: code, language: 'text', description: 'From Telegram', tags: buildTags(...tags), favorite: 0, project_id: projectId ?? null });
+        entry.created_id = item?.id;
+        if (item?.id) setLastCreated(chatId, item.id, 'snippet');
         entry.saved = true;
-        entry.result = `Snippet saved!\n${title}`;
+        entry.result = `📋 Snippet saved!\n${title}`;
       } catch (e: any) {
         entry.result = `Failed: ${e.message}`;
       }
@@ -269,7 +336,7 @@ async function handleCommand(token: string, entry: ProcessedUpdate) {
       try {
         const items = await database.searchKnowledge(query);
         entry.result = items?.length
-          ? `Results for: ${query}\n\n` + items.slice(0, 5).map(i => `• ${i.title} (${i.type}) — ID: ${i.id}`).join('\n')
+          ? `🔍 Results for: ${query}\n\n` + items.slice(0, 5).map(i => `• ${i.title} (${i.type}) — ID: ${i.id}`).join('\n')
           : 'No results found.';
       } catch {
         entry.result = 'Search unavailable.';
@@ -278,31 +345,273 @@ async function handleCommand(token: string, entry: ProcessedUpdate) {
       break;
     }
 
-    case 'recent':
+    case 'project':
+    case 'projects': {
+      const projId = entry.args ? parseInt(entry.args) : NaN;
+      if (!isNaN(projId)) {
+        try {
+          const [proj, bugs] = await Promise.all([
+            database.getProject(projId),
+            database.getBugsByProject(projId),
+          ]);
+          if (!proj) { entry.result = `Project #${projId} not found.`; break; }
+          const items = await database.getKnowledgeItems();
+          const projItems = items.filter(i => (i as any).project_id === projId || (i as any).projectId === projId);
+          const openBugs = bugs.filter((b: any) => b.status !== 'resolved' && b.status !== 'closed').length;
+          const resolvedBugs = bugs.filter((b: any) => b.status === 'resolved' || b.status === 'closed').length;
+          const statusEmoji: Record<string, string> = { active: '🟢', archived: '🔴', planning: '🟡' };
+          const lastAct = proj.updated_at || proj.created_at;
+          entry.result =
+            `📁 ${proj.name}\n\n` +
+            `${statusEmoji[proj.status] || '⚪'} Status: ${proj.status || 'active'}\n` +
+            `🐛 Bugs: ${openBugs} open · ${resolvedBugs} resolved\n` +
+            `📦 Items: ${projItems.length}\n` +
+            `🕐 Last: ${lastAct ? new Date(lastAct).toLocaleDateString() : 'N/A'}\n` +
+            (proj.description ? `\n${proj.description}` : '');
+        } catch {
+          entry.result = 'Unable to load project.';
+        }
+      } else {
+        try {
+          const projs = await database.getProjects();
+          const lines = await Promise.all(projs.slice(0, 20).map(async p => {
+            const bugs = await database.getBugsByProject(p.id);
+            const open = bugs.filter((b: any) => b.status !== 'resolved' && b.status !== 'closed').length;
+            return `• ${p.name} (${open}🐛) ${p.status === 'archived' ? '🔴' : '🟢'}`;
+          }));
+          entry.result = projs?.length
+            ? `📁 Projects (${projs.length}) — /projects #id for details\n\n` + lines.join('\n')
+            : 'No projects yet. Create one in DevOS.';
+        } catch {
+          entry.result = 'Unable to load projects.';
+        }
+      }
+      await sendMsg(token, chatId, entry.result);
+      break;
+    }
+
+    case 'stats':
       try {
-        const items = await database.getKnowledgeItems();
+        const allTypes = ['note', 'bug', 'snippet', 'prompt', 'doc', 'bookmark', 'template'] as const;
+        const typeLabels: Record<string, string> = { note: '📝 Notes', bug: '🐛 Bugs', snippet: '📋 Snippets', prompt: '🤖 Prompts', doc: '📄 Docs', bookmark: '🔖 Bookmarks', template: '📋 Templates' };
+        const counts = await Promise.all(allTypes.map(t => database.getKnowledgeItems(t).then(r => r.length)));
+        const total = counts.reduce((s, c) => s + c, 0);
+        const [projs, todayActs, weekActs] = await Promise.all([
+          database.getProjects(),
+          database.getActivityByRange(today(), today()),
+          database.getActivityByRange(weekAgo(), today()),
+        ]);
+        const activeProjs = projs.filter(p => p.status === 'active' || !p.status).length;
+        const archivedProjs = projs.filter(p => p.status === 'archived').length;
+        const todayFocus = todayActs.reduce((s: number, a: any) => s + (a.duration || 0), 0);
+        const weekFocus = weekActs.reduce((s: number, a: any) => s + (a.duration || 0), 0);
+        const typeLines = allTypes.map((t, i) => `  ${typeLabels[t]}: ${counts[i]}`).join('\n');
+        entry.result =
+          `📊 DevOS Stats\n\n` +
+          `📦 Knowledge Base (${total})\n${typeLines}\n\n` +
+          `📁 Projects: ${activeProjs} active, ${archivedProjs} archived\n\n` +
+          `⏱ Today: ${todayActs.length} events · ${Math.floor(todayFocus / 60)}h ${todayFocus % 60}m\n` +
+          `📅 Week: ${Math.floor(weekFocus / 60)}h ${weekFocus % 60}m`;
+      } catch {
+        entry.result = 'Unable to load stats.';
+      }
+      await sendMsg(token, chatId, entry.result);
+      break;
+
+    case 'today':
+      try {
+        const todayActs = await database.getActivityByRange(today(), today());
+        const focus = todayActs.reduce((s: number, a: any) => s + (a.duration || 0), 0);
+        const byType: Record<string, number> = {};
+        const projectIds = new Set<number>();
+        for (const a of todayActs) {
+          byType[a.type] = (byType[a.type] || 0) + 1;
+          if (a.project_id) projectIds.add(a.project_id);
+        }
+        const typeSummary = Object.entries(byType)
+          .sort((a, b) => b[1] - a[1])
+          .map(([t, n]) => `• ${t}: ${n}`).join('\n');
+        entry.result =
+          `📋 Today's Activity\n\n` +
+          `⏱ Focus: ${Math.floor(focus / 60)}h ${focus % 60}m\n` +
+          `📁 Projects worked: ${projectIds.size}\n` +
+          `📦 Events: ${todayActs.length}\n\n` +
+          (typeSummary || 'No activity yet today.');
+      } catch {
+        entry.result = 'Unable to load today\'s activity.';
+      }
+      await sendMsg(token, chatId, entry.result);
+      break;
+
+    case 'weekly':
+      try {
+        const weekActs = await database.getActivityByRange(weekAgo(), today());
+        const prevWeekActs = await database.getActivityByRange(weeksAgo(2), weekAgo());
+        const focus = weekActs.reduce((s: number, a: any) => s + (a.duration || 0), 0);
+        const prevFocus = prevWeekActs.reduce((s: number, a: any) => s + (a.duration || 0), 0);
+        const byType: Record<string, number> = {};
+        const projectIds = new Set<number>();
+        for (const a of weekActs) {
+          byType[a.type] = (byType[a.type] || 0) + 1;
+          if (a.project_id) projectIds.add(a.project_id);
+        }
+        const typeSummary = Object.entries(byType)
+          .sort((a, b) => b[1] - a[1])
+          .map(([t, n]) => `• ${t}: ${n}`).join('\n');
+        const focusChange = prevFocus > 0 ? Math.round(((focus - prevFocus) / prevFocus) * 100) : 0;
+        const changeStr = focusChange !== 0
+          ? `(${focusChange > 0 ? '+' : ''}${focusChange}% vs last week)`
+          : '(same as last week)';
+        entry.result =
+          `📅 This Week\n\n` +
+          `⏱ Focus: ${Math.floor(focus / 60)}h ${focus % 60}m ${changeStr}\n` +
+          `📁 Projects: ${projectIds.size}\n` +
+          `📦 Events: ${weekActs.length}\n\n` +
+          (typeSummary || 'No activity this week.');
+      } catch {
+        entry.result = 'Unable to load weekly stats.';
+      }
+      await sendMsg(token, chatId, entry.result);
+      break;
+
+    case 'undo': {
+      const last = getLastCreated(chatId);
+      if (!last) {
+        entry.result = 'Nothing to undo — no items were created from this chat yet.';
+        await sendMsg(token, chatId, entry.result);
+        break;
+      }
+      try {
+        await database.deleteKnowledgeItem(last.id);
+        removeLastCreated(chatId);
+        entry.result = `↩️ Deleted the last item (${last.type}, ID: ${last.id}).`;
+      } catch {
+        entry.result = 'Failed to delete the last item. It may have been removed already.';
+        removeLastCreated(chatId);
+      }
+      await sendMsg(token, chatId, entry.result);
+      break;
+    }
+
+    case 'list': {
+      const raw = entry.args?.toLowerCase().trim();
+      const typeMap: Record<string, string> = { notes: 'note', bugs: 'bug', snippets: 'snippet', prompts: 'prompt', docs: 'doc', bookmarks: 'bookmark', templates: 'template' };
+      const typeLabels: Record<string, string> = { note: 'Notes', bug: 'Bugs', snippet: 'Snippets', prompt: 'Prompts', doc: 'Docs', bookmark: 'Bookmarks', template: 'Templates' };
+      if (!raw || (raw !== 'all' && !typeMap[raw])) {
+        entry.result = 'Usage: /list notes|bugs|snippets|prompts|docs|bookmarks|templates|all';
+        await sendMsg(token, chatId, entry.result);
+        break;
+      }
+      try {
+        let items: any[];
+        let label: string;
+        if (raw === 'all') {
+          items = await database.getKnowledgeItems();
+          label = 'All Items';
+        } else {
+          items = await database.getKnowledgeItems(typeMap[raw]);
+          label = typeLabels[typeMap[raw]];
+        }
+        const lines = items.slice(0, 10).map(i => `• ${i.title || 'Untitled'} (${i.type})${i.id ? ` ID: ${i.id}` : ''}`).join('\n');
+        entry.result = items.length
+          ? `📋 ${label} (${items.length})\n\n${lines}${items.length > 10 ? `\n\n… and ${items.length - 10} more` : ''}`
+          : `No ${label.toLowerCase()} yet.`;
+      } catch {
+        entry.result = `Unable to load ${raw}.`;
+      }
+      await sendMsg(token, chatId, entry.result);
+      break;
+    }
+
+    case 'delete': {
+      const id = parseInt(entry.args, 10);
+      if (!id) {
+        entry.result = 'Usage: /delete <item ID>\nUse /list to find IDs.';
+        await sendMsg(token, chatId, entry.result);
+        break;
+      }
+      try {
+        await database.deleteKnowledgeItem(id);
+        removeLastCreated(chatId);
+        entry.result = `🗑 Deleted item ID ${id}.`;
+      } catch {
+        entry.result = `Failed to delete item ${id}. It may not exist.`;
+      }
+      await sendMsg(token, chatId, entry.result);
+      break;
+    }
+
+    case 'pin': {
+      const id = parseInt(entry.args, 10);
+      if (!id) {
+        entry.result = 'Usage: /pin <item ID>\nUse /list to find IDs.';
+        await sendMsg(token, chatId, entry.result);
+        break;
+      }
+      try {
+        await database.toggleKnowledgeFavorite(id);
+        entry.result = `📌 Toggled favorite on item ID ${id}.`;
+      } catch {
+        entry.result = `Failed to toggle favorite on item ${id}.`;
+      }
+      await sendMsg(token, chatId, entry.result);
+      break;
+    }
+
+    case 'id':
+      entry.result = `🆔 This chat ID: \`${chatId}\``;
+      await sendMsg(token, chatId, entry.result);
+      break;
+
+    case 'mute': {
+      const cfg = loadTelegramConfig();
+      saveTelegramConfig({ ...cfg, auto_poll: false });
+      entry.result = '🔇 Polling paused. Send /unmute to resume.';
+      await sendMsg(token, chatId, entry.result);
+      try { window.dispatchEvent(new CustomEvent('telegram-config')); } catch {}
+      break;
+    }
+
+    case 'unmute': {
+      const cfg = loadTelegramConfig();
+      saveTelegramConfig({ ...cfg, auto_poll: true });
+      entry.result = '🔊 Polling resumed.';
+      await sendMsg(token, chatId, entry.result);
+      try { window.dispatchEvent(new CustomEvent('telegram-config')); } catch {}
+      break;
+    }
+
+    case 'recent': {
+      const typeFilter = entry.args?.toLowerCase().trim();
+      const validTypes = ['note', 'bug', 'snippet', 'prompt', 'doc', 'bookmark', 'template'];
+      const filterType = typeFilter && validTypes.includes(typeFilter) ? typeFilter : undefined;
+      try {
+        const items = await database.getKnowledgeItems(filterType);
+        const header = filterType ? `Recent ${filterType}s` : 'Recent items';
         entry.result = items?.length
-          ? `Recent items\n\n` + items.slice(0, 8).map(i => `• ${i.title} — ${i.type} (ID: ${i.id})`).join('\n')
+          ? `📋 ${header}\n\n` + items.slice(0, 8).map(i => `• ${i.title}${filterType ? '' : ` — ${i.type}`} (ID: ${i.id})`).join('\n')
           : 'No items yet.';
       } catch {
         entry.result = 'Unable to load recent items.';
       }
       await sendMsg(token, chatId, entry.result);
       break;
+    }
 
     case 'help':
     default:
       entry.result = plainWelcome();
-      await sendMsg(token, chatId, entry.result);
+      await sendMsg(token, chatId, entry.result, { reply_markup: REPLY_KEYBOARD });
       break;
   }
 }
 
-async function saveNote(token: string, entry: ProcessedUpdate, title: string, content: string, projectId?: number | null) {
-  const item = await database.createKnowledgeItem({ type: 'note', title: title.slice(0, 80), content, tags: '["telegram"]', favorite: 0, project_id: projectId ?? null });
+async function saveNote(token: string, entry: ProcessedUpdate, title: string, content: string, projectId?: number | null, tagsJson?: string) {
+  const item = await database.createKnowledgeItem({ type: 'note', title: title.slice(0, 80), content, tags: tagsJson || '["telegram"]', favorite: 0, project_id: projectId ?? null });
   entry.created_id = item?.id;
+  if (item?.id) setLastCreated(entry.chat_id, item.id, 'note');
   entry.saved = true;
-  entry.result = `Note saved!\nID: ${item?.id}\nTitle: ${title.slice(0, 80)}`;
+  entry.result = `📝 Note saved!\nID: ${item?.id}\nTitle: ${title.slice(0, 80)}`;
   await sendMsg(token, entry.chat_id, entry.result);
 }
 
@@ -312,12 +621,23 @@ export async function setBotCommands(token: string): Promise<boolean> {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         commands: [
-          { command: 'start', description: 'Welcome & available commands' },
+          { command: 'start', description: 'Welcome & command list' },
           { command: 'note', description: 'Save a note (title + body on next line)' },
           { command: 'bug', description: 'Report a bug (title + problem on next line)' },
           { command: 'todo', description: 'Add a task' },
           { command: 'snippet', description: 'Save a code snippet (title + code on next line)' },
           { command: 'search', description: 'Search your knowledge base' },
+          { command: 'list', description: 'List items by type: notes, bugs, snippets' },
+          { command: 'today', description: 'Today\'s activity summary' },
+          { command: 'weekly', description: 'This week\'s stats vs last week' },
+          { command: 'projects', description: 'List your projects' },
+          { command: 'stats', description: 'Full knowledge base stats' },
+          { command: 'undo', description: 'Delete the last item created from Telegram' },
+          { command: 'delete', description: 'Delete an item by ID' },
+          { command: 'pin', description: 'Toggle favorite on an item by ID' },
+          { command: 'id', description: 'Show this chat ID' },
+          { command: 'mute', description: 'Pause polling' },
+          { command: 'unmute', description: 'Resume polling' },
           { command: 'recent', description: 'Show recent items' },
           { command: 'help', description: 'Show all commands' },
         ],

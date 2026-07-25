@@ -50,10 +50,32 @@ export function useCommandPalette() {
     { id: 'go-settings', label: 'Open Settings', description: 'Configure application settings', category: 'Navigation', action: () => navigate(SETTING) },
     { id: 'toggle-sidebar', label: 'Toggle Sidebar', description: 'Show or hide the sidebar', shortcut: 'Ctrl+B', category: 'View', action: () => useAppStore.getState().toggleSidebar() },
     { id: 'toggle-theme', label: 'Toggle Theme', description: 'Switch between light and dark mode', category: 'Preferences', action: () => {
-      const settings = JSON.parse(localStorage.getItem('developer-os-settings') || '{}');
-      const newTheme = settings.state?.theme === 'dark' ? 'light' : 'dark';
-      localStorage.setItem('developer-os-settings', JSON.stringify({ ...settings, state: { ...settings.state, theme: newTheme } }));
-      window.location.reload();
+      const current = localStorage.getItem('app-theme-id') || 'light';
+      const next = current === 'dark' ? 'light' : 'dark';
+      const isDark = next === 'dark';
+      localStorage.setItem('app-theme-id', next);
+      useAppStore.getState().setThemeMode(next as any);
+      document.documentElement.classList.toggle('dark', isDark);
+      const root = document.documentElement;
+      if (isDark) {
+        root.style.setProperty('--color-background', '#06080D');
+        root.style.setProperty('--color-text', '#F8FAFC');
+        root.style.setProperty('--color-surface', '#0D1117');
+        root.style.setProperty('--color-border', '#1E2433');
+        root.style.setProperty('--color-icon', '#4F8EF7');
+        root.style.setProperty('--color-muted', '#8B949E');
+        root.style.setProperty('--color-dropdown', '#1A1F2E');
+        root.style.setProperty('--color-hover', '#161B22');
+      } else {
+        root.style.setProperty('--color-background', '#F6F8FB');
+        root.style.setProperty('--color-text', '#182234');
+        root.style.setProperty('--color-surface', '#FFFFFF');
+        root.style.setProperty('--color-border', '#E1E7EF');
+        root.style.setProperty('--color-icon', '#2F6FEB');
+        root.style.setProperty('--color-muted', '#6B7280');
+        root.style.setProperty('--color-dropdown', '#FFFFFF');
+        root.style.setProperty('--color-hover', '#F1F5F9');
+      }
     }},
   ];
 

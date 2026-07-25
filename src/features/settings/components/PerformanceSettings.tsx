@@ -1,17 +1,24 @@
 import { useState } from 'react';
 import { FaTachometerAlt, FaCog } from 'react-icons/fa';
 
+function lsGet(key: string): string {
+  try { return localStorage.getItem(key) ?? ''; } catch { return ''; }
+}
+function lsSet(key: string, value: string) {
+  try { localStorage.setItem(key, value); } catch { /* storage unavailable */ }
+}
+
 export function PerformanceSettings() {
   const [reducedMotion, setReducedMotion] = useState(
-    () => localStorage.getItem('devos_reduced_motion') === 'true'
+    () => lsGet('devos_reduced_motion') === 'true'
   );
   const [reducedTransparency, setReducedTransparency] = useState(
-    () => localStorage.getItem('devos_reduced_transparency') === 'true'
+    () => lsGet('devos_reduced_transparency') === 'true'
   );
 
   const toggle = (key: string, setter: (v: boolean) => void, current: boolean) => {
     const next = !current;
-    localStorage.setItem(key, String(next));
+    lsSet(key, String(next));
     if (key === 'devos_reduced_motion') {
       document.documentElement.classList.toggle('reduce-motion', next);
     }
