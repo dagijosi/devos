@@ -45,6 +45,18 @@
         { "name": "rundll32", "cmd": "rundll32.exe", "args": true },
         { "name": "ipconfig", "cmd": "ipconfig", "args": true }
       ]
-    }
+    },
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        { "name": "cmd", "cmd": "cmd.exe", "args": true },
+        { "name": "powershell", "cmd": "powershell", "args": true },
+        { "name": "bash", "cmd": "bash", "args": true },
+        { "name": "sh", "cmd": "sh", "args": true },
+        { "name": "git", "cmd": "git", "args": true }
+      ]
+    },
+    "shell:allow-stdin-write",
+    "shell:allow-kill"
   ]
 }
