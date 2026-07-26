@@ -53,7 +53,10 @@ jobs:
           } else {
             $notes = $commitMsg
           }
-          Write-Output "notes=$notes" >> $env:GITHUB_OUTPUT
+          # Use heredoc syntax for multi-line output
+          "notes<<EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          $notes | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           Write-Host "Commit message: $commitMsg"
 
       - name: Build Tauri app with signing
