@@ -31,7 +31,7 @@ export function DashboardPage() {
         database.getAllDeployments(),
       ]);
       setProjects(all);
-      setFailedCount(deployments.filter((d: any) => d.status === 'failed').length);
+      setFailedCount(deployments.filter((d) => d.status === 'failed').length);
       setLoading(false);
     };
     load();

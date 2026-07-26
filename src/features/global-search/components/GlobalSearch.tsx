@@ -5,6 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { database } from '../../../database';
 import { PROJECTS, KNOWLEDGE } from '../../../routes/types/routeConstants';
 import { FaSearch, FaProjectDiagram, FaStickyNote, FaCode, FaBug, FaFileAlt, FaBookmark } from 'react-icons/fa';
+import type { Project } from '../../projects/types';
+import type { Note, CodeSnippet, Bug, KnowledgeItem } from '../../knowledge/types';
 
 interface SearchResult {
   id: string;
@@ -41,7 +43,7 @@ export function GlobalSearch() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) {
@@ -59,28 +61,28 @@ export function GlobalSearch() {
       ]);
       const ql = q.toLowerCase();
       const all: SearchResult[] = [];
-      projects.forEach((p: any) => {
-        if (p.name?.toLowerCase().includes(ql) || p.description?.toLowerCase().includes(ql)) {
+      projects.forEach((p: Project) => {
+        if (p.name?.toLowerCase().includes(ql) || (p.description || '').toLowerCase().includes(ql)) {
           all.push({ id: `proj-${p.id}`, label: p.name, description: p.description || 'Project', type: 'project', action: () => navigate(`${PROJECTS}/${p.id}`) });
         }
       });
-      notes.forEach((n: any) => {
-        if (n.title?.toLowerCase().includes(ql) || n.content?.toLowerCase().includes(ql)) {
+      notes.forEach((n: Note) => {
+        if (n.title?.toLowerCase().includes(ql) || (n.content || '').toLowerCase().includes(ql)) {
           all.push({ id: `note-${n.id}`, label: n.title, description: (n.content || '').slice(0, 80), type: 'note', action: () => navigate(KNOWLEDGE) });
         }
       });
-      snippets.forEach((s: any) => {
+      snippets.forEach((s: CodeSnippet) => {
         if (s.title?.toLowerCase().includes(ql) || s.code?.toLowerCase().includes(ql)) {
           all.push({ id: `snip-${s.id}`, label: s.title, description: `${s.language || 'code'} snippet`, type: 'snippet', action: () => navigate(KNOWLEDGE) });
         }
       });
-      bugs.forEach((b: any) => {
+      bugs.forEach((b: Bug) => {
         if (b.title?.toLowerCase().includes(ql) || b.problem?.toLowerCase().includes(ql)) {
           all.push({ id: `bug-${b.id}`, label: b.title, description: (b.problem || '').slice(0, 80), type: 'bug', action: () => navigate(KNOWLEDGE) });
         }
       });
-      (knowledgeItems as any[]).forEach((k: any) => {
-        if (k.title?.toLowerCase().includes(ql) || k.content?.toLowerCase().includes(ql)) {
+      knowledgeItems.forEach((k: KnowledgeItem) => {
+        if (k.title?.toLowerCase().includes(ql) || (k.content || '').toLowerCase().includes(ql)) {
           all.push({ id: `know-${k.id}`, label: k.title, description: `${k.type || 'item'} · ${(k.content || '').slice(0, 60)}`, type: 'knowledge', action: () => navigate(KNOWLEDGE) });
         }
       });
