@@ -41,22 +41,20 @@ jobs:
 
       - name: Get commit message for release notes
         id: release_notes
+        shell: pwsh
         run: |
           # Get the commit message for the tag
-          COMMIT_MSG=$(git log -1 --pretty=format:"%s" ${{ github.ref_name }})
+          $commitMsg = git log -1 --pretty=format:"%s" ${{ github.ref_name }}
           # Get the full commit body for detailed notes
-          COMMIT_BODY=$(git log -1 --pretty=format:"%b" ${{ github.ref_name }})
+          $commitBody = git log -1 --pretty=format:"%b" ${{ github.ref_name }}
           # Combine them
-          if [ -n "$COMMIT_BODY" ]; then
-            echo "notes<<EOF" >> $GITHUB_OUTPUT
-            echo "$COMMIT_MSG" >> $GITHUB_OUTPUT
-            echo "" >> $GITHUB_OUTPUT
-            echo "$COMMIT_BODY" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-          else
-            echo "notes=$COMMIT_MSG" >> $GITHUB_OUTPUT
-          fi
-          echo "Commit message: $COMMIT_MSG"
+          if ($commitBody -ne "") {
+            $notes = "$commitMsg`n`n$commitBody"
+          } else {
+            $notes = $commitMsg
+          }
+          Write-Output "notes=$notes" >> $env:GITHUB_OUTPUT
+          Write-Host "Commit message: $commitMsg"
 
       - name: Build Tauri app with signing
         uses: tauri-apps/tauri-action@v0.5.12
