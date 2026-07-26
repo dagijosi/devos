@@ -4,6 +4,12 @@ import { loadTelegramConfig, saveTelegramConfig, UPDATES_KEY } from './telegramC
 import { processTelegramUpdates, setBotCommands, type ProcessedUpdate } from './telegramBot';
 import { tryTelegramAutoImport } from './telegramAutoImport';
 
+/** Key we watch on the storage event — only restart polling when Telegram config changes. */
+const TG_CONFIG_KEY = 'devos_telegram_config';
+
+/** Show a toast only after this many consecutive poll failures to avoid spam. */
+const FAILURE_TOAST_THRESHOLD = 3;
+
 function appendProcessedUpdates(processed: ProcessedUpdate[]) {
   if (!processed.length) return;
   try {
@@ -20,10 +26,13 @@ export function TelegramPollingProvider({ children }: { children: React.ReactNod
   const intervalMsRef = useRef(0);
   const pollingRef = useRef(false);
   const commandsSetFor = useRef('');
+  const consecutiveFailures = useRef(0);
 
   useEffect(() => {
-    // Auto-import pending messages on startup
-    tryTelegramAutoImport();
+    // Defer auto-import by 2 s to allow App.tsx / database.initialize() to complete first.
+    const autoImportTimer = setTimeout(() => {
+      tryTelegramAutoImport();
+    }, 2000);
 
     const stop = () => {
       if (intervalRef.current) {
@@ -52,9 +61,16 @@ export function TelegramPollingProvider({ children }: { children: React.ReactNod
         } else if (!data.ok) {
           console.warn('[Telegram] getUpdates failed:', data.description);
         }
+        // Successful poll (or empty result) — reset failure counter.
+        consecutiveFailures.current = 0;
       } catch (e) {
+        consecutiveFailures.current += 1;
         console.warn('[Telegram] poll error:', e);
-        toast.error('Telegram poll failed. Check your bot token.');
+        // Only toast after several consecutive failures to avoid spamming on transient errors.
+        if (consecutiveFailures.current >= FAILURE_TOAST_THRESHOLD) {
+          toast.error('Telegram polling failed repeatedly. Check your bot token or network.');
+          consecutiveFailures.current = 0; // Reset so we don't toast again immediately.
+        }
       } finally {
         pollingRef.current = false;
       }
@@ -83,7 +99,13 @@ export function TelegramPollingProvider({ children }: { children: React.ReactNod
 
     const onConfig = () => start();
     window.addEventListener('telegram-config', onConfig);
-    window.addEventListener('storage', onConfig);
+
+    // Only restart the poll when the Telegram config key specifically changes — not on
+    // every localStorage write from unrelated parts of the app.
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === TG_CONFIG_KEY) start();
+    };
+    window.addEventListener('storage', onStorage);
 
     const check = setInterval(() => {
       const cur = loadTelegramConfig();
@@ -95,10 +117,11 @@ export function TelegramPollingProvider({ children }: { children: React.ReactNod
     }, 3000);
 
     return () => {
+      clearTimeout(autoImportTimer);
       stop();
       clearInterval(check);
       window.removeEventListener('telegram-config', onConfig);
-      window.removeEventListener('storage', onConfig);
+      window.removeEventListener('storage', onStorage);
     };
   }, []);
 

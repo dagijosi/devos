@@ -39,7 +39,8 @@ export function loadTelegramConfig(): TelegramConfig {
     }
 
     // Drop non-numeric chat filters (e.g. "main") that blocked every message
-    if (!localStorage.getItem(CHAT_FILTER_MIGRATION_KEY) || merged.chat_id) {
+    // Run once only — checking merged.chat_id caused this to execute on every load.
+    if (!localStorage.getItem(CHAT_FILTER_MIGRATION_KEY)) {
       const cleaned = normalizeChatFilter(merged.chat_id);
       if (cleaned !== String(merged.chat_id ?? '').trim()) {
         merged.chat_id = cleaned;

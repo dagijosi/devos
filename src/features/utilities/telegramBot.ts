@@ -2,9 +2,10 @@ import { database } from '../../database';
 import { loadTelegramConfig, saveTelegramConfig, normalizeChatFilter } from './telegramConfig';
 
 const API = 'https://api.telegram.org/bot';
-const DEDUP_KEY = 'devos_telegram_processed_ids';
+export const DEDUP_KEY = 'devos_telegram_processed_ids';
 const LAST_CREATED_KEY = 'devos_telegram_last_created';
 
+// ── Deduplication ──────────────────────────────────────────────────────────
 function getProcessed(): Set<number> {
   try { return new Set(JSON.parse(localStorage.getItem(DEDUP_KEY) || '[]')); }
   catch { return new Set(); }
@@ -25,6 +26,7 @@ function unmarkProcessed(id: number) {
 /** In-flight locks so concurrent polls don't double-send before markProcessed. */
 const inFlight = new Set<number>();
 
+// ── Send message ───────────────────────────────────────────────────────────
 async function sendMsg(token: string, chatId: number, text: string, extra?: Record<string, unknown>) {
   const post = async (body: Record<string, unknown>) => {
     const res = await fetch(`${API}${token}/sendMessage`, {
@@ -35,37 +37,42 @@ async function sendMsg(token: string, chatId: number, text: string, extra?: Reco
     return res.json().catch(() => ({ ok: false, description: 'Invalid response' }));
   };
 
-  // Prefer plain text — Legacy Markdown often rejects bot replies silently.
-  let data = await post({ chat_id: chatId, text, ...extra });
-  if (!data.ok && !extra?.parse_mode) {
-    data = await post({ chat_id: chatId, text, parse_mode: 'Markdown', ...extra });
+  // Always try plain text first — Markdown often rejects bot replies silently.
+  const { parse_mode: _pm, ...extraWithoutMode } = (extra ?? {}) as Record<string, unknown>;
+  let data = await post({ chat_id: chatId, text, ...extraWithoutMode });
+  if (!data.ok) {
+    data = await post({ chat_id: chatId, text, parse_mode: 'Markdown', ...extraWithoutMode });
   }
   if (!data.ok) {
     throw new Error(data.description || 'sendMessage failed');
   }
 }
 
-function getLastCreated(chatId: number): { id: number; type: string } | null {
+// ── Last-created tracking (for /undo) ────────────────────────────────────
+interface LastCreatedEntry { id: number; type: string; title: string }
+
+function getLastCreated(chatId: number): LastCreatedEntry | null {
   try {
-    const map: Record<string, { id: number; type: string }> = JSON.parse(localStorage.getItem(LAST_CREATED_KEY) || '{}');
+    const map: Record<string, LastCreatedEntry> = JSON.parse(localStorage.getItem(LAST_CREATED_KEY) || '{}');
     return map[String(chatId)] ?? null;
   } catch { return null; }
 }
-function setLastCreated(chatId: number, id: number, type: string) {
+function setLastCreated(chatId: number, id: number, type: string, title: string) {
   try {
-    const map: Record<string, { id: number; type: string }> = JSON.parse(localStorage.getItem(LAST_CREATED_KEY) || '{}');
-    map[String(chatId)] = { id, type };
+    const map: Record<string, LastCreatedEntry> = JSON.parse(localStorage.getItem(LAST_CREATED_KEY) || '{}');
+    map[String(chatId)] = { id, type, title };
     localStorage.setItem(LAST_CREATED_KEY, JSON.stringify(map));
   } catch { /* ignore */ }
 }
 function removeLastCreated(chatId: number) {
   try {
-    const map: Record<string, { id: number; type: string }> = JSON.parse(localStorage.getItem(LAST_CREATED_KEY) || '{}');
+    const map: Record<string, LastCreatedEntry> = JSON.parse(localStorage.getItem(LAST_CREATED_KEY) || '{}');
     delete map[String(chatId)];
     localStorage.setItem(LAST_CREATED_KEY, JSON.stringify(map));
   } catch { /* ignore */ }
 }
 
+// ── Helpers ────────────────────────────────────────────────────────────────
 function extractTags(text: string): { clean: string; tags: string[] } {
   const tags: string[] = [];
   const clean = text.replace(/#(\w+)/g, (_, tag) => { tags.push(tag); return ''; }).trim();
@@ -80,6 +87,11 @@ const today = () => new Date().toISOString().slice(0, 10);
 const weekAgo = () => { const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString().slice(0, 10); };
 const weeksAgo = (n: number) => { const d = new Date(); d.setDate(d.getDate() - 7 * n); return d.toISOString().slice(0, 10); };
 
+const DB_ERROR = '⚠️ Database unavailable — try again in a moment.';
+
+const STATUS_EMOJI: Record<string, string> = { active: '🟢', archived: '🔴', planning: '🟡' };
+
+// ── Types ─────────────────────────────────────────────────────────────────
 export interface ProcessedUpdate {
   update_id: number;
   message_id: number;
@@ -94,51 +106,78 @@ export interface ProcessedUpdate {
   skipped?: boolean;
 }
 
-async function resolveProject(text: string): Promise<{ text: string; projectId: number | null }> {
+// ── Project resolution (@ProjectName syntax) ──────────────────────────────
+async function resolveProject(text: string): Promise<{ text: string; projectId: number | null; projectName: string | null }> {
   const match = text.match(/@(\S+)/);
-  if (!match) return { text, projectId: null };
+  if (!match) return { text, projectId: null, projectName: null };
   const name = match[1];
   const cleaned = text.replace(`@${name}`, '').trim();
   try {
     const projects = await database.getProjects();
     const p = projects.find(p => p.name.toLowerCase() === name.toLowerCase());
-    return { text: cleaned, projectId: p?.id ?? null };
+    return { text: cleaned, projectId: p?.id ?? null, projectName: p?.name ?? null };
   } catch {
-    return { text: cleaned, projectId: null };
+    return { text: cleaned, projectId: null, projectName: null };
   }
 }
 
+// ── Find project by name OR numeric id ────────────────────────────────────
+/** Accepts: "MyApp", "myapp", "3", "#3", "3 " */
+async function findProject(arg: string): Promise<{ proj: any | null; byName: boolean }> {
+  const clean = arg.trim().replace(/^#/, '');
+  const numId = parseInt(clean, 10);
+  try {
+    const projs = await database.getProjects();
+    if (!isNaN(numId)) {
+      const p = projs.find(p => p.id === numId);
+      return { proj: p ?? null, byName: false };
+    }
+    // Case-insensitive partial name match — prefer exact match first
+    const exact = projs.find(p => p.name.toLowerCase() === clean.toLowerCase());
+    if (exact) return { proj: exact, byName: true };
+    const partial = projs.find(p => p.name.toLowerCase().includes(clean.toLowerCase()));
+    return { proj: partial ?? null, byName: true };
+  } catch {
+    return { proj: null, byName: false };
+  }
+}
+
+// ── Welcome message ────────────────────────────────────────────────────────
 function plainWelcome(): string {
   return (
     'DevOS Bot 🤖\n\n' +
     'Send any text → saved as a note. Use #tags to categorize.\n\n' +
-    'Commands:\n' +
-    '📝 /note Title then body on next line\n' +
-    '🐛 /bug Title then problem on next line\n' +
-    '📋 /snippet Title then code on next line\n' +
-    '✅ /todo Task name\n' +
-    '🔍 /search query\n' +
-    '📁 /projects — list all projects\n' +
-    '📁 /project #id — project details with stats\n' +
-    '📊 /stats — full knowledge base stats\n' +
-    '📋 /today — today\'s activity summary\n' +
-    '📅 /weekly — this week\'s stats vs last week\n' +
-    '📋 /list notes|bugs|snippets|prompts|docs|bookmarks|templates|all — list items\n' +
-    '📋 /recent — last 8 items\n' +
-    '↩️ /undo — delete last saved item\n' +
-    '🗑 /delete <id> — delete a specific item\n' +
-    '📌 /pin <id> — toggle favorite on an item\n' +
-    '🆔 /id — show this chat ID\n' +
-    '🔇 /mute — pause polling\n' +
-    '🔊 /unmute — resume polling\n' +
-    '❓ /help\n\n' +
+    'Create:\n' +
+    '  📝 /note Title (body on next line)\n' +
+    '  🐛 /bug Title (problem on next line)\n' +
+    '  📋 /snippet Title (code on next line)\n' +
+    '  ✅ /todo Task name\n\n' +
+    'Browse:\n' +
+    '  🔍 /search query\n' +
+    '  📋 /list notes|bugs|snippets|all\n' +
+    '  📋 /recent [type] — last 8 items\n\n' +
+    'Projects:\n' +
+    '  📁 /projects — list projects with IDs\n' +
+    '  📁 /project <name or #id> — project details\n' +
+    '  📋 /copy — copy project ID list\n\n' +
+    'Stats:\n' +
+    '  📊 /stats — full knowledge base stats\n' +
+    '  📋 /today — today\'s activity summary\n' +
+    '  📅 /weekly — this week vs last week\n\n' +
+    'Manage:\n' +
+    '  ↩️ /undo — delete last saved item\n' +
+    '  🗑 /delete <id> — delete by ID\n' +
+    '  📌 /pin <id> — toggle favorite\n' +
+    '  🆔 /id — show this chat ID\n' +
+    '  🔇 /mute · 🔊 /unmute — pause/resume polling\n' +
+    '  ❓ /help — show this message\n\n' +
     'Tip: use @ProjectName to attach to a project. Use #tags to organize.'
   );
 }
 
+// ── Main update processor ─────────────────────────────────────────────────
 export async function processTelegramUpdates(token: string, chatFilter: string, updates: any[]): Promise<ProcessedUpdate[]> {
   const results: ProcessedUpdate[] = [];
-  // Only numeric chat ids count as a filter (ignore values like "main")
   let filter = normalizeChatFilter(chatFilter);
 
   for (const update of updates) {
@@ -187,8 +226,25 @@ export async function processTelegramUpdates(token: string, chatFilter: string, 
     const cmd = rawCmd.startsWith('/') ? rawCmd.split('@')[0] : rawCmd;
     const cmdArgs = parts.slice(1).join(' ');
 
+    // Map emoji reply-keyboard buttons to their canonical slash commands.
+    const EMOJI_CMD_MAP: Record<string, string> = {
+      '📝 note': '/note',
+      '🐛 bug': '/bug',
+      '✅ todo': '/todo',
+      '📋 snippet': '/snippet',
+      '📊 stats': '/stats',
+      '📁 projects': '/projects',
+      '📋 list': '/list',
+      '🔍 search': '/search',
+      '↩️ undo': '/undo',
+      '🔇 mute': '/mute',
+      '🔊 unmute': '/unmute',
+      '🆔 id': '/id',
+    };
+    const mappedCmd = EMOJI_CMD_MAP[text.trim().toLowerCase()];
+
     try {
-      // First successful /start (or any command with empty filter) locks this chat
+      // First successful message (or any command with empty filter) locks this chat
       if (!filter) {
         const cfg = loadTelegramConfig();
         if (!normalizeChatFilter(cfg.chat_id)) {
@@ -197,17 +253,22 @@ export async function processTelegramUpdates(token: string, chatFilter: string, 
         }
       }
 
-      if (cmd.startsWith('/')) {
+      if (mappedCmd) {
+        entry.command = mappedCmd.slice(1);
+        entry.args = '';
+        entry.body = '';
+        await handleCommand(token, entry);
+      } else if (cmd.startsWith('/')) {
         entry.command = cmd.slice(1);
         entry.args = cmdArgs;
         entry.body = rest;
         await handleCommand(token, entry);
       } else {
-        const { text: cleanTitle, projectId } = await resolveProject(firstLine);
+        const { text: cleanTitle, projectId, projectName } = await resolveProject(firstLine);
         entry.command = 'note';
         entry.args = cleanTitle;
         entry.body = rest;
-        await saveNote(token, entry, cleanTitle, rest || cleanTitle, projectId);
+        await saveNote(token, entry, cleanTitle, rest || cleanTitle, projectId, undefined, projectName);
       }
       markProcessed(msg.message_id);
     } catch (e: any) {
@@ -216,7 +277,6 @@ export async function processTelegramUpdates(token: string, chatFilter: string, 
         await sendMsg(token, chatId, entry.result);
         markProcessed(msg.message_id);
       } catch {
-        // Leave unmarked so the next poll can retry
         unmarkProcessed(msg.message_id);
       }
     } finally {
@@ -233,6 +293,7 @@ export async function processTelegramUpdates(token: string, chatFilter: string, 
   return results;
 }
 
+// ── Reply keyboard ─────────────────────────────────────────────────────────
 const REPLY_KEYBOARD = {
   keyboard: [
     [{ text: '📝 Note' }, { text: '🐛 Bug' }, { text: '✅ Todo' }, { text: '📋 Snippet' }],
@@ -243,6 +304,7 @@ const REPLY_KEYBOARD = {
   one_time_keyboard: false,
 };
 
+// ── Command handler ────────────────────────────────────────────────────────
 async function handleCommand(token: string, entry: ProcessedUpdate) {
   const chatId = entry.chat_id;
 
@@ -253,33 +315,40 @@ async function handleCommand(token: string, entry: ProcessedUpdate) {
       break;
 
     case 'note': {
-      const { text: rawArgs, projectId } = await resolveProject(entry.args);
+      const { text: rawArgs, projectId, projectName } = await resolveProject(entry.args);
       const { clean: cleanArgs, tags } = extractTags(rawArgs);
       const userTags = buildTags(...tags);
       if (entry.body) {
-        await saveNote(token, entry, cleanArgs, entry.body, projectId, userTags);
+        await saveNote(token, entry, cleanArgs, entry.body, projectId, userTags, projectName);
       } else if (cleanArgs) {
-        await saveNote(token, entry, cleanArgs, cleanArgs, projectId, userTags);
+        await saveNote(token, entry, cleanArgs, cleanArgs, projectId, userTags, projectName);
       } else {
-        entry.result = 'Send: /note Title then your content on the next line.\nTip: add #tags to organize.';
+        entry.result = 'Send: /note Title\nthen your content on the next line.\n\nTip: add #tags to organize, @ProjectName to attach.';
         await sendMsg(token, chatId, entry.result);
       }
       break;
     }
 
     case 'bug': {
-      const { text: rawTitle, projectId } = await resolveProject(entry.args);
+      const { text: rawTitle, projectId, projectName } = await resolveProject(entry.args);
       const { clean: cleanTitle, tags } = extractTags(rawTitle);
       const title = cleanTitle?.slice(0, 80) || 'Untitled Bug';
       const problem = entry.body || cleanTitle || '';
       try {
-        const item = await database.createKnowledgeItem({ type: 'bug', title, content: problem, tags: buildTags(...tags), status: 'open', project_id: projectId ?? null });
+        const item = await database.createKnowledgeItem({
+          type: 'bug', title, content: problem,
+          tags: buildTags(...tags), status: 'open', project_id: projectId ?? null,
+        });
         entry.created_id = item?.id;
-        if (item?.id) setLastCreated(chatId, item.id, 'bug');
+        if (item?.id) setLastCreated(chatId, item.id, 'bug', title);
         entry.saved = true;
-        entry.result = `🐛 Bug saved!\n${title}`;
-      } catch (e: any) {
-        entry.result = `Failed: ${e.message}`;
+        entry.result =
+          `🐛 Bug saved! #${item?.id}\n` +
+          `Title: ${title}` +
+          (projectName ? `\nProject: ${projectName}` : '') +
+          (tags.length ? `\nTags: ${tags.map(t => `#${t}`).join(' ')}` : '');
+      } catch {
+        entry.result = DB_ERROR;
       }
       await sendMsg(token, chatId, entry.result);
       break;
@@ -287,40 +356,55 @@ async function handleCommand(token: string, entry: ProcessedUpdate) {
 
     case 'todo': {
       const raw = entry.args || entry.body || 'Untitled task';
-      const { text: rawTask, projectId } = await resolveProject(raw);
+      const { text: rawTask, projectId, projectName } = await resolveProject(raw);
       const { clean: cleanTask, tags } = extractTags(rawTask);
       const taskTitle = cleanTask.slice(0, 80);
       try {
-        const item = await database.createKnowledgeItem({ type: 'note', title: taskTitle, content: '', tags: buildTags('todo', ...tags), favorite: 0, project_id: projectId ?? null });
+        const item = await database.createKnowledgeItem({
+          type: 'note', title: taskTitle, content: '',
+          tags: buildTags('todo', ...tags), favorite: 0, project_id: projectId ?? null,
+        });
         entry.created_id = item?.id;
-        if (item?.id) setLastCreated(chatId, item.id, 'todo');
+        if (item?.id) setLastCreated(chatId, item.id, 'todo', taskTitle);
         entry.saved = true;
-        entry.result = `✅ Task added!\n${taskTitle}`;
-      } catch (e: any) {
-        entry.result = `Failed: ${e.message}`;
+        entry.result =
+          `✅ Task added! #${item?.id}\n` +
+          `${taskTitle}` +
+          (projectName ? `\nProject: ${projectName}` : '') +
+          (tags.length ? `\nTags: ${tags.map(t => `#${t}`).join(' ')}` : '');
+      } catch {
+        entry.result = DB_ERROR;
       }
       await sendMsg(token, chatId, entry.result);
       break;
     }
 
     case 'snippet': {
-      const { text: rawTitle, projectId } = await resolveProject(entry.args);
+      const { text: rawTitle, projectId, projectName } = await resolveProject(entry.args);
       const { clean: cleanTitle, tags } = extractTags(rawTitle);
       const title = cleanTitle?.slice(0, 80) || 'Untitled';
       const code = entry.body || '';
       if (!code) {
-        entry.result = 'Send: /snippet Title then your code on the next line.';
+        entry.result = 'Send: /snippet Title\nthen your code on the next line.\n\nTip: add @ProjectName to attach.';
         await sendMsg(token, chatId, entry.result);
         break;
       }
       try {
-        const item = await database.createKnowledgeItem({ type: 'snippet', title, content: code, language: 'text', description: 'From Telegram', tags: buildTags(...tags), favorite: 0, project_id: projectId ?? null });
+        const item = await database.createKnowledgeItem({
+          type: 'snippet', title, content: code,
+          language: 'text', description: 'From Telegram',
+          tags: buildTags(...tags), favorite: 0, project_id: projectId ?? null,
+        });
         entry.created_id = item?.id;
-        if (item?.id) setLastCreated(chatId, item.id, 'snippet');
+        if (item?.id) setLastCreated(chatId, item.id, 'snippet', title);
         entry.saved = true;
-        entry.result = `📋 Snippet saved!\n${title}`;
-      } catch (e: any) {
-        entry.result = `Failed: ${e.message}`;
+        entry.result =
+          `📋 Snippet saved! #${item?.id}\n` +
+          `Title: ${title}` +
+          (projectName ? `\nProject: ${projectName}` : '') +
+          (tags.length ? `\nTags: ${tags.map(t => `#${t}`).join(' ')}` : '');
+      } catch {
+        entry.result = DB_ERROR;
       }
       await sendMsg(token, chatId, entry.result);
       break;
@@ -329,17 +413,19 @@ async function handleCommand(token: string, entry: ProcessedUpdate) {
     case 'search': {
       const query = entry.args || entry.body || '';
       if (!query) {
-        entry.result = 'Usage: /search what you are looking for';
+        entry.result = 'Usage: /search what you are looking for\n\nExample: /search caching bug';
         await sendMsg(token, chatId, entry.result);
         break;
       }
       try {
         const items = await database.searchKnowledge(query);
         entry.result = items?.length
-          ? `🔍 Results for: ${query}\n\n` + items.slice(0, 5).map(i => `• ${i.title} (${i.type}) — ID: ${i.id}`).join('\n')
-          : 'No results found.';
+          ? `🔍 "${query}" — ${items.length} result${items.length !== 1 ? 's' : ''}\n\n` +
+            items.slice(0, 6).map(i => `• #${i.id} ${i.title} (${i.type})`).join('\n') +
+            (items.length > 6 ? `\n\n… and ${items.length - 6} more` : '')
+          : `No results for "${query}".`;
       } catch {
-        entry.result = 'Search unavailable.';
+        entry.result = DB_ERROR;
       }
       await sendMsg(token, chatId, entry.result);
       break;
@@ -347,44 +433,87 @@ async function handleCommand(token: string, entry: ProcessedUpdate) {
 
     case 'project':
     case 'projects': {
-      const projId = entry.args ? parseInt(entry.args) : NaN;
-      if (!isNaN(projId)) {
-        try {
-          const [proj, bugs] = await Promise.all([
-            database.getProject(projId),
-            database.getBugsByProject(projId),
-          ]);
-          if (!proj) { entry.result = `Project #${projId} not found.`; break; }
-          const items = await database.getKnowledgeItems();
-          const projItems = items.filter(i => (i as any).project_id === projId || (i as any).projectId === projId);
-          const openBugs = bugs.filter((b: any) => b.status !== 'resolved' && b.status !== 'closed').length;
-          const resolvedBugs = bugs.filter((b: any) => b.status === 'resolved' || b.status === 'closed').length;
-          const statusEmoji: Record<string, string> = { active: '🟢', archived: '🔴', planning: '🟡' };
-          const lastAct = proj.updated_at || proj.created_at;
-          entry.result =
-            `📁 ${proj.name}\n\n` +
-            `${statusEmoji[proj.status] || '⚪'} Status: ${proj.status || 'active'}\n` +
-            `🐛 Bugs: ${openBugs} open · ${resolvedBugs} resolved\n` +
-            `📦 Items: ${projItems.length}\n` +
-            `🕐 Last: ${lastAct ? new Date(lastAct).toLocaleDateString() : 'N/A'}\n` +
-            (proj.description ? `\n${proj.description}` : '');
-        } catch {
-          entry.result = 'Unable to load project.';
-        }
-      } else {
+      const arg = entry.args?.trim();
+
+      // Listing mode — no args, or command is explicitly "projects"
+      if (!arg || entry.command === 'projects' && !arg) {
         try {
           const projs = await database.getProjects();
-          const lines = await Promise.all(projs.slice(0, 20).map(async p => {
-            const bugs = await database.getBugsByProject(p.id);
-            const open = bugs.filter((b: any) => b.status !== 'resolved' && b.status !== 'closed').length;
-            return `• ${p.name} (${open}🐛) ${p.status === 'archived' ? '🔴' : '🟢'}`;
-          }));
-          entry.result = projs?.length
-            ? `📁 Projects (${projs.length}) — /projects #id for details\n\n` + lines.join('\n')
-            : 'No projects yet. Create one in DevOS.';
+          if (!projs?.length) {
+            entry.result = 'No projects yet. Create one in DevOS.';
+          } else {
+            const lines = await Promise.all(projs.slice(0, 20).map(async p => {
+              const bugs = await database.getBugsByProject(p.id);
+              const open = bugs.filter((b: any) => b.status !== 'resolved' && b.status !== 'closed').length;
+              const status = STATUS_EMOJI[p.status] || '⚪';
+              return `${status} #${p.id}  ${p.name}${open > 0 ? `  (${open}🐛)` : ''}`;
+            }));
+            entry.result =
+              `📁 Projects (${projs.length})\n` +
+              `Use /project <name or #id> for details\n\n` +
+              lines.join('\n');
+          }
         } catch {
-          entry.result = 'Unable to load projects.';
+          entry.result = DB_ERROR;
         }
+        await sendMsg(token, chatId, entry.result);
+        break;
+      }
+
+      // Detail mode — arg is a name or ID
+      try {
+        const { proj } = await findProject(arg);
+        if (!proj) {
+          // Try listing to help the user
+          const projs = await database.getProjects().catch(() => []);
+          const hint = projs.length
+            ? `\n\nAvailable projects:\n` + projs.slice(0, 10).map((p: any) => `• #${p.id} ${p.name}`).join('\n')
+            : '';
+          entry.result = `Project "${arg}" not found.${hint}`;
+        } else {
+          const [bugs, items] = await Promise.all([
+            database.getBugsByProject(proj.id),
+            database.getKnowledgeItems().then((all: any[]) =>
+              all.filter(i => (i as any).project_id === proj.id)),
+          ]);
+          const openBugs = bugs.filter((b: any) => b.status !== 'resolved' && b.status !== 'closed').length;
+          const resolvedBugs = bugs.filter((b: any) => b.status === 'resolved' || b.status === 'closed').length;
+          const typeBreakdown = items.reduce((acc: Record<string, number>, i: any) => {
+            acc[i.type] = (acc[i.type] || 0) + 1; return acc;
+          }, {});
+          const lastAct = proj.updated_at || proj.created_at;
+          entry.result =
+            `📁 ${proj.name}  (#${proj.id})\n\n` +
+            `${STATUS_EMOJI[proj.status] || '⚪'} ${proj.status || 'active'}\n` +
+            `🐛 Bugs: ${openBugs} open · ${resolvedBugs} resolved\n` +
+            `📦 Items: ${items.length}` +
+            (Object.keys(typeBreakdown).length
+              ? ' (' + Object.entries(typeBreakdown).map(([t, n]) => `${n} ${t}${n !== 1 ? 's' : ''}`).join(', ') + ')'
+              : '') + '\n' +
+            `🕐 Updated: ${lastAct ? new Date(lastAct).toLocaleDateString() : 'N/A'}` +
+            (proj.description ? `\n\n${proj.description}` : '');
+        }
+      } catch {
+        entry.result = DB_ERROR;
+      }
+      await sendMsg(token, chatId, entry.result);
+      break;
+    }
+
+    case 'copy': {
+      // Send a clean project ID list for easy copy-pasting into /project commands
+      try {
+        const projs = await database.getProjects();
+        if (!projs?.length) {
+          entry.result = 'No projects yet. Create one in DevOS.';
+        } else {
+          entry.result =
+            '📋 Project IDs\n\n' +
+            projs.map((p: any) => `#${p.id}  ${p.name}`).join('\n') +
+            '\n\nUse: /project <name or #id>';
+        }
+      } catch {
+        entry.result = DB_ERROR;
       }
       await sendMsg(token, chatId, entry.result);
       break;
@@ -393,7 +522,10 @@ async function handleCommand(token: string, entry: ProcessedUpdate) {
     case 'stats':
       try {
         const allTypes = ['note', 'bug', 'snippet', 'prompt', 'doc', 'bookmark', 'template'] as const;
-        const typeLabels: Record<string, string> = { note: '📝 Notes', bug: '🐛 Bugs', snippet: '📋 Snippets', prompt: '🤖 Prompts', doc: '📄 Docs', bookmark: '🔖 Bookmarks', template: '📋 Templates' };
+        const typeLabels: Record<string, string> = {
+          note: '📝 Notes', bug: '🐛 Bugs', snippet: '📋 Snippets',
+          prompt: '🤖 Prompts', doc: '📄 Docs', bookmark: '🔖 Bookmarks', template: '📋 Templates',
+        };
         const counts = await Promise.all(allTypes.map(t => database.getKnowledgeItems(t).then(r => r.length)));
         const total = counts.reduce((s, c) => s + c, 0);
         const [projs, todayActs, weekActs] = await Promise.all([
@@ -413,7 +545,7 @@ async function handleCommand(token: string, entry: ProcessedUpdate) {
           `⏱ Today: ${todayActs.length} events · ${Math.floor(todayFocus / 60)}h ${todayFocus % 60}m\n` +
           `📅 Week: ${Math.floor(weekFocus / 60)}h ${weekFocus % 60}m`;
       } catch {
-        entry.result = 'Unable to load stats.';
+        entry.result = DB_ERROR;
       }
       await sendMsg(token, chatId, entry.result);
       break;
@@ -438,7 +570,7 @@ async function handleCommand(token: string, entry: ProcessedUpdate) {
           `📦 Events: ${todayActs.length}\n\n` +
           (typeSummary || 'No activity yet today.');
       } catch {
-        entry.result = 'Unable to load today\'s activity.';
+        entry.result = DB_ERROR;
       }
       await sendMsg(token, chatId, entry.result);
       break;
@@ -469,7 +601,7 @@ async function handleCommand(token: string, entry: ProcessedUpdate) {
           `📦 Events: ${weekActs.length}\n\n` +
           (typeSummary || 'No activity this week.');
       } catch {
-        entry.result = 'Unable to load weekly stats.';
+        entry.result = DB_ERROR;
       }
       await sendMsg(token, chatId, entry.result);
       break;
@@ -484,9 +616,9 @@ async function handleCommand(token: string, entry: ProcessedUpdate) {
       try {
         await database.deleteKnowledgeItem(last.id);
         removeLastCreated(chatId);
-        entry.result = `↩️ Deleted the last item (${last.type}, ID: ${last.id}).`;
+        entry.result = `↩️ Deleted: ${last.type} #${last.id} "${last.title}"`;
       } catch {
-        entry.result = 'Failed to delete the last item. It may have been removed already.';
+        entry.result = `Failed to delete — item may have already been removed.\n(${last.type} #${last.id} "${last.title}")`;
         removeLastCreated(chatId);
       }
       await sendMsg(token, chatId, entry.result);
@@ -495,10 +627,18 @@ async function handleCommand(token: string, entry: ProcessedUpdate) {
 
     case 'list': {
       const raw = entry.args?.toLowerCase().trim();
-      const typeMap: Record<string, string> = { notes: 'note', bugs: 'bug', snippets: 'snippet', prompts: 'prompt', docs: 'doc', bookmarks: 'bookmark', templates: 'template' };
-      const typeLabels: Record<string, string> = { note: 'Notes', bug: 'Bugs', snippet: 'Snippets', prompt: 'Prompts', doc: 'Docs', bookmark: 'Bookmarks', template: 'Templates' };
+      const typeMap: Record<string, string> = {
+        notes: 'note', bugs: 'bug', snippets: 'snippet', prompts: 'prompt',
+        docs: 'doc', bookmarks: 'bookmark', templates: 'template',
+        note: 'note', bug: 'bug', snippet: 'snippet', prompt: 'prompt',
+        doc: 'doc', bookmark: 'bookmark', template: 'template',
+      };
+      const typeLabels: Record<string, string> = {
+        note: 'Notes', bug: 'Bugs', snippet: 'Snippets', prompt: 'Prompts',
+        doc: 'Docs', bookmark: 'Bookmarks', template: 'Templates',
+      };
       if (!raw || (raw !== 'all' && !typeMap[raw])) {
-        entry.result = 'Usage: /list notes|bugs|snippets|prompts|docs|bookmarks|templates|all';
+        entry.result = 'Usage: /list notes|bugs|snippets|prompts|docs|bookmarks|templates|all\n\nShows up to 10 items with their IDs.';
         await sendMsg(token, chatId, entry.result);
         break;
       }
@@ -512,12 +652,16 @@ async function handleCommand(token: string, entry: ProcessedUpdate) {
           items = await database.getKnowledgeItems(typeMap[raw]);
           label = typeLabels[typeMap[raw]];
         }
-        const lines = items.slice(0, 10).map(i => `• ${i.title || 'Untitled'} (${i.type})${i.id ? ` ID: ${i.id}` : ''}`).join('\n');
+        const lines = items.slice(0, 10).map(i =>
+          `• #${i.id}  ${i.title || 'Untitled'}${raw === 'all' ? ` (${i.type})` : ''}`
+        ).join('\n');
         entry.result = items.length
-          ? `📋 ${label} (${items.length})\n\n${lines}${items.length > 10 ? `\n\n… and ${items.length - 10} more` : ''}`
+          ? `📋 ${label} (${items.length} total)\n\n${lines}` +
+            (items.length > 10 ? `\n\n… and ${items.length - 10} more` : '') +
+            `\n\nUse /pin <id> or /delete <id>`
           : `No ${label.toLowerCase()} yet.`;
       } catch {
-        entry.result = `Unable to load ${raw}.`;
+        entry.result = DB_ERROR;
       }
       await sendMsg(token, chatId, entry.result);
       break;
@@ -526,16 +670,23 @@ async function handleCommand(token: string, entry: ProcessedUpdate) {
     case 'delete': {
       const id = parseInt(entry.args, 10);
       if (!id) {
-        entry.result = 'Usage: /delete <item ID>\nUse /list to find IDs.';
+        entry.result = 'Usage: /delete <item ID>\n\nExample: /delete 42\nUse /list or /search to find IDs.';
         await sendMsg(token, chatId, entry.result);
         break;
       }
       try {
+        // Try to get title before deleting
+        let title = '';
+        try {
+          const all = await database.getKnowledgeItems();
+          const item = all.find((i: any) => i.id === id);
+          title = item?.title ? ` "${item.title}"` : '';
+        } catch { /* non-critical */ }
         await database.deleteKnowledgeItem(id);
         removeLastCreated(chatId);
-        entry.result = `🗑 Deleted item ID ${id}.`;
+        entry.result = `🗑 Deleted #${id}${title}.`;
       } catch {
-        entry.result = `Failed to delete item ${id}. It may not exist.`;
+        entry.result = `Could not delete #${id} — it may not exist.\nUse /list to check.`;
       }
       await sendMsg(token, chatId, entry.result);
       break;
@@ -544,22 +695,28 @@ async function handleCommand(token: string, entry: ProcessedUpdate) {
     case 'pin': {
       const id = parseInt(entry.args, 10);
       if (!id) {
-        entry.result = 'Usage: /pin <item ID>\nUse /list to find IDs.';
+        entry.result = 'Usage: /pin <item ID>\n\nExample: /pin 42\nUse /list or /search to find IDs.';
         await sendMsg(token, chatId, entry.result);
         break;
       }
       try {
+        let title = '';
+        try {
+          const all = await database.getKnowledgeItems();
+          const item = all.find((i: any) => i.id === id);
+          title = item?.title ? ` "${item.title}"` : '';
+        } catch { /* non-critical */ }
         await database.toggleKnowledgeFavorite(id);
-        entry.result = `📌 Toggled favorite on item ID ${id}.`;
+        entry.result = `📌 Toggled favorite on #${id}${title}.`;
       } catch {
-        entry.result = `Failed to toggle favorite on item ${id}.`;
+        entry.result = `Could not toggle favorite on #${id} — it may not exist.\nUse /list to check.`;
       }
       await sendMsg(token, chatId, entry.result);
       break;
     }
 
     case 'id':
-      entry.result = `🆔 This chat ID: \`${chatId}\``;
+      entry.result = `🆔 This chat ID: ${chatId}\n\nPaste this into DevOS → Telegram → Chat ID field to lock the bot to this chat.`;
       await sendMsg(token, chatId, entry.result);
       break;
 
@@ -584,15 +741,19 @@ async function handleCommand(token: string, entry: ProcessedUpdate) {
     case 'recent': {
       const typeFilter = entry.args?.toLowerCase().trim();
       const validTypes = ['note', 'bug', 'snippet', 'prompt', 'doc', 'bookmark', 'template'];
-      const filterType = typeFilter && validTypes.includes(typeFilter) ? typeFilter : undefined;
+      const normalizeType = (t: string) =>
+        validTypes.includes(t) ? t : validTypes.find(v => `${v}s` === t || `${v}es` === t) ?? undefined;
+      const filterType = typeFilter ? normalizeType(typeFilter) : undefined;
       try {
         const items = await database.getKnowledgeItems(filterType);
         const header = filterType ? `Recent ${filterType}s` : 'Recent items';
         entry.result = items?.length
-          ? `📋 ${header}\n\n` + items.slice(0, 8).map(i => `• ${i.title}${filterType ? '' : ` — ${i.type}`} (ID: ${i.id})`).join('\n')
-          : 'No items yet.';
+          ? `📋 ${header} (${items.length} total)\n\n` +
+            items.slice(0, 8).map(i => `• #${i.id}  ${i.title}${filterType ? '' : ` — ${i.type}`}`).join('\n') +
+            `\n\nUse /pin <id> or /delete <id>`
+          : `No ${filterType ? filterType + 's' : 'items'} yet.`;
       } catch {
-        entry.result = 'Unable to load recent items.';
+        entry.result = DB_ERROR;
       }
       await sendMsg(token, chatId, entry.result);
       break;
@@ -606,15 +767,28 @@ async function handleCommand(token: string, entry: ProcessedUpdate) {
   }
 }
 
-async function saveNote(token: string, entry: ProcessedUpdate, title: string, content: string, projectId?: number | null, tagsJson?: string) {
-  const item = await database.createKnowledgeItem({ type: 'note', title: title.slice(0, 80), content, tags: tagsJson || '["telegram"]', favorite: 0, project_id: projectId ?? null });
+// ── Save note helper ───────────────────────────────────────────────────────
+async function saveNote(
+  token: string, entry: ProcessedUpdate, title: string, content: string,
+  projectId?: number | null, tagsJson?: string, projectName?: string | null,
+) {
+  const parsedTags: string[] = tagsJson ? JSON.parse(tagsJson).filter((t: string) => t !== 'telegram') : [];
+  const item = await database.createKnowledgeItem({
+    type: 'note', title: title.slice(0, 80), content,
+    tags: tagsJson || '["telegram"]', favorite: 0, project_id: projectId ?? null,
+  });
   entry.created_id = item?.id;
-  if (item?.id) setLastCreated(entry.chat_id, item.id, 'note');
+  if (item?.id) setLastCreated(entry.chat_id, item.id, 'note', title.slice(0, 80));
   entry.saved = true;
-  entry.result = `📝 Note saved!\nID: ${item?.id}\nTitle: ${title.slice(0, 80)}`;
+  entry.result =
+    `📝 Note saved! #${item?.id}\n` +
+    `Title: ${title.slice(0, 80)}` +
+    (projectName ? `\nProject: ${projectName}` : '') +
+    (parsedTags.length ? `\nTags: ${parsedTags.map(t => `#${t}`).join(' ')}` : '');
   await sendMsg(token, entry.chat_id, entry.result);
 }
 
+// ── Register bot commands ──────────────────────────────────────────────────
 export async function setBotCommands(token: string): Promise<boolean> {
   try {
     const res = await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
@@ -627,18 +801,20 @@ export async function setBotCommands(token: string): Promise<boolean> {
           { command: 'todo', description: 'Add a task' },
           { command: 'snippet', description: 'Save a code snippet (title + code on next line)' },
           { command: 'search', description: 'Search your knowledge base' },
-          { command: 'list', description: 'List items by type: notes, bugs, snippets' },
-          { command: 'today', description: 'Today\'s activity summary' },
+          { command: 'list', description: 'List items by type: notes, bugs, snippets, all' },
+          { command: 'today', description: "Today's activity summary" },
           { command: 'weekly', description: 'This week\'s stats vs last week' },
-          { command: 'projects', description: 'List your projects' },
+          { command: 'projects', description: 'List all projects with their IDs' },
+          { command: 'project', description: 'Project details — /project <name or #id>' },
+          { command: 'copy', description: 'Copy project ID list' },
           { command: 'stats', description: 'Full knowledge base stats' },
           { command: 'undo', description: 'Delete the last item created from Telegram' },
-          { command: 'delete', description: 'Delete an item by ID' },
-          { command: 'pin', description: 'Toggle favorite on an item by ID' },
+          { command: 'delete', description: 'Delete an item: /delete <id>' },
+          { command: 'pin', description: 'Toggle favorite: /pin <id>' },
           { command: 'id', description: 'Show this chat ID' },
           { command: 'mute', description: 'Pause polling' },
           { command: 'unmute', description: 'Resume polling' },
-          { command: 'recent', description: 'Show recent items' },
+          { command: 'recent', description: 'Show recent items with IDs' },
           { command: 'help', description: 'Show all commands' },
         ],
       }),
