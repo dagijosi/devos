@@ -23,6 +23,10 @@
     "dialog:default",
     "shell:default",
     "updater:default",
+    "global-shortcut:default",
+    "global-shortcut:allow-register",
+    "global-shortcut:allow-unregister",
+    "global-shortcut:allow-is-registered",
     {
       "identifier": "shell:allow-execute",
       "allow": [
@@ -34,6 +38,9 @@
         { "name": "code", "cmd": "code", "args": true },
         { "name": "taskmgr", "cmd": "taskmgr", "args": true },
         { "name": "powershell", "cmd": "powershell", "args": true },
+        { "name": "bash", "cmd": "bash", "args": true },
+        { "name": "git", "cmd": "git", "args": true },
+        { "name": "pwsh", "cmd": "pwsh", "args": true },
         { "name": "shutdown", "cmd": "shutdown", "args": true },
         { "name": "rundll32", "cmd": "rundll32.exe", "args": true },
         { "name": "ipconfig", "cmd": "ipconfig", "args": true }

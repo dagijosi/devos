@@ -10,6 +10,11 @@ import {
   FaSave,
   FaTelegram,
   FaCode,
+  FaClipboard,
+  FaGlobe,
+  FaTerminal,
+  FaGitAlt,
+  FaKey,
 } from "react-icons/fa";
 import {
   DASHBOARD,
@@ -23,6 +28,11 @@ import {
   SETTING,
   API_TYPE_GENERATOR,
   TELEGRAM,
+  CLIPBOARD,
+  HOSTS_SWITCHER,
+  TERMINAL,
+  GIT_CLIENT,
+  ENV_MANAGER,
 } from "../routes/types/routeConstants";
 
 export interface NavLink {
@@ -62,7 +72,12 @@ export const navigationCategories: NavCategory[] = [
   {
     name: "Tools",
     links: [
+      { name: "Terminal", href: TERMINAL, icon: FaTerminal },
+      { name: "Git Client", href: GIT_CLIENT, icon: FaGitAlt },
+      { name: "Environment", href: ENV_MANAGER, icon: FaKey },
       { name: "Utilities", href: UTILITIES, icon: FaWrench },
+      { name: "Clipboard", href: CLIPBOARD, icon: FaClipboard },
+      { name: "Hosts Switcher", href: HOSTS_SWITCHER, icon: FaGlobe },
       { name: "API Types", href: API_TYPE_GENERATOR, icon: FaCode },
       { name: "Backup", href: BACKUP, icon: FaSave },
       { name: "Settings", href: SETTING, icon: FaCog },

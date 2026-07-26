@@ -1,6 +1,9 @@
 import {
   ALL_MIGRATIONS,
   SETTINGS_QUERIES,
+  CLIPBOARD_QUERIES,
+  HOSTS_PROFILE_QUERIES,
+  ENV_PROFILE_QUERIES,
   NOTIFICATION_QUERIES,
   PROJECT_QUERIES,
   ACTIVITY_QUERIES,
@@ -587,6 +590,35 @@ class LocalDatabase {
       lsSet('_db_backups', []);
       return;
     }
+    // Clipboard
+    if (sql.startsWith('INSERT INTO CLIPBOARD_ENTRIES')) {
+      const rows = lsGet<Row>('_db_clipboard');
+      rows.push({ id: nextId(rows as { id?: number }[]), content: bind?.[0], content_type: bind?.[1] ?? 'text', source: bind?.[2] ?? '', favorite: 0, created_at: new Date().toISOString() });
+      lsSet('_db_clipboard', rows);
+      return;
+    }
+    if (sql.startsWith('DELETE FROM CLIPBOARD_ENTRIES WHERE ID = ?')) {
+      if (bind?.length) lsSet('_db_clipboard', lsGet<Row>('_db_clipboard').filter((r) => r.id !== bind[0]));
+      return;
+    }
+    if (sql.startsWith('DELETE FROM CLIPBOARD_ENTRIES')) {
+      lsSet('_db_clipboard', []);
+      return;
+    }
+    if (sql.includes('CLIPBOARD_ENTRIES SET FAVORITE = CASE')) {
+      const rows = lsGet<Row>('_db_clipboard');
+      const found = rows.find((r) => r.id === bind?.[0]);
+      if (found) { found.favorite = found.favorite === 1 ? 0 : 1; }
+      lsSet('_db_clipboard', rows);
+      return;
+    }
+    if (sql.includes('CLIPBOARD_ENTRIES WHERE ID NOT IN')) {
+      const rows = lsGet<Row>('_db_clipboard');
+      const sorted = [...rows].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+      const keep = sorted.slice(0, 200);
+      lsSet('_db_clipboard', keep);
+      return;
+    }
     // Deployments
     if (sql.startsWith('INSERT INTO DEPLOYMENTS')) {
       const rows = lsGet<Row>('_db_deployments');
@@ -834,6 +866,24 @@ class LocalDatabase {
     }
     if (sql.startsWith('SELECT * FROM BACKUPS ORDER BY CREATED_AT DESC')) {
       return sortBy(lsGet<Row>('_db_backups'), 'created_at') as T[];
+    }
+    // Clipboard
+    if (sql.startsWith('SELECT * FROM CLIPBOARD_ENTRIES WHERE FAVORITE = 1')) {
+      return sortBy(lsGet<Row>('_db_clipboard').filter((r) => r.favorite === 1), 'created_at') as T[];
+    }
+    if (sql.startsWith('SELECT * FROM CLIPBOARD_ENTRIES WHERE CONTENT LIKE ?')) {
+      const q = String(bind?.[0] ?? '').replace(/%/g, '').toLowerCase();
+      return sortBy(lsGet<Row>('_db_clipboard').filter((r) => String(r.content).toLowerCase().includes(q)), 'created_at') as T[];
+    }
+    if (sql.startsWith('SELECT * FROM CLIPBOARD_ENTRIES ORDER BY CREATED_AT DESC LIMIT 1')) {
+      const rows = sortBy(lsGet<Row>('_db_clipboard'), 'created_at');
+      return rows.slice(0, 1) as T[];
+    }
+    if (sql.startsWith('SELECT * FROM CLIPBOARD_ENTRIES ORDER BY CREATED_AT DESC')) {
+      return sortBy(lsGet<Row>('_db_clipboard'), 'created_at') as T[];
+    }
+    if (sql.startsWith('SELECT COUNT(*) AS COUNT FROM CLIPBOARD_ENTRIES')) {
+      return [{ count: lsGet<Row>('_db_clipboard').length }] as T[];
     }
     // Deployments
     if (sql.startsWith('SELECT * FROM DEPLOYMENTS WHERE PROJECT_ID = ?')) {
@@ -2345,5 +2395,149 @@ export const database = {
     const inst = await getDatabase();
     if (!inst) return;
     await inst.execute(TOOL_SETTINGS_QUERIES.upsert, [toolId, settingsJson]);
+  },
+
+  // ── Env Profiles ────────────────────────────────────────────────
+  async getEnvProfiles(projectId: number): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(ENV_PROFILE_QUERIES.getByProject, [projectId]);
+  },
+
+  async getEnvProfile(id: number): Promise<any | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    const rows = await inst.select(ENV_PROFILE_QUERIES.getById, [id]);
+    return rows.length ? rows[0] : null;
+  },
+
+  async createEnvProfile(data: { project_id: number; name: string; description?: string; variables?: string; is_active?: number }): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(ENV_PROFILE_QUERIES.insert, [data.project_id, data.name, data.description ?? '', data.variables ?? '{}', data.is_active ?? 0]);
+  },
+
+  async updateEnvProfile(id: number, data: { name?: string; description?: string; variables?: string; is_active?: number }): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    const existing = await this.getEnvProfile(id);
+    if (!existing) return;
+    await inst.execute(ENV_PROFILE_QUERIES.update, [
+      data.name ?? existing.name, data.description ?? existing.description,
+      data.variables ?? existing.variables, data.is_active ?? existing.is_active, id,
+    ]);
+  },
+
+  async deleteEnvProfile(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(ENV_PROFILE_QUERIES.delete, [id]);
+  },
+
+  async setActiveEnvProfile(projectId: number, profileId: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(ENV_PROFILE_QUERIES.deactivateByProject, [projectId]);
+    await inst.execute(ENV_PROFILE_QUERIES.setActive, [profileId]);
+  },
+
+  async getActiveEnvProfile(projectId: number): Promise<any | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    const rows = await inst.select(ENV_PROFILE_QUERIES.getActive, [projectId]);
+    return rows.length ? rows[0] : null;
+  },
+
+  // ── Hosts Profiles ──────────────────────────────────────────────
+  async getHostsProfiles(): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(HOSTS_PROFILE_QUERIES.getAll);
+  },
+
+  async getHostsProfile(id: number): Promise<any | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    const rows = await inst.select(HOSTS_PROFILE_QUERIES.getById, [id]);
+    return rows.length ? rows[0] : null;
+  },
+
+  async createHostsProfile(data: { name: string; description?: string; entries?: string; is_active?: number }): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(HOSTS_PROFILE_QUERIES.insert, [data.name, data.description ?? '', data.entries ?? '[]', data.is_active ?? 0]);
+  },
+
+  async updateHostsProfile(id: number, data: { name?: string; description?: string; entries?: string; is_active?: number }): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    const existing = await this.getHostsProfile(id);
+    if (!existing) return;
+    await inst.execute(HOSTS_PROFILE_QUERIES.update, [
+      data.name ?? existing.name,
+      data.description ?? existing.description,
+      data.entries ?? existing.entries,
+      data.is_active ?? existing.is_active,
+      id,
+    ]);
+  },
+
+  async deleteHostsProfile(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(HOSTS_PROFILE_QUERIES.delete, [id]);
+  },
+
+  async setActiveHostsProfile(id: number | null): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(HOSTS_PROFILE_QUERIES.deactivateAll);
+    if (id) await inst.execute(HOSTS_PROFILE_QUERIES.setActive, [id]);
+  },
+
+  // ── Clipboard ────────────────────────────────────────────────────
+  async getClipboardEntries(): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(CLIPBOARD_QUERIES.getAll);
+  },
+
+  async getFavoriteClipboardEntries(): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(CLIPBOARD_QUERIES.getFavorites);
+  },
+
+  async addClipboardEntry(content: string, contentType: string = 'text', source: string = ''): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    const existing = await inst.select<{ id: number; content: string }>(CLIPBOARD_QUERIES.getLatest);
+    if (existing.length > 0 && existing[0].content === content) return;
+    await inst.execute(CLIPBOARD_QUERIES.insert, [content, contentType, source]);
+    await inst.execute(CLIPBOARD_QUERIES.trimExcess);
+  },
+
+  async deleteClipboardEntry(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(CLIPBOARD_QUERIES.delete, [id]);
+  },
+
+  async clearClipboardHistory(): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(CLIPBOARD_QUERIES.clearAll);
+  },
+
+  async toggleClipboardFavorite(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(CLIPBOARD_QUERIES.toggleFavorite, [id]);
+  },
+
+  async searchClipboard(query: string): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(CLIPBOARD_QUERIES.search, [`%${query}%`]);
   },
 };

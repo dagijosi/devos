@@ -98,6 +98,37 @@ export const ATTACHMENTS_TABLE = `CREATE TABLE IF NOT EXISTS attachments (
 );`;
 
 // FTS5 virtual table — will silently fail if fts5 module is unavailable (sql.js default build)
+export const ENV_PROFILES_TABLE = `CREATE TABLE IF NOT EXISTS env_profiles (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  variables TEXT DEFAULT '{}',
+  is_active INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);`;
+
+export const HOSTS_PROFILES_TABLE = `CREATE TABLE IF NOT EXISTS hosts_profiles (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  entries TEXT DEFAULT '[]',
+  is_active INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);`;
+
+export const CLIPBOARD_TABLE = `CREATE TABLE IF NOT EXISTS clipboard_entries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  content TEXT NOT NULL,
+  content_type TEXT NOT NULL DEFAULT 'text',
+  source TEXT DEFAULT '',
+  favorite INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);`;
+
 export const NOTES_FTS_TABLE = `CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
   title, content, tags, content='notes', content_rowid='id'
 );`;
@@ -433,6 +464,12 @@ export const ALL_MIGRATIONS = [
   PROJECTS_ADD_LOCAL_PATH,
   PROJECTS_ADD_LAST_OPENED,
   PROJECTS_ADD_UPDATED_AT,
+  // Env profiles
+  ENV_PROFILES_TABLE,
+  // Hosts profiles
+  HOSTS_PROFILES_TABLE,
+  // Clipboard
+  CLIPBOARD_TABLE,
   // FTS cleanup (drop old triggers that fail when fts5 module is unavailable)
   NOTES_FTS_DROP_TRIGGERS,
   // FTS - will silently fail if fts5 unavailable (sql.js default build)
@@ -456,6 +493,41 @@ export const ALL_MIGRATIONS = [
 ];
 
 // ── Query constants ────────────────────────────────────────────────────
+
+export const ENV_PROFILE_QUERIES = {
+  getByProject: `SELECT * FROM env_profiles WHERE project_id = ? ORDER BY updated_at DESC`,
+  getById: `SELECT * FROM env_profiles WHERE id = ?`,
+  insert: `INSERT INTO env_profiles (project_id, name, description, variables, is_active) VALUES (?, ?, ?, ?, ?)`,
+  update: `UPDATE env_profiles SET name = ?, description = ?, variables = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  delete: `DELETE FROM env_profiles WHERE id = ?`,
+  deleteByProject: `DELETE FROM env_profiles WHERE project_id = ?`,
+  deactivateByProject: `UPDATE env_profiles SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE project_id = ?`,
+  setActive: `UPDATE env_profiles SET is_active = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  getActive: `SELECT * FROM env_profiles WHERE project_id = ? AND is_active = 1 LIMIT 1`,
+};
+
+export const HOSTS_PROFILE_QUERIES = {
+  getAll: `SELECT * FROM hosts_profiles ORDER BY updated_at DESC`,
+  getById: `SELECT * FROM hosts_profiles WHERE id = ?`,
+  insert: `INSERT INTO hosts_profiles (name, description, entries, is_active) VALUES (?, ?, ?, ?)`,
+  update: `UPDATE hosts_profiles SET name = ?, description = ?, entries = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  delete: `DELETE FROM hosts_profiles WHERE id = ?`,
+  deactivateAll: `UPDATE hosts_profiles SET is_active = 0, updated_at = CURRENT_TIMESTAMP`,
+  setActive: `UPDATE hosts_profiles SET is_active = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+};
+
+export const CLIPBOARD_QUERIES = {
+  getAll: `SELECT * FROM clipboard_entries ORDER BY created_at DESC LIMIT 200`,
+  getFavorites: `SELECT * FROM clipboard_entries WHERE favorite = 1 ORDER BY created_at DESC`,
+  insert: `INSERT INTO clipboard_entries (content, content_type, source) VALUES (?, ?, ?)`,
+  delete: `DELETE FROM clipboard_entries WHERE id = ?`,
+  clearAll: `DELETE FROM clipboard_entries`,
+  toggleFavorite: `UPDATE clipboard_entries SET favorite = CASE WHEN favorite = 1 THEN 0 ELSE 1 END WHERE id = ?`,
+  search: `SELECT * FROM clipboard_entries WHERE content LIKE ? ORDER BY created_at DESC LIMIT 100`,
+  getLatest: `SELECT * FROM clipboard_entries ORDER BY created_at DESC LIMIT 1`,
+  count: `SELECT COUNT(*) as count FROM clipboard_entries`,
+  trimExcess: `DELETE FROM clipboard_entries WHERE id NOT IN (SELECT id FROM clipboard_entries ORDER BY created_at DESC LIMIT 200)`,
+};
 
 export const SETTINGS_QUERIES = {
   get: `SELECT value FROM settings WHERE key = ?`,

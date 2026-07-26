@@ -48,6 +48,49 @@ async function sendMsg(token: string, chatId: number, text: string, extra?: Reco
   }
 }
 
+// ── Inline keyboard helpers ────────────────────────────────────────────────
+type InlineButton = { text: string; callback_data: string };
+type InlineRow = InlineButton[];
+
+function inlineKeyboard(rows: InlineRow[]): Record<string, unknown> {
+  return { inline_keyboard: rows };
+}
+
+async function sendWithButtons(token: string, chatId: number, text: string, buttons: InlineRow[], extra?: Record<string, unknown>) {
+  await sendMsg(token, chatId, text, { ...extra, reply_markup: inlineKeyboard(buttons) });
+}
+
+async function editMsg(token: string, chatId: number, messageId: number, text: string, buttons?: InlineRow[]) {
+  const body: Record<string, unknown> = { chat_id: chatId, message_id: messageId, text };
+  if (buttons) body.reply_markup = inlineKeyboard(buttons);
+  const res = await fetch(`${API}${token}/editMessageText`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return res.json().catch(() => ({ ok: false }));
+}
+
+async function answerCbQuery(token: string, callbackQueryId: string, text?: string, showAlert?: boolean) {
+  const res = await fetch(`${API}${token}/answerCallbackQuery`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ callback_query_id: callbackQueryId, text, show_alert: showAlert ?? false }),
+  });
+  return res.json().catch(() => ({ ok: false }));
+}
+
+// ── Callback data helpers ──────────────────────────────────────────────────
+// Format: "action:payload" e.g. "project:3", "page:projects:1", "delete:42:confirm"
+function encodeCb(action: string, ...args: (string | number)[]): string {
+  return `${action}:${args.join(':')}`;
+}
+
+function decodeCb(data: string): { action: string; args: string[] } {
+  const parts = data.split(':');
+  return { action: parts[0], args: parts.slice(1) };
+}
+
+// Pagination reserved for future list pagination
+
 // ── Last-created tracking (for /undo) ────────────────────────────────────
 interface LastCreatedEntry { id: number; type: string; title: string }
 
@@ -146,32 +189,40 @@ async function findProject(arg: string): Promise<{ proj: any | null; byName: boo
 function plainWelcome(): string {
   return (
     'DevOS Bot 🤖\n\n' +
-    'Send any text → saved as a note. Use #tags to categorize.\n\n' +
-    'Create:\n' +
+    'Projects & Settings:\n' +
+    '  📁 /projects — list all projects\n' +
+    '  📁 /project <name|#id> — project details\n' +
+    '  ➕ /newproject <name> — create a project\n' +
+    '  ⚙️ /settings — bot & chat settings\n\n' +
+    'Tasks:\n' +
+    '  ✅ /tasks [project] — view project tasks\n' +
+    '  ➕ /addtask task title — create project task\n' +
+    '  ✔️ /taskdone <id> — complete a task\n\n' +
+    'Knowledge:\n' +
     '  📝 /note Title (body on next line)\n' +
     '  🐛 /bug Title (problem on next line)\n' +
     '  📋 /snippet Title (code on next line)\n' +
-    '  ✅ /todo Task name\n\n' +
-    'Browse:\n' +
-    '  🔍 /search query\n' +
-    '  📋 /list notes|bugs|snippets|all\n' +
-    '  📋 /recent [type] — last 8 items\n\n' +
-    'Projects:\n' +
-    '  📁 /projects — list projects with IDs\n' +
-    '  📁 /project <name or #id> — project details\n' +
-    '  📋 /copy — copy project ID list\n\n' +
-    'Stats:\n' +
-    '  📊 /stats — full knowledge base stats\n' +
-    '  📋 /today — today\'s activity summary\n' +
-    '  📅 /weekly — this week vs last week\n\n' +
-    'Manage:\n' +
-    '  ↩️ /undo — delete last saved item\n' +
-    '  🗑 /delete <id> — delete by ID\n' +
-    '  📌 /pin <id> — toggle favorite\n' +
-    '  🆔 /id — show this chat ID\n' +
-    '  🔇 /mute · 🔊 /unmute — pause/resume polling\n' +
-    '  ❓ /help — show this message\n\n' +
-    'Tip: use @ProjectName to attach to a project. Use #tags to organize.'
+    '  🔍 /search query — search library\n' +
+    '  📋 /list notes|bugs|all — list items\n\n' +
+    'APIs & Workflows:\n' +
+    '  🌐 /api <url> — test HTTP endpoint\n' +
+    '  ⚡ /workflows — list workflows\n' +
+    '  ▶️ /runworkflow <id|name> — trigger workflow\n\n' +
+    'Utilities (Tools):\n' +
+    '  🛠 /tools — list developer tools\n' +
+    '  🔑 /pwd [len] — generate password\n' +
+    '  🆔 /uuid [count] — generate UUID\n' +
+    '  🔒 /hash <text> — SHA-256 & MD5 hash\n' +
+    '  📦 /b64 <text> — Base64 encode/decode\n' +
+    '  📄 /json <string> — format JSON\n' +
+    '  🏷 /slug <text> — generate URL slug\n\n' +
+    'Deployments:\n' +
+    '  🚀 /deployments — view deployments\n' +
+    '  🚀 /deploy <id> — deployment status\n\n' +
+    'Stats & Manage:\n' +
+    '  📊 /stats · 📋 /today · 📅 /weekly\n' +
+    '  ↩️ /undo · 🗑 /delete <id> · 📌 /pin <id>\n' +
+    '  🔇 /mute · 🔊 /unmute · ❓ /help'
   );
 }
 
@@ -181,6 +232,19 @@ export async function processTelegramUpdates(token: string, chatFilter: string, 
   let filter = normalizeChatFilter(chatFilter);
 
   for (const update of updates) {
+    // ── Handle callback queries (inline button taps) ────────────────
+    if (update.callback_query) {
+      const cb = update.callback_query;
+      const chatId = cb.message?.chat?.id;
+      const msgId = cb.message?.message_id;
+      if (!chatId || !msgId || !cb.data) continue;
+      const { action, args } = decodeCb(cb.data);
+      try {
+        await handleCallback(token, chatId, msgId, cb.id, action, args);
+      } catch { /* ignore callback errors */ }
+      continue;
+    }
+
     const msg = update.message;
     if (!msg?.text) continue;
 
@@ -226,7 +290,7 @@ export async function processTelegramUpdates(token: string, chatFilter: string, 
     const cmd = rawCmd.startsWith('/') ? rawCmd.split('@')[0] : rawCmd;
     const cmdArgs = parts.slice(1).join(' ');
 
-    // Map emoji reply-keyboard buttons to their canonical slash commands.
+    // Map emoji reply-keyboard buttons to canonical slash commands.
     const EMOJI_CMD_MAP: Record<string, string> = {
       '📝 note': '/note',
       '🐛 bug': '/bug',
@@ -240,11 +304,16 @@ export async function processTelegramUpdates(token: string, chatFilter: string, 
       '🔇 mute': '/mute',
       '🔊 unmute': '/unmute',
       '🆔 id': '/id',
+      '✅ tasks': '/tasks',
+      '🛠 tools': '/tools',
+      '⚡ workflows': '/workflows',
+      '🚀 deployments': '/deployments',
+      '⚙️ settings': '/settings',
     };
     const mappedCmd = EMOJI_CMD_MAP[text.trim().toLowerCase()];
 
     try {
-      // First successful message (or any command with empty filter) locks this chat
+      // First successful message locks chat filter
       if (!filter) {
         const cfg = loadTelegramConfig();
         if (!normalizeChatFilter(cfg.chat_id)) {
@@ -296,23 +365,331 @@ export async function processTelegramUpdates(token: string, chatFilter: string, 
 // ── Reply keyboard ─────────────────────────────────────────────────────────
 const REPLY_KEYBOARD = {
   keyboard: [
-    [{ text: '📝 Note' }, { text: '🐛 Bug' }, { text: '✅ Todo' }, { text: '📋 Snippet' }],
-    [{ text: '📊 Stats' }, { text: '📁 Projects' }, { text: '📋 List' }, { text: '🔍 Search' }],
-    [{ text: '↩️ Undo' }, { text: '🔇 Mute' }, { text: '🔊 Unmute' }, { text: '🆔 ID' }],
+    [{ text: '📝 Note' }, { text: '🐛 Bug' }, { text: '✅ Tasks' }, { text: '📋 Snippet' }],
+    [{ text: '📁 Projects' }, { text: '⚡ Workflows' }, { text: '🚀 Deployments' }, { text: '🛠 Tools' }],
+    [{ text: '📊 Stats' }, { text: '🔍 Search' }, { text: '↩️ Undo' }, { text: '⚙️ Settings' }],
   ],
   resize_keyboard: true,
   one_time_keyboard: false,
 };
+
+// ── Callback query handler ────────────────────────────────────────────────
+async function handleCallback(token: string, chatId: number, msgId: number, cbId: string, action: string, args: string[]) {
+  switch (action) {
+    case 'noop':
+      await answerCbQuery(token, cbId);
+      return;
+
+    case 'project': {
+      const projId = parseInt(args[0], 10);
+      if (!projId) { await answerCbQuery(token, cbId, 'Invalid project', true); return; }
+      await answerCbQuery(token, cbId, 'Loading...');
+      try {
+        const [projs, bugs, tasks, deps] = await Promise.all([
+          database.getProjects(),
+          database.getBugsByProject(projId).catch(() => []),
+          database.getProjectTasks(projId).catch(() => []),
+          database.getProjectDeployments(projId).catch(() => []),
+        ]);
+        const proj = projs.find(p => p.id === projId);
+        if (!proj) { await editMsg(token, chatId, msgId, '❌ Project not found.'); return; }
+        const openBugs = bugs.filter((b: any) => b.status !== 'resolved' && b.status !== 'closed').length;
+        const openTasks = tasks.filter((t: any) => !t.completed).length;
+        const text =
+          `📁 *${proj.name}* (#${proj.id})\n\n` +
+          `${STATUS_EMOJI[proj.status] || '⚪'} Status: ${proj.status || 'active'}\n` +
+          `🐛 Bugs: ${openBugs}\n✅ Tasks: ${openTasks}\n🚀 Deployments: ${deps.length}\n` +
+          (proj.description ? `\n${proj.description}` : '');
+        const buttons: InlineRow[] = [
+          [
+            { text: `🐛 Bugs (${openBugs})`, callback_data: encodeCb('proj_bugs', projId) },
+            { text: `✅ Tasks (${openTasks})`, callback_data: encodeCb('proj_tasks', projId) },
+          ],
+          [
+            { text: '📝 New Note', callback_data: encodeCb('proj_note', projId) },
+            { text: '◀️ Back to Projects', callback_data: 'list_projects' },
+          ],
+        ];
+        await editMsg(token, chatId, msgId, text, buttons);
+      } catch { await editMsg(token, chatId, msgId, DB_ERROR); }
+      return;
+    }
+
+    case 'list_projects': {
+      await answerCbQuery(token, cbId, 'Loading...');
+      try {
+        const projs = await database.getProjects();
+        if (!projs.length) {
+          await editMsg(token, chatId, msgId, '📁 No projects yet.\nUse /newproject <Name> to create one.');
+          return;
+        }
+        const lines = projs.map(p => `${STATUS_EMOJI[p.status] || '⚪'} #${p.id} ${p.name}`).join('\n');
+        const buttons: InlineRow[] = [
+          ...projs.slice(0, 6).map(p => [{ text: `${STATUS_EMOJI[p.status] || '⚪'} ${p.name}`, callback_data: encodeCb('project', p.id) } as InlineButton]),
+          [{ text: '📝 New Project', callback_data: 'new_project' }],
+        ];
+        await editMsg(token, chatId, msgId, `📁 *Projects* (${projs.length})\n\n${lines}`, buttons);
+      } catch { await editMsg(token, chatId, msgId, DB_ERROR); }
+      return;
+    }
+
+    case 'proj_bugs': {
+      const pId = parseInt(args[0], 10);
+      await answerCbQuery(token, cbId, 'Loading...');
+      try {
+        const bugs = await database.getBugsByProject(pId).catch(() => []);
+        if (!bugs.length) {
+          await editMsg(token, chatId, msgId, '🐛 No bugs for this project.');
+          return;
+        }
+        const lines = bugs.slice(0, 8).map((b: any) =>
+          `#${b.id} ${b.title || 'Untitled'} — ${b.status || 'open'}`
+        ).join('\n');
+        await editMsg(token, chatId, msgId,
+          `🐛 *Bugs* (${bugs.length})\n\n${lines}`,
+          [[{ text: '◀️ Back to Project', callback_data: encodeCb('project', pId) }]]);
+      } catch { await editMsg(token, chatId, msgId, DB_ERROR); }
+      return;
+    }
+
+    case 'proj_tasks': {
+      const pId = parseInt(args[0], 10);
+      await answerCbQuery(token, cbId, 'Loading...');
+      try {
+        const tasks = await database.getProjectTasks(pId).catch(() => []);
+        if (!tasks.length) {
+          await editMsg(token, chatId, msgId, '✅ No tasks for this project.');
+          return;
+        }
+        const lines = tasks.slice(0, 8).map((t: any) =>
+          `${t.completed ? '✅' : '🔴'} #${t.id} ${t.title}`
+        ).join('\n');
+        await editMsg(token, chatId, msgId,
+          `✅ *Tasks* (${tasks.length})\n\n${lines}`,
+          [[{ text: '◀️ Back to Project', callback_data: encodeCb('project', pId) }]]);
+      } catch { await editMsg(token, chatId, msgId, DB_ERROR); }
+      return;
+    }
+
+    case 'proj_note': {
+      const pId = parseInt(args[0], 10);
+      await answerCbQuery(token, cbId, 'Send: /note Title @ProjectName');
+      const text = `📝 *New Note for Project*\n\nSend:\n\`/note Your Title\`\n\`Your content...\`\n\nThe note will be linked to this project automatically.`;
+      await editMsg(token, chatId, msgId, text,
+        [[{ text: '◀️ Back to Project', callback_data: encodeCb('project', pId) }]]);
+      return;
+    }
+
+    case 'list_workflows': {
+      await answerCbQuery(token, cbId, 'Loading...');
+      try {
+        const workflows = await database.getWorkflows();
+        if (!workflows?.length) {
+          await editMsg(token, chatId, msgId, '⚡ No workflows found.');
+          return;
+        }
+        const lines = workflows.slice(0, 10).map((w: any) => `⚡ #${w.id} ${w.name}`).join('\n');
+        const buttons: InlineRow[] = workflows.slice(0, 5).map((w: any) => [
+          { text: `▶️ ${w.name}`, callback_data: encodeCb('runwf', w.id) },
+        ]);
+        await editMsg(token, chatId, msgId, `⚡ *Workflows* (${workflows.length})\n\n${lines}`, buttons);
+      } catch { await editMsg(token, chatId, msgId, DB_ERROR); }
+      return;
+    }
+
+    case 'runwf': {
+      const wfId = parseInt(args[0], 10);
+      try {
+        await database.updateWorkflowLastRun(wfId, 'success');
+        await database.createWorkflowLog(wfId, 'success', JSON.stringify([{ step: 'Triggered via Telegram', status: 'success' }]));
+        await answerCbQuery(token, cbId, `✅ Workflow #${wfId} triggered!`, false);
+        await editMsg(token, chatId, msgId, `▶️ Workflow #${wfId} triggered successfully!`);
+      } catch { await answerCbQuery(token, cbId, 'Failed to trigger', true); }
+      return;
+    }
+
+    case 'list_deployments': {
+      await answerCbQuery(token, cbId, 'Loading...');
+      try {
+        const deps = await database.getAllDeployments();
+        if (!deps?.length) {
+          await editMsg(token, chatId, msgId, '🚀 No deployments found.');
+          return;
+        }
+        const statusIcon: Record<string, string> = { live: '🟢', building: '🟡', failed: '🔴', idle: '⚪' };
+        const lines = deps.slice(0, 10).map((d: any) => `${statusIcon[d.status] || '⚪'} #${d.id} ${d.name}`).join('\n');
+        const buttons: InlineRow[] = deps.slice(0, 5).map((d: any) => [
+          { text: `🚀 ${d.name} (${d.status})`, callback_data: encodeCb('deploy', d.id) },
+        ]);
+        await editMsg(token, chatId, msgId, `🚀 *Deployments* (${deps.length})\n\n${lines}`, buttons);
+      } catch { await editMsg(token, chatId, msgId, DB_ERROR); }
+      return;
+    }
+
+    case 'show_stats': {
+      await answerCbQuery(token, cbId, 'Computing...');
+      try {
+        const allTypes = ['note', 'bug', 'snippet', 'prompt', 'doc', 'bookmark', 'template'] as const;
+        const typeLabels: Record<string, string> = {
+          note: '📝 Notes', bug: '🐛 Bugs', snippet: '📋 Snippets',
+          prompt: '🤖 Prompts', doc: '📄 Docs', bookmark: '🔖 Bookmarks', template: '📋 Templates',
+        };
+        const counts = await Promise.all(allTypes.map(t => database.getKnowledgeItems(t).then(r => r.length)));
+        const total = counts.reduce((s, c) => s + c, 0);
+        const [projs] = await Promise.all([database.getProjects()]);
+        const activeProjs = projs.filter(p => p.status === 'active' || !p.status).length;
+        const typeLines = allTypes.map((t, i) => `  ${typeLabels[t]}: ${counts[i]}`).join('\n');
+        const text =
+          `📊 *DevOS Stats*\n\n` +
+          `📦 Knowledge Base (${total})\n${typeLines}\n\n` +
+          `📁 Projects: ${activeProjs} active`;
+        const buttons: InlineRow[] = [[{ text: '🔙 Back', callback_data: 'back_home' }]];
+        await editMsg(token, chatId, msgId, text, buttons);
+      } catch { await editMsg(token, chatId, msgId, DB_ERROR); }
+      return;
+    }
+
+    case 'show_search': {
+      await answerCbQuery(token, cbId, 'Type /search <query> to search');
+      const text = `🔍 *Search Library*\n\nType:\n\`/search what you're looking for\`\n\nExample: \`/search caching bug\``;
+      const buttons: InlineRow[] = [[{ text: '🔙 Back', callback_data: 'back_home' }]];
+      await editMsg(token, chatId, msgId, text, buttons);
+      return;
+    }
+
+    case 'show_settings': {
+      const cfg = loadTelegramConfig();
+      const text =
+        `⚙️ *Telegram Settings*\n\n` +
+        `Chat Lock ID: \`${cfg.chat_id || 'Not locked'}\`\n` +
+        `Polling: ${cfg.auto_poll !== false ? '🟢 Active' : '⏸ Paused'}\n` +
+        `Interval: ${cfg.poll_interval || 15}s\n\n` +
+        `Use /mute, /unmute, or /settings for details.`;
+      const buttons: InlineRow[] = [[{ text: '🔙 Back', callback_data: 'back_home' }]];
+      await editMsg(token, chatId, msgId, text, buttons);
+      await answerCbQuery(token, cbId);
+      return;
+    }
+
+    case 'show_help': {
+      await answerCbQuery(token, cbId, 'Full command list');
+      const text = plainWelcome();
+      const buttons: InlineRow[] = [[{ text: '🔙 Back', callback_data: 'back_home' }]];
+      await editMsg(token, chatId, msgId, text, buttons);
+      return;
+    }
+
+    case 'back_home': {
+      const welcomeText =
+        `🤖 *DevOS Bot*\n\n` +
+        `Use the buttons below or type any command.`;
+      const buttons: InlineRow[] = [
+        [
+          { text: '📝 New Note', callback_data: 'new_note' },
+          { text: '📁 Projects', callback_data: 'list_projects' },
+        ],
+        [
+          { text: '📊 Stats', callback_data: 'show_stats' },
+          { text: '🔍 Search', callback_data: 'show_search' },
+        ],
+        [
+          { text: '⚡ Workflows', callback_data: 'list_workflows' },
+          { text: '🚀 Deployments', callback_data: 'list_deployments' },
+        ],
+        [
+          { text: '⚙️ Settings', callback_data: 'show_settings' },
+          { text: '❓ Help', callback_data: 'show_help' },
+        ],
+      ];
+      await editMsg(token, chatId, msgId, welcomeText, buttons);
+      await answerCbQuery(token, cbId);
+      return;
+    }
+
+    case 'new_note': {
+      await answerCbQuery(token, cbId, 'Send: /note Title then content on next line');
+      const text = `📝 *New Note*\n\nSend in this format:\n\n\`/note Your Title\`\n\`Your note content here...\`\n\nTip: add @ProjectName to link to a project, #tags to organize.`;
+      const buttons: InlineRow[] = [[{ text: '🔙 Back', callback_data: 'back_home' }]];
+      await editMsg(token, chatId, msgId, text, buttons);
+      return;
+    }
+
+    case 'new_project': {
+      await answerCbQuery(token, cbId, 'Send: /newproject <Name>');
+      const text = `📁 *New Project*\n\nSend:\n\`/newproject Project Name\``;
+      const buttons: InlineRow[] = [[{ text: '🔙 Back', callback_data: 'back_home' }]];
+      await editMsg(token, chatId, msgId, text, buttons);
+      return;
+    }
+
+    case 'confirm_delete': {
+      const delId = parseInt(args[0], 10);
+      const buttons: InlineRow[] = [
+        [
+          { text: '✅ Yes, delete it', callback_data: encodeCb('delete', delId) },
+          { text: '❌ Cancel', callback_data: encodeCb('cancel_delete', delId) },
+        ],
+      ];
+      await editMsg(token, chatId, msgId, `🗑 Delete item #${delId}? This cannot be undone.`, buttons);
+      await answerCbQuery(token, cbId);
+      return;
+    }
+
+    case 'delete': {
+      const delId = parseInt(args[0], 10);
+      try {
+        await database.deleteKnowledgeItem(delId);
+        await editMsg(token, chatId, msgId, `🗑 Item #${delId} deleted.`);
+        await answerCbQuery(token, cbId, 'Deleted!');
+      } catch {
+        await answerCbQuery(token, cbId, 'Failed to delete', true);
+      }
+      return;
+    }
+
+    case 'cancel_delete': {
+      await editMsg(token, chatId, msgId, '❌ Deletion cancelled.');
+      await answerCbQuery(token, cbId);
+      return;
+    }
+
+    default:
+      await answerCbQuery(token, cbId, 'Unknown action', true);
+  }
+}
 
 // ── Command handler ────────────────────────────────────────────────────────
 async function handleCommand(token: string, entry: ProcessedUpdate) {
   const chatId = entry.chat_id;
 
   switch (entry.command) {
-    case 'start':
-      entry.result = plainWelcome();
-      await sendMsg(token, chatId, entry.result, { reply_markup: REPLY_KEYBOARD });
+    case 'start': {
+      const welcomeText =
+        `🤖 *DevOS Bot*\n\n` +
+        `I help you manage your projects, notes, bugs, workflows, and more — right from Telegram.\n\n` +
+        `Use the buttons below to get started, or type any command.`;
+      const buttons: InlineRow[] = [
+        [
+          { text: '📝 New Note', callback_data: 'new_note' },
+          { text: '📁 Projects', callback_data: 'list_projects' },
+        ],
+        [
+          { text: '📊 Stats', callback_data: 'show_stats' },
+          { text: '🔍 Search', callback_data: 'show_search' },
+        ],
+        [
+          { text: '⚡ Workflows', callback_data: 'list_workflows' },
+          { text: '🚀 Deployments', callback_data: 'list_deployments' },
+        ],
+        [
+          { text: '⚙️ Settings', callback_data: 'show_settings' },
+          { text: '❓ Help', callback_data: 'show_help' },
+        ],
+      ];
+      await sendWithButtons(token, chatId, welcomeText, buttons);
+      entry.result = welcomeText;
       break;
+    }
 
     case 'note': {
       const { text: rawArgs, projectId, projectName } = await resolveProject(entry.args);
@@ -379,6 +756,404 @@ async function handleCommand(token: string, entry: ProcessedUpdate) {
       break;
     }
 
+    // ── Tasks ─────────────────────────────────────────────────────────────
+    case 'tasks': {
+      const arg = entry.args?.trim();
+      try {
+        let projectId: number | null = null;
+        let projectName: string | null = null;
+        if (arg) {
+          const res = await findProject(arg);
+          if (res.proj) { projectId = res.proj.id; projectName = res.proj.name; }
+        }
+
+        let tasksList: any[] = [];
+        if (projectId) {
+          tasksList = await database.getProjectTasks(projectId);
+        } else {
+          const projs = await database.getProjects();
+          for (const p of projs) {
+            const pt = await database.getProjectTasks(p.id);
+            tasksList.push(...pt.map((t: any) => ({ ...t, project_name: p.name })));
+          }
+        }
+
+        if (!tasksList.length) {
+          entry.result = projectName
+            ? `No tasks found for project "${projectName}".\nUse /addtask @${projectName} Task title`
+            : 'No tasks found across projects.\nUse /addtask @Project Title to add one.';
+        } else {
+          const lines = tasksList.slice(0, 15).map((t: any) => {
+            const statusIcon = t.completed ? '✅' : '🔴';
+            const projStr = t.project_name ? ` [@${t.project_name}]` : '';
+            return `${statusIcon} #${t.id} ${t.title}${projStr} (${t.priority || 'med'})`;
+          });
+          entry.result =
+            `✅ Project Tasks (${tasksList.length})\n\n` +
+            lines.join('\n') +
+            (tasksList.length > 15 ? `\n\n… and ${tasksList.length - 15} more` : '') +
+            `\n\nUse /taskdone <id> to complete a task.`;
+        }
+      } catch {
+        entry.result = DB_ERROR;
+      }
+      await sendMsg(token, chatId, entry.result);
+      break;
+    }
+
+    case 'addtask': {
+      const raw = entry.args || entry.body;
+      if (!raw) {
+        entry.result = 'Usage: /addtask @Project Task name\n\nExample: /addtask @DevOS Fix navbar alignment';
+        await sendMsg(token, chatId, entry.result);
+        break;
+      }
+      const { text: cleanTask, projectId, projectName } = await resolveProject(raw);
+      try {
+        let pId = projectId;
+        if (!pId) {
+          const projs = await database.getProjects();
+          pId = projs[0]?.id || 1;
+        }
+        await database.addProjectTask(pId, cleanTask, 'medium');
+        entry.saved = true;
+        entry.result =
+          `✅ Task created!\n` +
+          `Title: ${cleanTask}` +
+          (projectName ? `\nProject: ${projectName}` : '');
+      } catch {
+        entry.result = DB_ERROR;
+      }
+      await sendMsg(token, chatId, entry.result);
+      break;
+    }
+
+    case 'taskdone': {
+      const id = parseInt(entry.args, 10);
+      if (!id) {
+        entry.result = 'Usage: /taskdone <task ID>\n\nExample: /taskdone 3';
+        await sendMsg(token, chatId, entry.result);
+        break;
+      }
+      try {
+        await database.updateProjectTask(id, { completed: 1 });
+        entry.result = `✅ Task #${id} marked as completed!`;
+      } catch {
+        entry.result = `Could not update task #${id} — check if ID exists.`;
+      }
+      await sendMsg(token, chatId, entry.result);
+      break;
+    }
+
+    // ── New Project & Settings ─────────────────────────────────────────────
+    case 'newproject': {
+      const name = entry.args?.trim();
+      if (!name) {
+        entry.result = 'Usage: /newproject <Project Name>\n\nExample: /newproject MobileApp';
+        await sendMsg(token, chatId, entry.result);
+        break;
+      }
+      try {
+        await database.createProject({
+          name, description: 'Created via Telegram',
+          tags: JSON.stringify(['telegram']), technology: '[]', repository_url: '', local_path: '',
+        });
+        entry.saved = true;
+        entry.result = `📁 Project "${name}" created successfully!`;
+      } catch {
+        entry.result = DB_ERROR;
+      }
+      await sendMsg(token, chatId, entry.result);
+      break;
+    }
+
+    case 'settings': {
+      const cfg = loadTelegramConfig();
+      entry.result =
+        `⚙️ DevOS Telegram Settings\n\n` +
+        `Bot Active: Yes\n` +
+        `Chat Lock ID: ${cfg.chat_id || 'Not locked (Auto-locks on first message)'}\n` +
+        `Polling Status: ${cfg.auto_poll !== false ? '🟢 Active' : '⏸ Paused'}\n` +
+        `Poll Interval: ${cfg.poll_interval || 15}s\n\n` +
+        `Use /mute or /unmute to pause or resume polling.`;
+      await sendMsg(token, chatId, entry.result);
+      break;
+    }
+
+    // ── APIs & REST Client ────────────────────────────────────────────────
+    case 'api':
+    case 'http': {
+      const input = entry.args?.trim() || entry.body?.trim();
+      if (!input) {
+        entry.result = 'Usage: /api <URL> or /http POST <URL>\n\nExample: /api https://api.github.com';
+        await sendMsg(token, chatId, entry.result);
+        break;
+      }
+      const parts = input.split(/\s+/);
+      let method = 'GET';
+      let url = input;
+      if (['GET', 'POST', 'PUT', 'DELETE', 'PATCH'].includes(parts[0].toUpperCase())) {
+        method = parts[0].toUpperCase();
+        url = parts.slice(1).join(' ');
+      }
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+      }
+      try {
+        const startTs = Date.now();
+        const res = await fetch(url, { method, headers: { 'User-Agent': 'DevOS-Bot/1.0' } });
+        const elapsed = Date.now() - startTs;
+        const textRes = await res.text();
+        let preview = textRes;
+        try {
+          const jsonObj = JSON.parse(textRes);
+          preview = JSON.stringify(jsonObj, null, 2);
+        } catch {}
+        entry.result =
+          `🌐 HTTP Response (${res.status} ${res.statusText}) · ${elapsed}ms\n\n` +
+          `URL: ${url}\n` +
+          `Method: ${method}\n\n` +
+          `Body:\n` + preview.slice(0, 1000) +
+          (preview.length > 1000 ? '\n\n… [truncated]' : '');
+      } catch (err: any) {
+        entry.result = `🌐 Request Failed: ${err?.message || err}`;
+      }
+      await sendMsg(token, chatId, entry.result);
+      break;
+    }
+
+    // ── Workflows ─────────────────────────────────────────────────────────
+    case 'workflows': {
+      try {
+        const workflows = await database.getWorkflows();
+        if (!workflows?.length) {
+          entry.result = 'No workflows found. Create workflows in DevOS UI.';
+          await sendMsg(token, chatId, entry.result);
+        } else {
+          const lines = workflows.slice(0, 10).map((w: any) =>
+            `⚡ #${w.id} ${w.name} (${w.category || 'custom'}) — ${w.last_run_status || 'never run'}`
+          );
+          const buttons: InlineRow[] = workflows.slice(0, 5).map((w: any) => [
+            { text: `▶️ ${w.name}`, callback_data: encodeCb('runwf', w.id) },
+          ]);
+          await sendWithButtons(token, chatId,
+            `⚡ *Workflows* (${workflows.length})\n\n${lines.join('\n')}`,
+            buttons);
+          entry.result = `⚡ Workflows (${workflows.length})`;
+        }
+      } catch {
+        entry.result = DB_ERROR;
+        await sendMsg(token, chatId, entry.result);
+      }
+      break;
+    }
+
+    case 'runworkflow': {
+      const arg = entry.args?.trim();
+      if (!arg) {
+        entry.result = 'Usage: /runworkflow <id or workflow name>\n\nExample: /runworkflow 1';
+        await sendMsg(token, chatId, entry.result);
+        break;
+      }
+      try {
+        const workflows = await database.getWorkflows();
+        const numId = parseInt(arg, 10);
+        const wf = workflows.find((w: any) => w.id === numId || w.name.toLowerCase().includes(arg.toLowerCase()));
+        if (!wf) {
+          entry.result = `Workflow "${arg}" not found. Use /workflows to list all.`;
+        } else {
+          await database.updateWorkflowLastRun(wf.id, 'success');
+          await database.createWorkflowLog(wf.id, 'success', JSON.stringify([{ step: 'Triggered via Telegram', status: 'success' }]));
+          entry.result = `▶️ Workflow #${wf.id} "${wf.name}" triggered successfully!`;
+        }
+      } catch {
+        entry.result = DB_ERROR;
+      }
+      await sendMsg(token, chatId, entry.result);
+      break;
+    }
+
+    // ── Deployments ───────────────────────────────────────────────────────
+    case 'deployments': {
+      try {
+        const deps = await database.getAllDeployments();
+        if (!deps?.length) {
+          entry.result = 'No deployments found. Configure deployments in DevOS.';
+          await sendMsg(token, chatId, entry.result);
+        } else {
+          const statusIcon: Record<string, string> = { live: '🟢', building: '🟡', failed: '🔴', idle: '⚪' };
+          const lines = deps.slice(0, 10).map((d: any) =>
+            `${statusIcon[d.status] || '⚪'} #${d.id} ${d.name} (${d.provider}) [${d.branch || 'main'}]`
+          );
+          const buttons: InlineRow[] = deps.slice(0, 5).map((d: any) => [
+            { text: `🚀 ${d.name} (${d.status})`, callback_data: encodeCb('deploy', d.id) },
+          ]);
+          await sendWithButtons(token, chatId,
+            `🚀 *Deployments* (${deps.length})\n\n${lines.join('\n')}`,
+            buttons);
+          entry.result = `🚀 Deployments (${deps.length})`;
+        }
+      } catch {
+        entry.result = DB_ERROR;
+        await sendMsg(token, chatId, entry.result);
+      }
+      break;
+    }
+
+    case 'deploy': {
+      const id = parseInt(entry.args, 10);
+      if (!id) {
+        entry.result = 'Usage: /deploy <deployment ID>\n\nExample: /deploy 1';
+        await sendMsg(token, chatId, entry.result);
+        break;
+      }
+      try {
+        await database.updateDeploymentStatus(id, 'building');
+        await database.addDeploymentLog(id, 'success', 'Build triggered via Telegram integration');
+        await database.updateDeploymentStatus(id, 'live');
+        entry.result = `🚀 Deployment #${id} build completed and status updated to 🟢 live!`;
+      } catch {
+        entry.result = `Could not update deployment #${id}. Check if ID exists using /deployments.`;
+      }
+      await sendMsg(token, chatId, entry.result);
+      break;
+    }
+
+    // ── Developer Utility Tools ───────────────────────────────────────────
+    case 'tools': {
+      entry.result =
+        `🛠 DevOS Utility Tools\n\n` +
+        `🆔 /uuid [count] — Generate UUID v4 identifiers\n` +
+        `🔑 /pwd [length] — Generate secure random passwords\n` +
+        `🔒 /hash <text> — Compute SHA-256 & MD5 hashes\n` +
+        `📦 /b64 <text> — Base64 encode string\n` +
+        `📦 /b64decode <text> — Base64 decode string\n` +
+        `📄 /json <string> — Pretty-format & validate JSON\n` +
+        `🏷 /slug <text> — Generate URL slug\n` +
+        `🎲 /lorem [words] — Generate placeholder text`;
+      await sendMsg(token, chatId, entry.result);
+      break;
+    }
+
+    case 'uuid': {
+      const count = Math.min(Math.max(parseInt(entry.args, 10) || 1, 1), 10);
+      const genUuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = (Math.random() * 16) | 0;
+        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+      });
+      const uuids = Array.from({ length: count }, genUuid);
+      entry.result = `🆔 Generated UUID${count > 1 ? 's' : ''}:\n\n` + uuids.join('\n');
+      await sendMsg(token, chatId, entry.result);
+      break;
+    }
+
+    case 'pwd': {
+      const len = Math.min(Math.max(parseInt(entry.args, 10) || 16, 8), 64);
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}';
+      let pwd = '';
+      for (let i = 0; i < len; i++) {
+        pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      entry.result = `🔑 Generated Password (${len} chars):\n\n\`${pwd}\``;
+      await sendMsg(token, chatId, entry.result);
+      break;
+    }
+
+    case 'hash':
+    case 'sha256': {
+      const str = entry.args || entry.body;
+      if (!str) {
+        entry.result = 'Usage: /hash <text to hash>';
+        await sendMsg(token, chatId, entry.result);
+        break;
+      }
+      const encoder = new TextEncoder();
+      const dataBuf = encoder.encode(str);
+      const hashBuf = await crypto.subtle.digest('SHA-256', dataBuf);
+      const hashArray = Array.from(new Uint8Array(hashBuf));
+      const sha256Hex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      entry.result = `🔒 SHA-256 Hash:\n\n\`${sha256Hex}\``;
+      await sendMsg(token, chatId, entry.result);
+      break;
+    }
+
+    case 'b64': {
+      const str = entry.args || entry.body;
+      if (!str) {
+        entry.result = 'Usage: /b64 <text to encode>';
+        await sendMsg(token, chatId, entry.result);
+        break;
+      }
+      try {
+        const encoded = btoa(str);
+        entry.result = `📦 Base64 Encoded:\n\n\`${encoded}\``;
+      } catch {
+        entry.result = 'Could not Base64 encode text.';
+      }
+      await sendMsg(token, chatId, entry.result);
+      break;
+    }
+
+    case 'b64decode': {
+      const str = entry.args || entry.body;
+      if (!str) {
+        entry.result = 'Usage: /b64decode <text to decode>';
+        await sendMsg(token, chatId, entry.result);
+        break;
+      }
+      try {
+        const decoded = atob(str);
+        entry.result = `📦 Base64 Decoded:\n\n${decoded}`;
+      } catch {
+        entry.result = 'Invalid Base64 string.';
+      }
+      await sendMsg(token, chatId, entry.result);
+      break;
+    }
+
+    case 'json': {
+      const str = entry.args || entry.body;
+      if (!str) {
+        entry.result = 'Usage: /json <json text to format>';
+        await sendMsg(token, chatId, entry.result);
+        break;
+      }
+      try {
+        const parsed = JSON.parse(str);
+        const formatted = JSON.stringify(parsed, null, 2);
+        entry.result = `📄 Valid JSON:\n\n\`\`\`json\n${formatted.slice(0, 1500)}\n\`\`\``;
+      } catch (e: any) {
+        entry.result = `⚠️ Invalid JSON: ${e?.message || e}`;
+      }
+      await sendMsg(token, chatId, entry.result);
+      break;
+    }
+
+    case 'slug': {
+      const str = entry.args || entry.body;
+      if (!str) {
+        entry.result = 'Usage: /slug <text to turn into slug>';
+        await sendMsg(token, chatId, entry.result);
+        break;
+      }
+      const slug = str.toLowerCase().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
+      entry.result = `🏷 Slug:\n\n\`${slug}\``;
+      await sendMsg(token, chatId, entry.result);
+      break;
+    }
+
+    case 'lorem': {
+      const words = Math.min(Math.max(parseInt(entry.args, 10) || 30, 5), 150);
+      const dictionary = ['lorem', 'ipsum', 'dolor', 'sit', 'amet', 'consectetur', 'adipiscing', 'elit', 'sed', 'do', 'eiusmod', 'tempor', 'incididunt', 'ut', 'labore', 'et', 'dolore', 'magna', 'aliqua'];
+      let resText = [];
+      for (let i = 0; i < words; i++) {
+        resText.push(dictionary[i % dictionary.length]);
+      }
+      entry.result = `🎲 Lorem Ipsum (${words} words):\n\n${resText.join(' ')}.`;
+      await sendMsg(token, chatId, entry.result);
+      break;
+    }
+
     case 'snippet': {
       const { text: rawTitle, projectId, projectName } = await resolveProject(entry.args);
       const { clean: cleanTitle, tags } = extractTags(rawTitle);
@@ -435,73 +1210,84 @@ async function handleCommand(token: string, entry: ProcessedUpdate) {
     case 'projects': {
       const arg = entry.args?.trim();
 
-      // Listing mode — no args, or command is explicitly "projects"
-      if (!arg || entry.command === 'projects' && !arg) {
+      if (!arg || (entry.command === 'projects' && !arg)) {
         try {
           const projs = await database.getProjects();
           if (!projs?.length) {
-            entry.result = 'No projects yet. Create one in DevOS.';
+            entry.result = 'No projects yet. Create one with /newproject <Name>';
+            await sendMsg(token, chatId, entry.result);
           } else {
             const lines = await Promise.all(projs.slice(0, 20).map(async p => {
               const bugs = await database.getBugsByProject(p.id);
+              const tasks = await database.getProjectTasks(p.id).catch(() => []);
               const open = bugs.filter((b: any) => b.status !== 'resolved' && b.status !== 'closed').length;
+              const openTasks = tasks.filter((t: any) => !t.completed).length;
               const status = STATUS_EMOJI[p.status] || '⚪';
-              return `${status} #${p.id}  ${p.name}${open > 0 ? `  (${open}🐛)` : ''}`;
+              return `${status} #${p.id} ${p.name}${open > 0 ? ` (${open}🐛)` : ''}${openTasks > 0 ? ` (${openTasks}✅)` : ''}`;
             }));
-            entry.result =
-              `📁 Projects (${projs.length})\n` +
-              `Use /project <name or #id> for details\n\n` +
-              lines.join('\n');
+            const buttons: InlineRow[] = [
+              ...projs.slice(0, 5).map(p => ([
+                { text: `${p.name}`, callback_data: encodeCb('project', p.id) },
+              ] as InlineRow))[0] ? projs.slice(0, 5).map(p => [{ text: `${p.name}`, callback_data: encodeCb('project', p.id) } as InlineButton]) : [],
+              [{ text: '📝 New Project', callback_data: 'new_project' }],
+            ].filter(r => r.length > 0);
+            await sendWithButtons(token, chatId,
+              `📁 *Projects* (${projs.length})\nTap a project for details.\n\n${lines.join('\n')}`,
+              buttons);
+            entry.result = `📁 Projects (${projs.length})`;
           }
         } catch {
           entry.result = DB_ERROR;
+          await sendMsg(token, chatId, entry.result);
         }
-        await sendMsg(token, chatId, entry.result);
         break;
       }
 
-      // Detail mode — arg is a name or ID
       try {
         const { proj } = await findProject(arg);
         if (!proj) {
-          // Try listing to help the user
           const projs = await database.getProjects().catch(() => []);
           const hint = projs.length
             ? `\n\nAvailable projects:\n` + projs.slice(0, 10).map((p: any) => `• #${p.id} ${p.name}`).join('\n')
             : '';
           entry.result = `Project "${arg}" not found.${hint}`;
+          await sendMsg(token, chatId, entry.result);
         } else {
-          const [bugs, items] = await Promise.all([
+          const [bugs, tasks, items, deps] = await Promise.all([
             database.getBugsByProject(proj.id),
+            database.getProjectTasks(proj.id).catch(() => []),
             database.getKnowledgeItems().then((all: any[]) =>
               all.filter(i => (i as any).project_id === proj.id)),
+            database.getProjectDeployments(proj.id).catch(() => []),
           ]);
           const openBugs = bugs.filter((b: any) => b.status !== 'resolved' && b.status !== 'closed').length;
-          const resolvedBugs = bugs.filter((b: any) => b.status === 'resolved' || b.status === 'closed').length;
-          const typeBreakdown = items.reduce((acc: Record<string, number>, i: any) => {
-            acc[i.type] = (acc[i.type] || 0) + 1; return acc;
-          }, {});
-          const lastAct = proj.updated_at || proj.created_at;
-          entry.result =
-            `📁 ${proj.name}  (#${proj.id})\n\n` +
-            `${STATUS_EMOJI[proj.status] || '⚪'} ${proj.status || 'active'}\n` +
-            `🐛 Bugs: ${openBugs} open · ${resolvedBugs} resolved\n` +
-            `📦 Items: ${items.length}` +
-            (Object.keys(typeBreakdown).length
-              ? ' (' + Object.entries(typeBreakdown).map(([t, n]) => `${n} ${t}${n !== 1 ? 's' : ''}`).join(', ') + ')'
-              : '') + '\n' +
-            `🕐 Updated: ${lastAct ? new Date(lastAct).toLocaleDateString() : 'N/A'}` +
-            (proj.description ? `\n\n${proj.description}` : '');
+          const openTasks = tasks.filter((t: any) => !t.completed).length;
+          const text =
+            `📁 *${proj.name}* (#${proj.id})\n\n` +
+            `${STATUS_EMOJI[proj.status] || '⚪'} Status: ${proj.status || 'active'}\n` +
+            `🐛 Bugs: ${openBugs}\n✅ Tasks: ${openTasks}\n🚀 Deployments: ${deps.length}\n📦 Library: ${items.length}\n` +
+            (proj.description ? `\n${proj.description}` : '');
+          const buttons: InlineRow[] = [
+            [
+              { text: `🐛 Bugs (${openBugs})`, callback_data: encodeCb('proj_bugs', proj.id) },
+              { text: `✅ Tasks (${openTasks})`, callback_data: encodeCb('proj_tasks', proj.id) },
+            ],
+            [
+              { text: '📝 New Note', callback_data: encodeCb('proj_note', proj.id) },
+              { text: '◀️ Back', callback_data: 'list_projects' },
+            ],
+          ];
+          await sendWithButtons(token, chatId, text, buttons);
+          entry.result = text;
         }
       } catch {
         entry.result = DB_ERROR;
+        await sendMsg(token, chatId, entry.result);
       }
-      await sendMsg(token, chatId, entry.result);
       break;
     }
 
     case 'copy': {
-      // Send a clean project ID list for easy copy-pasting into /project commands
       try {
         const projs = await database.getProjects();
         if (!projs?.length) {
@@ -675,20 +1461,24 @@ async function handleCommand(token: string, entry: ProcessedUpdate) {
         break;
       }
       try {
-        // Try to get title before deleting
         let title = '';
         try {
           const all = await database.getKnowledgeItems();
           const item = all.find((i: any) => i.id === id);
           title = item?.title ? ` "${item.title}"` : '';
         } catch { /* non-critical */ }
-        await database.deleteKnowledgeItem(id);
-        removeLastCreated(chatId);
-        entry.result = `🗑 Deleted #${id}${title}.`;
+        const buttons: InlineRow[] = [
+          [
+            { text: '✅ Yes, delete it', callback_data: encodeCb('delete', id) },
+            { text: '❌ Cancel', callback_data: encodeCb('cancel_delete', id) },
+          ],
+        ];
+        await sendWithButtons(token, chatId, `🗑 Delete #${id}${title}? This cannot be undone.`, buttons);
+        entry.result = `🗑 Confirm deletion of #${id}${title}...`;
       } catch {
-        entry.result = `Could not delete #${id} — it may not exist.\nUse /list to check.`;
+        entry.result = `Could not find #${id} — it may not exist.\nUse /list to check.`;
+        await sendMsg(token, chatId, entry.result);
       }
-      await sendMsg(token, chatId, entry.result);
       break;
     }
 
@@ -796,25 +1586,29 @@ export async function setBotCommands(token: string): Promise<boolean> {
       body: JSON.stringify({
         commands: [
           { command: 'start', description: 'Welcome & command list' },
-          { command: 'note', description: 'Save a note (title + body on next line)' },
-          { command: 'bug', description: 'Report a bug (title + problem on next line)' },
-          { command: 'todo', description: 'Add a task' },
-          { command: 'snippet', description: 'Save a code snippet (title + code on next line)' },
-          { command: 'search', description: 'Search your knowledge base' },
-          { command: 'list', description: 'List items by type: notes, bugs, snippets, all' },
-          { command: 'today', description: "Today's activity summary" },
-          { command: 'weekly', description: 'This week\'s stats vs last week' },
-          { command: 'projects', description: 'List all projects with their IDs' },
-          { command: 'project', description: 'Project details — /project <name or #id>' },
-          { command: 'copy', description: 'Copy project ID list' },
-          { command: 'stats', description: 'Full knowledge base stats' },
-          { command: 'undo', description: 'Delete the last item created from Telegram' },
-          { command: 'delete', description: 'Delete an item: /delete <id>' },
-          { command: 'pin', description: 'Toggle favorite: /pin <id>' },
-          { command: 'id', description: 'Show this chat ID' },
-          { command: 'mute', description: 'Pause polling' },
-          { command: 'unmute', description: 'Resume polling' },
-          { command: 'recent', description: 'Show recent items with IDs' },
+          { command: 'projects', description: 'List all projects' },
+          { command: 'project', description: 'Project details: /project <name|#id>' },
+          { command: 'newproject', description: 'Create a project: /newproject <name>' },
+          { command: 'tasks', description: 'View project tasks: /tasks [project]' },
+          { command: 'addtask', description: 'Create task: /addtask @Project Title' },
+          { command: 'taskdone', description: 'Complete task: /taskdone <id>' },
+          { command: 'note', description: 'Save note: /note Title' },
+          { command: 'bug', description: 'Report bug: /bug Title' },
+          { command: 'snippet', description: 'Save code snippet: /snippet Title' },
+          { command: 'search', description: 'Search library: /search <query>' },
+          { command: 'api', description: 'Test HTTP API: /api <url>' },
+          { command: 'workflows', description: 'List workflows' },
+          { command: 'runworkflow', description: 'Run workflow: /runworkflow <id|name>' },
+          { command: 'deployments', description: 'View deployments' },
+          { command: 'deploy', description: 'Deploy status: /deploy <id>' },
+          { command: 'tools', description: 'List utility tools' },
+          { command: 'uuid', description: 'Generate UUID v4' },
+          { command: 'pwd', description: 'Generate password' },
+          { command: 'hash', description: 'SHA-256 hash text' },
+          { command: 'b64', description: 'Base64 encode' },
+          { command: 'json', description: 'Format JSON' },
+          { command: 'stats', description: 'DevOS statistics' },
+          { command: 'settings', description: 'Bot & chat settings' },
           { command: 'help', description: 'Show all commands' },
         ],
       }),

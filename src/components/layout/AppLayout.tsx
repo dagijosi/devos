@@ -2,6 +2,8 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import { Topbar } from './Topbar';
+import { ClipboardWatcher } from '../../features/clipboard/ClipboardWatcher';
+import { GlobalShortcutListener } from '../../features/global-shortcuts/GlobalShortcutListener';
 
 export function AppLayout() {
   const location = useLocation();
@@ -24,6 +26,8 @@ export function AppLayout() {
 
   return (
     <div className="flex min-h-dvh bg-theme-background font-sans antialiased text-theme-text">
+      <ClipboardWatcher />
+      <GlobalShortcutListener />
       <Sidebar
         isOpen={sidebarOpen}
         setIsOpen={setSidebarOpen}

@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../stores/app.store';
 import { NotificationCenter } from '../../features/notifications/components/NotificationCenter';
 import { ThemeSwitcher } from '../../theme-system';
-import { DASHBOARD, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, UTILITIES, WORKFLOWS, SETTING, AI, INSIGHTS, TELEGRAM, BACKUP, API_TYPE_GENERATOR, PROFILE } from '../../routes/types/routeConstants';
+import { DASHBOARD, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, UTILITIES, WORKFLOWS, SETTING, AI, INSIGHTS, TELEGRAM, BACKUP, API_TYPE_GENERATOR, PROFILE, CLIPBOARD, HOSTS_SWITCHER, TERMINAL, GIT_CLIENT } from '../../routes/types/routeConstants';
 
 interface TopbarProps {
   sidebarOpen: boolean;
@@ -22,6 +22,10 @@ const breadcrumbMap: Record<string, string> = {
   [TELEGRAM]: 'Telegram',
   [BACKUP]: 'Backup',
   [API_TYPE_GENERATOR]: 'API Type Generator',
+  [CLIPBOARD]: 'Clipboard',
+  [HOSTS_SWITCHER]: 'Hosts Switcher',
+  [TERMINAL]: 'Terminal',
+  [GIT_CLIENT]: 'Git Client',
   [SETTING]: 'Settings',
   [PROFILE]: 'Profile',
 };
