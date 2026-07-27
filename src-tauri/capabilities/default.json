@@ -57,6 +57,12 @@
         { "name": "git", "cmd": "git", "args": true }
       ]
     },
+    "http:default",
+    "http:allow-fetch",
+    "http:allow-fetch-cancel",
+    "fs:default",
+    "fs:allow-read-text-file",
+    "fs:allow-exists",
     "shell:allow-stdin-write",
     "shell:allow-kill"
   ]

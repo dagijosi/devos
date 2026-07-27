@@ -1,3 +1,4 @@
+import { httpFetch } from '../../../lib/http';
 import type { AiConfig, ChatMessage } from '../types';
 
 function buildHeaders(config: AiConfig): Record<string, string> {
@@ -17,7 +18,7 @@ async function* streamOllama(config: AiConfig, messages: ChatMessage[]): AsyncGe
     options: { temperature: config.temperature },
   });
 
-  const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+  const response = await httpFetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
   if (!response.ok) throw new Error(`Ollama error: ${response.status} ${await response.text()}`);
 
   const reader = response.body!.getReader();
@@ -51,7 +52,7 @@ async function* streamOpenAI(config: AiConfig, messages: ChatMessage[]): AsyncGe
     max_tokens: config.maxTokens,
   });
 
-  const response = await fetch(url, { method: 'POST', headers: buildHeaders(config), body });
+  const response = await httpFetch(url, { method: 'POST', headers: buildHeaders(config), body });
   if (!response.ok) throw new Error(`API error: ${response.status} ${await response.text()}`);
 
   const reader = response.body!.getReader();

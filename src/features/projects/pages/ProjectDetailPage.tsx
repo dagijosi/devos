@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FaArrowLeft, FaStar, FaRegStar, FaEye, FaTasks, FaBook, FaLink, FaPlay, FaCloudUploadAlt, FaCog, FaFolder, FaWrench, FaTerminal } from 'react-icons/fa';
+import { FaArrowLeft, FaStar, FaRegStar, FaEye, FaTasks, FaBook, FaLink, FaPlay, FaCloudUploadAlt, FaCog, FaFolder, FaWrench, FaTerminal, FaGitAlt, FaCube } from 'react-icons/fa';
 import { useProjects } from '../hooks/useProjects';
 import { useFileWatcher } from '../../file-watcher/useFileWatcher';
 import { OverviewTab } from '../components/detail/OverviewTab';
@@ -12,6 +12,9 @@ import { UtilitiesTab } from '../components/detail/UtilitiesTab';
 import { DeploymentsTab } from '../components/detail/DeploymentsTab';
 import { SettingsTab } from '../components/detail/SettingsTab';
 import { RunConfigsTab } from '../components/detail/RunConfigsTab';
+import { GitTab } from '../components/detail/GitTab';
+import { TerminalTab } from '../components/detail/TerminalTab';
+import { DependenciesTab } from '../components/detail/DependenciesTab';
 import type { Project } from '../types';
 import { PROJECTS } from '../../../routes/types/routeConstants';
 import { setProjectContext } from '../utils/projectContext';
@@ -22,6 +25,9 @@ const TABS = [
   { id: 'knowledge', label: 'Knowledge', icon: FaBook },
   { id: 'apis', label: 'APIs', icon: FaLink },
   { id: 'workflows', label: 'Workflows', icon: FaPlay },
+  { id: 'git', label: 'Git', icon: FaGitAlt },
+  { id: 'terminal', label: 'Terminal', icon: FaTerminal },
+  { id: 'dependencies', label: 'Dependencies', icon: FaCube },
   { id: 'utilities', label: 'Utilities', icon: FaWrench },
   { id: 'deployments', label: 'Deployments', icon: FaCloudUploadAlt },
   { id: 'run-configs', label: 'Run', icon: FaTerminal },
@@ -134,6 +140,9 @@ export function ProjectDetailPage() {
         {activeTab === 'knowledge' && <KnowledgeTab projectId={project.id} />}
         {activeTab === 'apis' && <ApisTab projectId={project.id} />}
         {activeTab === 'workflows' && <WorkflowsTab project={project} />}
+        {activeTab === 'git' && <GitTab localPath={project.local_path} />}
+        {activeTab === 'terminal' && <TerminalTab localPath={project.local_path} />}
+        {activeTab === 'dependencies' && <DependenciesTab localPath={project.local_path} />}
         {activeTab === 'utilities' && <UtilitiesTab project={project} />}
         {activeTab === 'deployments' && <DeploymentsTab project={project} />}
         {activeTab === 'run-configs' && <RunConfigsTab projectId={project.id} localPath={project.local_path} />}
