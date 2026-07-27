@@ -21,4 +21,6 @@ export const HOSTS_SWITCHER = "/hosts-switcher";
 export const TERMINAL = "/terminal";
 export const GIT_CLIENT = "/git";
 export const ENV_MANAGER = "/env";
+export const SNIPPETS = "/snippets";
+export const DEPENDENCIES = "/dependencies";
 export const CATCH_ALL = "*";

@@ -1,4 +1,5 @@
-import { FaCog, FaTimes } from 'react-icons/fa';
+import { useState, useEffect, useCallback } from 'react';
+import { FaCog, FaTimes, FaExclamationTriangle } from 'react-icons/fa';
 import { useAiStore } from '../store/ai.store';
 import { PROVIDER_LABELS, PROVIDER_DEFAULTS } from '../types';
 import type { AiProvider } from '../types';
@@ -10,6 +11,53 @@ interface AiSettingsPanelProps {
 
 export function AiSettingsPanel({ open, onClose }: AiSettingsPanelProps) {
   const { config, setConfig, setProvider } = useAiStore();
+  const [serverRunning, setServerRunning] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [toggling, setToggling] = useState(false);
+
+  const checkServer = useCallback(async () => {
+    setChecking(true);
+    try {
+      const res = await fetch(config.baseUrl.replace(/\/+$/, '') + '/models', { signal: AbortSignal.timeout(3000) });
+      setServerRunning(res.ok);
+    } catch {
+      setServerRunning(false);
+    }
+    setChecking(false);
+  }, [config.baseUrl]);
+
+  useEffect(() => {
+    if (open) checkServer();
+  }, [open, checkServer]);
+
+  const toggleServer = async () => {
+    setToggling(true);
+    const isTauri = typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__;
+    try {
+      if (!serverRunning) {
+        if (isTauri) {
+          const { Command } = await import('@tauri-apps/plugin-shell');
+          if (config.provider === 'lm-studio') {
+            await Command.create('cmd', ['/c', 'start', '', '%LOCALAPPDATA%\\Programs\\LM Studio\\LM Studio.exe']).execute();
+          } else if (config.provider === 'ollama') {
+            await Command.create('cmd', ['/c', 'start', '', 'ollama', 'serve']).execute();
+          }
+        }
+        setTimeout(checkServer, 5000);
+      } else {
+        if (isTauri) {
+          const { Command } = await import('@tauri-apps/plugin-shell');
+          if (config.provider === 'lm-studio') {
+            await Command.create('taskkill', ['/f', '/im', 'lm-studio.exe']).execute();
+          } else if (config.provider === 'ollama') {
+            await Command.create('taskkill', ['/f', '/im', 'ollama.exe']).execute();
+          }
+        }
+        setServerRunning(false);
+      }
+    } catch {}
+    setToggling(false);
+  };
 
   if (!open) return null;
 
@@ -83,6 +131,49 @@ export function AiSettingsPanel({ open, onClose }: AiSettingsPanelProps) {
                 placeholder="sk-..."
                 className="w-full bg-theme-background border border-theme-border/30 rounded-xl px-4 py-2.5 text-sm text-theme-text placeholder:text-theme-text/40 outline-none focus:border-theme-icon/50 font-mono"
               />
+            </div>
+          )}
+
+          {/* Local server toggle (LM Studio / Ollama) */}
+          {config.provider !== 'openai' && (
+            <div className={`rounded-xl p-3 border transition-colors ${serverRunning ? 'bg-green-500/5 border-green-500/20' : 'bg-theme-background border-theme-border/10'}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${checking ? 'bg-yellow-400 animate-pulse' : serverRunning ? 'bg-green-400' : 'bg-red-400'}`} />
+                  <div>
+                    <span className="text-xs font-medium text-theme-text">
+                      {checking ? 'Checking...' : serverRunning ? 'Qwen2.5 7B running' : 'Server off'}
+                    </span>
+                    {serverRunning && (
+                      <p className="text-[9px] text-green-500/60">{config.baseUrl.replace(/\/+$/, '')}/models</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={toggleServer}
+                    disabled={toggling || checking}
+                    className={`relative w-10 h-5 rounded-full transition-colors ${
+                      toggling ? 'opacity-50' :
+                      serverRunning ? 'bg-green-500' : 'bg-theme-border/30'
+                    }`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
+                      serverRunning ? 'translate-x-5' : 'translate-x-0'
+                    }`} />
+                  </button>
+                  <button onClick={checkServer} disabled={checking}
+                    className="text-[10px] text-theme-text/30 hover:text-theme-text/50 transition-colors disabled:opacity-50">
+                    refresh
+                  </button>
+                </div>
+              </div>
+              {!serverRunning && (
+                <p className="text-[10px] text-theme-text/40 flex items-start gap-1 mt-2">
+                  <FaExclamationTriangle className="w-2.5 h-2.5 mt-0.5 shrink-0 text-yellow-400" />
+                  <span>Toggle on to start LM Studio with Qwen2.5 7B</span>
+                </p>
+              )}
             </div>
           )}
 

@@ -5,6 +5,7 @@ import '@xterm/xterm/css/xterm.css';
 import { FaTerminal, FaPlus, FaTimes, FaPlay, FaStop } from 'react-icons/fa';
 import { isTauri as isTauriRuntime } from '../../lib/tauri';
 import { useTheme } from '../../theme-system';
+import { getProjectContext } from '../projects/utils/projectContext';
 
 interface Tab {
   id: string;
@@ -136,8 +137,10 @@ export function TerminalPage() {
     try {
       const { Command } = await import('@tauri-apps/plugin-shell');
       const shellCmd = shellType === 'powershell' ? 'powershell' : shellType === 'bash' ? 'bash' : 'cmd';
-      const args = shellType === 'powershell' ? ['-NoLogo', '-NoProfile', '-Command', '-'] : [];
-      const command = Command.create(shellCmd, args);
+      const args: string[] = [];
+      const ctx = getProjectContext();
+      const cwd = ctx?.localPath || undefined;
+      const command = Command.create(shellCmd, args, cwd ? { cwd } : undefined);
 
       // Set up listeners before spawn
       command.stdout.on('data', (data: any) => {
@@ -167,7 +170,7 @@ export function TerminalPage() {
       });
 
       term.writeln('\x1b[36mDevOS Terminal — Tauri mode\x1b[0m');
-      term.writeln(`\x1b[2mShell: ${shellCmd}\x1b[0m\r\n`);
+      term.writeln(`\x1b[2mShell: ${shellCmd}${ctx ? `  |  Project: ${ctx.name}` : ''}\x1b[0m\r\n`);
 
       setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, child, isRunning: true, disposable } : t));
     } catch (err: any) {

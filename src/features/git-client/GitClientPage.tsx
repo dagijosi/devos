@@ -3,6 +3,7 @@ import { FaGitAlt, FaCodeBranch, FaPlus, FaCheck, FaRedo, FaDownload, FaUpload, 
 import { toast } from 'sonner';
 import LoadingComponent from '../../components/ui/feedback/LoadingComponent';
 import { isTauri as isTauriRuntime } from '../../lib/tauri';
+import { getProjectContext } from '../projects/utils/projectContext';
 
 interface GitFile {
   path: string;
@@ -66,6 +67,11 @@ export function GitClientPage() {
       setIsTauri(true);
       setIsDemo(false);
       setLoading(false);
+      const ctx = getProjectContext();
+      if (ctx?.localPath) {
+        setRepoPath(ctx.localPath);
+        loadRepo(ctx.localPath);
+      }
     } else {
       setIsTauri(false);
       setIsDemo(true);
@@ -273,11 +279,13 @@ export function GitClientPage() {
           <FaGitAlt className="w-6 h-6 text-orange-500" />
           <div>
             <h1 className="text-2xl font-bold text-theme-text">Git Client</h1>
-            <p className="text-xs text-theme-text/40 mt-0.5">
-              {isDemo
-                ? 'Demo mode — run `npm run tauri:dev` for real git operations'
-                : repoPath || 'No repository selected'}
-            </p>
+             <p className="text-xs text-theme-text/40 mt-0.5">
+               {isDemo
+                 ? 'Demo mode — run `npm run tauri:dev` for real git operations'
+                 : repoPath
+                   ? (() => { const ctx = getProjectContext(); return ctx?.localPath === repoPath ? `Project: ${ctx.name}` : repoPath; })()
+                   : 'No repository selected'}
+             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">

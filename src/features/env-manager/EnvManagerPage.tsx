@@ -4,6 +4,7 @@ import { database } from '../../database';
 import LoadingComponent from '../../components/ui/feedback/LoadingComponent';
 import { EmptyState } from '../../components/ui/feedback/EmptyState';
 import { toast } from 'sonner';
+import { getProjectContext } from '../projects/utils/projectContext';
 
 interface EnvVar {
   key: string;
@@ -45,7 +46,8 @@ export function EnvManagerPage() {
 
   const loadProfiles = useCallback(async () => {
     setLoading(true);
-    const prows = await database.getEnvProfiles(0);
+    const pid = (getProjectContext()?.id as number) || 0;
+    const prows = await database.getEnvProfiles(pid);
     setProfiles(prows);
     if (prows.length === 0) {
       setActiveProfile(null);
@@ -130,7 +132,7 @@ export function EnvManagerPage() {
       return;
     }
     await database.createEnvProfile({
-      project_id: 0,
+      project_id: (getProjectContext()?.id as number) || 0,
       name: profileName,
       description: profileDesc,
       variables: JSON.stringify(variables),
@@ -200,9 +202,9 @@ export function EnvManagerPage() {
           <FaCog className="w-6 h-6 text-theme-icon" />
           <div>
             <h1 className="text-2xl font-bold text-theme-text">Environment Manager</h1>
-            <p className="text-xs text-theme-text/40 mt-0.5">
-              Manage environment variables across profiles
-            </p>
+             <p className="text-xs text-theme-text/40 mt-0.5">
+               {(() => { const ctx = getProjectContext(); return ctx ? `Project: ${ctx.name}` : 'Manage environment variables across profiles'; })()}
+             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { CATCH_ALL, DASHBOARD, SETTING, PROFILE, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, UTILITIES, WORKFLOWS, AI, INSIGHTS, BACKUP, API_TYPE_GENERATOR, TELEGRAM, CLIPBOARD, HOSTS_SWITCHER, TERMINAL, GIT_CLIENT, ENV_MANAGER } from './types/routeConstants';
+import { CATCH_ALL, DASHBOARD, SETTING, PROFILE, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, UTILITIES, WORKFLOWS, AI, INSIGHTS, BACKUP, API_TYPE_GENERATOR, TELEGRAM, CLIPBOARD, HOSTS_SWITCHER, TERMINAL, GIT_CLIENT, ENV_MANAGER, SNIPPETS, DEPENDENCIES } from './types/routeConstants';
 import { createRoute } from './types/createRoute';
 import { AppLayout } from '../components/layout/AppLayout';
 
@@ -80,6 +80,14 @@ const EnvManagerPage = React.lazy(() =>
   import('../features/env-manager/EnvManagerPage').then((m) => ({ default: m.EnvManagerPage }))
 );
 
+const SnippetsPage = React.lazy(() =>
+  import('../features/snippets/SnippetsPage').then((m) => ({ default: m.SnippetsPage }))
+);
+
+const DependenciesPage = React.lazy(() =>
+  import('../features/dependencies/DependenciesPage').then((m) => ({ default: m.DependenciesPage }))
+);
+
 const ErrorPage = React.lazy(() => import('../pages/ErrorPage'));
 
 const routes = [
@@ -104,6 +112,8 @@ const routes = [
   createRoute(TERMINAL, TerminalPage, { layout: AppLayout }),
   createRoute(GIT_CLIENT, GitClientPage, { layout: AppLayout }),
   createRoute(ENV_MANAGER, EnvManagerPage, { layout: AppLayout }),
+  createRoute(SNIPPETS, SnippetsPage, { layout: AppLayout }),
+  createRoute(DEPENDENCIES, DependenciesPage, { layout: AppLayout }),
   createRoute(CATCH_ALL, ErrorPage),
 ];
 

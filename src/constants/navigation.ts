@@ -15,6 +15,7 @@ import {
   FaTerminal,
   FaGitAlt,
   FaKey,
+  FaCube,
 } from "react-icons/fa";
 import {
   DASHBOARD,
@@ -33,6 +34,8 @@ import {
   TERMINAL,
   GIT_CLIENT,
   ENV_MANAGER,
+  SNIPPETS,
+  DEPENDENCIES,
 } from "../routes/types/routeConstants";
 
 export interface NavLink {
@@ -77,6 +80,8 @@ export const navigationCategories: NavCategory[] = [
       { name: "Environment", href: ENV_MANAGER, icon: FaKey },
       { name: "Utilities", href: UTILITIES, icon: FaWrench },
       { name: "Clipboard", href: CLIPBOARD, icon: FaClipboard },
+      { name: "Snippets", href: SNIPPETS, icon: FaCode },
+      { name: "Dependencies", href: DEPENDENCIES, icon: FaCube },
       { name: "Hosts Switcher", href: HOSTS_SWITCHER, icon: FaGlobe },
       { name: "API Types", href: API_TYPE_GENERATOR, icon: FaCode },
       { name: "Backup", href: BACKUP, icon: FaSave },

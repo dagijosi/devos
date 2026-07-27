@@ -43,7 +43,8 @@
         { "name": "pwsh", "cmd": "pwsh", "args": true },
         { "name": "shutdown", "cmd": "shutdown", "args": true },
         { "name": "rundll32", "cmd": "rundll32.exe", "args": true },
-        { "name": "ipconfig", "cmd": "ipconfig", "args": true }
+        { "name": "ipconfig", "cmd": "ipconfig", "args": true },
+        { "name": "taskkill", "cmd": "taskkill", "args": true }
       ]
     },
     {
