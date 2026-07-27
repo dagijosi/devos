@@ -81,8 +81,6 @@ export function TerminalPage() {
     setIsTauri(isTauriRuntime());
     if (navigator.userAgent.includes('Windows')) {
       setShellType('powershell');
-    } else if (navigator.userAgent.includes('Mac')) {
-      setShellType('bash');
     } else {
       setShellType('bash');
     }
@@ -137,15 +135,10 @@ export function TerminalPage() {
     try {
       const { Command } = await import('@tauri-apps/plugin-shell');
       const shellCmd = shellType === 'powershell' ? 'powershell' : shellType === 'bash' ? 'bash' : 'cmd';
-      const shellArgs = shellType === 'powershell' ? ['-NoLogo', '-NoProfile'] : [];
+      const shellArgs = shellType === 'powershell' ? ['-NoLogo'] : [];
       const ctx = getProjectContext();
       const cwd = ctx?.localPath || undefined;
       const command = Command.create(shellCmd, shellArgs, cwd ? { cwd } : undefined);
-
-      let currentLine = '';
-      const prompt = shellType === 'powershell' ? 'PS> ' : '$ ';
-
-      const writePrompt = () => term.write(`\r\n\x1b[32m${prompt}\x1b[0m`);
 
       command.stdout.on('data', (data: any) => {
         const text = typeof data === 'string' ? data : data?.data ?? '';
@@ -168,27 +161,11 @@ export function TerminalPage() {
       });
 
       const disposable = term.onData((data) => {
-        const code = data.charCodeAt(0);
-        if (code === 13) {
-          term.write('\r\n');
-          child?.write(currentLine + '\n');
-          currentLine = '';
-        } else if (code === 127) {
-          if (currentLine.length > 0) {
-            currentLine = currentLine.slice(0, -1);
-            term.write('\b \b');
-          }
-        } else if (data.length === 1 && data >= ' ') {
-          currentLine += data;
-          term.write(data);
-        } else {
-          child?.write(data);
-        }
+        child?.write(data);
       });
 
-      term.writeln('\x1b[36mDevOS Terminal — Tauri mode\x1b[0m');
+      term.writeln('\x1b[36mDevOS Terminal\x1b[0m');
       term.writeln(`\x1b[2mShell: ${shellCmd}${ctx ? `  |  Project: ${ctx.name}` : ''}\x1b[0m`);
-      writePrompt();
 
       setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, child, isRunning: true, disposable } : t));
     } catch (err: any) {
@@ -220,7 +197,7 @@ export function TerminalPage() {
           term.writeln(`\r\n\x1b[31mCommand not available in demo mode: ${cmd}\x1b[0m`);
         }
         buffer = '';
-        term.write(`\r\n\x1b[32m$\x1b[0m `);
+        term.write(`\r\n\x1b[32m>\x1b[0m `);
       } else if (code === 127) { // Backspace
         if (buffer.length > 0) {
           buffer = buffer.slice(0, -1);
@@ -232,7 +209,7 @@ export function TerminalPage() {
       }
     });
 
-    term.write('\x1b[32m$\x1b[0m ');
+    term.write('\x1b[32m>\x1b[0m ');
     setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, isRunning: true } : t));
   };
 

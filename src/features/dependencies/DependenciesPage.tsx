@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FaCube, FaSync, FaExternalLinkAlt, FaDownload } from 'react-icons/fa';
+import { FaCube, FaSync, FaExternalLinkAlt, FaDownload, FaProjectDiagram } from 'react-icons/fa';
 import { toast } from 'sonner';
 import LoadingComponent from '../../components/ui/feedback/LoadingComponent';
 import { isTauri as isTauriRuntime } from '../../lib/tauri';
-import { getProjectContext } from '../projects/utils/projectContext';
+import { getProjectContext, setProjectContext } from '../projects/utils/projectContext';
+import { database } from '../../database';
 
 interface DepItem {
   name: string;
@@ -93,8 +94,9 @@ async function readRequirementsTxt(path: string): Promise<DepFile | null> {
   } catch { return null; }
 }
 
-async function readFile(_path: string): Promise<string> {
-  throw new Error('File reading only available in Tauri mode');
+async function readFile(path: string): Promise<string> {
+  const { readTextFile } = await import('@tauri-apps/plugin-fs');
+  return readTextFile(path);
 }
 
 async function checkLatestNpm(name: string, current: string): Promise<DepItem> {
@@ -119,14 +121,36 @@ async function checkLatestCargo(name: string, current: string): Promise<DepItem>
 const TYPE_LABELS: Record<string, string> = { npm: 'npm', cargo: 'Cargo', pip: 'pip' };
 const TYPE_COLORS: Record<string, string> = { npm: 'text-red-400 bg-red-500/10', cargo: 'text-orange-400 bg-orange-500/10', pip: 'text-yellow-400 bg-yellow-500/10' };
 
+interface ProjectOption { id: number; name: string; localPath: string; }
+
 export function DependenciesPage() {
   const [files, setFiles] = useState<DepFile[]>([]);
   const [scanning, setScanning] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [scanPath, setScanPath] = useState('');
   const [isTauri, setIsTauri] = useState(false);
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
 
   useEffect(() => { setIsTauri(isTauriRuntime()); }, []);
+
+  useEffect(() => {
+    database.getProjects().then((all) => {
+      const opts = (all as any[]).map((p: any) => ({ id: p.id, name: p.name, localPath: p.local_path || '' }));
+      setProjects(opts);
+      const ctx = getProjectContext();
+      if (ctx) setSelectedProjectId(ctx.id);
+    });
+  }, []);
+
+  const selectProject = (id: number) => {
+    const p = projects.find((x) => x.id === id);
+    if (p) {
+      setProjectContext(p);
+      setSelectedProjectId(id);
+      autoScan();
+    }
+  };
 
   const autoScan = useCallback(async () => {
     const ctx = getProjectContext();
@@ -237,6 +261,21 @@ export function DependenciesPage() {
           )}
         </div>
       </div>
+
+      {/* Project selector */}
+      {isTauri && projects.length > 0 && (
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-theme-surface/30 border border-theme-border/10 rounded-xl">
+          <FaProjectDiagram className="w-4 h-4 text-theme-text/40" />
+          <span className="text-xs text-theme-text/50">Project:</span>
+          <select value={selectedProjectId ?? ''} onChange={(e) => { const v = parseInt(e.target.value); if (v) selectProject(v); }}
+            className="flex-1 max-w-xs bg-theme-surface border border-theme-border/20 rounded-lg px-3 py-1.5 text-xs text-theme-text outline-none focus:border-theme-icon/50">
+            <option value="" disabled>Select a project...</option>
+            {projects.filter(p => p.localPath).map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Summary */}
       {files.length > 0 && (
