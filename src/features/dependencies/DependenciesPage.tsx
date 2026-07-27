@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FaCube, FaSync, FaExternalLinkAlt } from 'react-icons/fa';
+import { FaCube, FaSync, FaExternalLinkAlt, FaDownload } from 'react-icons/fa';
 import { toast } from 'sonner';
 import LoadingComponent from '../../components/ui/feedback/LoadingComponent';
 import { isTauri as isTauriRuntime } from '../../lib/tauri';
@@ -18,7 +18,19 @@ interface DepFile {
   deps: DepItem[];
 }
 
-const MOCK_DEPS: DepFile = {
+const MOCK_DEPS_CARGO: DepFile = {
+  path: '/mock/rust-backend',
+  type: 'cargo',
+  deps: [
+    { name: 'tokio', current: '1.35.1', latest: '1.36.0', outdated: true },
+    { name: 'serde', current: '1.0.196', latest: '1.0.196', outdated: false },
+    { name: 'reqwest', current: '0.11.24', latest: '0.12.0', outdated: true },
+    { name: 'axum', current: '0.7.4', latest: '0.7.4', outdated: false },
+    { name: 'sqlx', current: '0.7.3', latest: '0.7.4', outdated: true },
+  ],
+};
+
+const MOCK_DEPS_NPM: DepFile = {
   path: '/mock/project',
   type: 'npm',
   deps: [
@@ -28,6 +40,10 @@ const MOCK_DEPS: DepFile = {
     { name: 'tailwindcss', current: '3.4.0', latest: '3.4.0', outdated: false },
     { name: 'zustand', current: '4.5.0', latest: '4.5.0', outdated: false },
     { name: 'react-router-dom', current: '6.21.0', latest: '6.21.0', outdated: false },
+    { name: 'framer-motion', current: '10.18.0', latest: '11.0.0', outdated: true },
+    { name: 'lucide-react', current: '0.303.0', latest: '0.303.0', outdated: false },
+    { name: 'date-fns', current: '3.2.0', latest: '3.6.0', outdated: true },
+    { name: 'sonner', current: '1.3.0', latest: '1.3.0', outdated: false },
   ],
 };
 
@@ -116,7 +132,7 @@ export function DependenciesPage() {
     const ctx = getProjectContext();
     const basePath = ctx?.localPath || scanPath;
     if (!basePath) return;
-    if (!isTauri) { setFiles([MOCK_DEPS]); return; }
+    if (!isTauri) { setFiles([MOCK_DEPS_NPM, MOCK_DEPS_CARGO]); return; }
     setScanning(true);
     setScanPath(basePath);
     try {
@@ -163,6 +179,27 @@ export function DependenciesPage() {
   const totalDeps = files.reduce((s, f) => s + f.deps.length, 0);
   const outdatedCount = files.reduce((s, f) => s + f.deps.filter(d => d.outdated).length, 0);
 
+  const exportAsJSON = () => {
+    const blob = new Blob([JSON.stringify(files, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'dependencies.json'; a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Exported as JSON');
+  };
+
+  const exportAsCSV = () => {
+    const headers = 'name,current,latest,outdated,source';
+    const rows = files.flatMap(f => f.deps.map(d =>
+      [d.name, d.current, d.latest || '', d.outdated, f.type].join(',')
+    ));
+    const csv = [headers, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'dependencies.csv'; a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Exported as CSV');
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -174,8 +211,20 @@ export function DependenciesPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {files.length > 0 && (
+            <div className="flex items-center gap-1 bg-theme-surface/50 border border-theme-border/20 rounded-xl p-0.5">
+              <button onClick={exportAsJSON}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-theme-text/60 hover:text-theme-text hover:bg-theme-surface/80 rounded-lg transition-colors">
+                <FaDownload className="w-3 h-3" /> JSON
+              </button>
+              <button onClick={exportAsCSV}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-theme-text/60 hover:text-theme-text hover:bg-theme-surface/80 rounded-lg transition-colors">
+                <FaDownload className="w-3 h-3" /> CSV
+              </button>
+            </div>
+          )}
           {!isTauri && (
-            <button onClick={() => setFiles([MOCK_DEPS])}
+            <button onClick={() => setFiles([MOCK_DEPS_NPM, MOCK_DEPS_CARGO])}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-theme-surface/50 border border-theme-border/20 rounded-xl hover:bg-theme-surface/80 transition-colors text-theme-text/70">
               <FaSync className="w-3 h-3" /> Load Demo
             </button>

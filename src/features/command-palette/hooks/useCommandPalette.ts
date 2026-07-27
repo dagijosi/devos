@@ -2,9 +2,9 @@ import { useEffect, useCallback, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../../stores/app.store';
 import { database } from '../../../database';
-import { DASHBOARD, PROJECTS, KNOWLEDGE, UTILITIES, WORKFLOWS, SETTING } from '../../../routes/types/routeConstants';
+import { DASHBOARD, PROJECTS, KNOWLEDGE, UTILITIES, WORKFLOWS, SETTING, SNIPPETS } from '../../../routes/types/routeConstants';
 import type { Project } from '../../projects/types';
-import type { Note } from '../../knowledge/types';
+import type { Note, CodeSnippet } from '../../knowledge/types';
 import allTools from '../../utilities/toolDefinitions';
 import { useUtilitiesStore } from '../../utilities/store/utilities.store';
 
@@ -24,15 +24,18 @@ export function useCommandPalette() {
   const [query, setQuery] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [snippets, setSnippets] = useState<CodeSnippet[]>([]);
 
   useEffect(() => {
     const loadData = async () => {
-      const [loadedProjects, loadedNotes] = await Promise.all([
+      const [loadedProjects, loadedNotes, loadedSnippets] = await Promise.all([
         database.getProjects(),
         database.getNotes(),
+        database.getSnippets(),
       ]);
       setProjects(loadedProjects);
       setNotes(loadedNotes);
+      setSnippets(loadedSnippets);
     };
     loadData();
   }, []);
@@ -52,30 +55,9 @@ export function useCommandPalette() {
     { id: 'toggle-theme', label: 'Toggle Theme', description: 'Switch between light and dark mode', category: 'Preferences', action: () => {
       const current = localStorage.getItem('app-theme-id') || 'light';
       const next = current === 'dark' ? 'light' : 'dark';
-      const isDark = next === 'dark';
       localStorage.setItem('app-theme-id', next);
       useAppStore.getState().setThemeMode(next as any);
-      document.documentElement.classList.toggle('dark', isDark);
-      const root = document.documentElement;
-      if (isDark) {
-        root.style.setProperty('--color-background', '#06080D');
-        root.style.setProperty('--color-text', '#F8FAFC');
-        root.style.setProperty('--color-surface', '#0D1117');
-        root.style.setProperty('--color-border', '#1E2433');
-        root.style.setProperty('--color-icon', '#4F8EF7');
-        root.style.setProperty('--color-muted', '#8B949E');
-        root.style.setProperty('--color-dropdown', '#1A1F2E');
-        root.style.setProperty('--color-hover', '#161B22');
-      } else {
-        root.style.setProperty('--color-background', '#F6F8FB');
-        root.style.setProperty('--color-text', '#182234');
-        root.style.setProperty('--color-surface', '#FFFFFF');
-        root.style.setProperty('--color-border', '#E1E7EF');
-        root.style.setProperty('--color-icon', '#2F6FEB');
-        root.style.setProperty('--color-muted', '#6B7280');
-        root.style.setProperty('--color-dropdown', '#FFFFFF');
-        root.style.setProperty('--color-hover', '#F1F5F9');
-      }
+      window.dispatchEvent(new CustomEvent('app-theme-change'));
     }},
   ];
 
@@ -105,15 +87,20 @@ export function useCommandPalette() {
   const noteCommands: Command[] = notes.map((n) => ({
     id: `note-${n.id}`,
     label: n.title,
-    description: 'Note',
+    description: n.type === 'bug' ? 'Bug Report' : n.type === 'doc' ? 'Document' : 'Note',
     category: 'Knowledge',
-    action: () => {
-      navigate(KNOWLEDGE);
-      // Could add logic to select the specific note
-    },
+    action: () => navigate(KNOWLEDGE),
   }));
 
-  const commands = [...baseCommands, ...toolCommands, ...projectCommands, ...noteCommands];
+  const snippetCommands: Command[] = snippets.map((s) => ({
+    id: `snippet-${s.id}`,
+    label: s.title,
+    description: `Snippet • ${s.language || 'code'}`,
+    category: 'Snippets',
+    action: () => navigate(SNIPPETS),
+  }));
+
+  const commands = [...baseCommands, ...toolCommands, ...projectCommands, ...noteCommands, ...snippetCommands];
 
   const filteredCommands = query
     ? commands.filter(

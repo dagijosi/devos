@@ -28,10 +28,13 @@ const DEMO_FILES: GitFile[] = [
   { path: 'src/App.tsx', status: 'modified', staged: false },
   { path: 'src/components/Header.tsx', status: 'modified', staged: true },
   { path: 'src/styles/index.css', status: 'modified', staged: false },
+  { path: 'src/lib/api/client.ts', status: 'modified', staged: false },
   { path: 'package.json', status: 'modified', staged: true },
   { path: 'new-feature.ts', status: 'untracked', staged: false },
   { path: 'temp.log', status: 'untracked', staged: false },
   { path: 'src/old-utils.ts', status: 'deleted', staged: false },
+  { path: 'src/components/Sidebar.tsx', status: 'modified', staged: true },
+  { path: 'src/hooks/useAuth.ts', status: 'modified', staged: false },
 ];
 
 const DEMO_BRANCHES: GitBranch[] = [
@@ -42,11 +45,12 @@ const DEMO_BRANCHES: GitBranch[] = [
 ];
 
 const DEMO_LOG = [
-  { hash: 'a1b2c3d', message: 'Merge pull request #42 from feature/auth', author: 'Dev', date: '2h ago', refs: 'HEAD -> main, origin/main' },
-  { hash: 'e4f5g6h', message: 'Add OAuth2 authentication flow', author: 'Dev', date: '3h ago', refs: '' },
-  { hash: 'i7j8k9l', message: 'Fix header responsive styles', author: 'Dev', date: '5h ago', refs: 'origin/feature/auth' },
-  { hash: 'm0n1o2p', message: 'Update dependencies', author: 'Dev', date: '1d ago', refs: '' },
-  { hash: 'q3r4s5t', message: 'Initial commit', author: 'Dev', date: '3d ago', refs: 'tag: v1.0' },
+  { hash: 'a1b2c3d', message: 'Merge pull request #42 from feature/auth', author: 'Alex', date: '2h ago', refs: 'HEAD -> main, origin/main' },
+  { hash: 'e4f5g6h', message: 'Add OAuth2 authentication flow', author: 'Alex', date: '3h ago', refs: '' },
+  { hash: 'i7j8k9l', message: 'Fix header responsive styles', author: 'Sam', date: '5h ago', refs: 'origin/feature/auth' },
+  { hash: 'm0n1o2p', message: 'Update dependencies to latest versions', author: 'Alex', date: '1d ago', refs: '' },
+  { hash: 'q3r4s5t', message: 'Refactor API client module', author: 'Sam', date: '2d ago', refs: '' },
+  { hash: 'u6v7w8x', message: 'Add unit tests for auth flow', author: 'Alex', date: '3d ago', refs: 'tag: v1.0' },
 ];
 
 export function GitClientPage() {

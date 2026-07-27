@@ -1,7 +1,11 @@
+import { useState } from 'react';
 import { useTheme } from '../../../theme-system';
 
+const PRESET_ACCENTS = ['#2F6FEB', '#4F8EF7', '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#06b6d4', '#0ea5e9'];
+
 export function ThemeSettings() {
-  const { currentTheme, setTheme } = useTheme();
+  const { currentTheme, setTheme, accentColor, setAccentColor } = useTheme();
+  const [customColor, setCustomColor] = useState(accentColor || '');
 
   const themes = [
     {
@@ -53,10 +57,37 @@ export function ThemeSettings() {
       </div>
 
       <div className="p-4 rounded-xl border border-theme-border/20 bg-theme-surface/50 space-y-3">
+        <h4 className="text-xs font-semibold text-theme-muted uppercase tracking-wider">Accent Color</h4>
+        <div className="flex flex-wrap gap-2">
+          {PRESET_ACCENTS.map((color) => (
+            <button key={color} onClick={() => { setAccentColor(color); setCustomColor(color); }}
+              className={`w-7 h-7 rounded-full border-2 transition-all ${
+                (accentColor || '') === color ? 'border-white scale-110 shadow-lg' : 'border-transparent hover:scale-105'
+              }`}
+              style={{ backgroundColor: color }} />
+          ))}
+          <button onClick={() => { setAccentColor(''); setCustomColor(''); }}
+            className={`w-7 h-7 rounded-full border-2 border-dashed flex items-center justify-center text-[9px] transition-all ${
+              !accentColor ? 'border-white scale-110 shadow-lg' : 'border-theme-border/40 hover:border-theme-text/30'
+            }`}
+            title="Reset to default">
+            <span className="text-theme-text/40">×</span>
+          </button>
+        </div>
+        <div className="flex items-center gap-2 mt-2">
+          <input type="color" value={accentColor || currentTheme.colors.icon} onChange={e => { setAccentColor(e.target.value); setCustomColor(e.target.value); }}
+            className="w-8 h-8 rounded cursor-pointer border border-theme-border/30 bg-transparent" />
+          <input type="text" value={customColor || currentTheme.colors.icon} onChange={e => { setCustomColor(e.target.value); setAccentColor(e.target.value); }}
+            placeholder="#hex"
+            className="flex-1 bg-theme-background border border-theme-border/30 rounded-lg px-3 py-1.5 text-xs font-mono text-theme-text outline-none focus:border-theme-icon/50" />
+        </div>
+      </div>
+
+      <div className="p-4 rounded-xl border border-theme-border/20 bg-theme-surface/50 space-y-3">
         <h4 className="text-xs font-semibold text-theme-muted uppercase tracking-wider">Semantic Colors</h4>
         <div className="flex flex-wrap gap-3">
           {[
-            { name: 'Primary', color: currentTheme.mode === 'dark' ? '#4F8EF7' : '#2F6FEB' },
+            { name: 'Accent', color: accentColor || currentTheme.colors.icon },
             { name: 'Secondary', color: currentTheme.mode === 'dark' ? '#F4B942' : '#C99014' },
             { name: 'Success', color: '#22C55E' },
             { name: 'Warning', color: '#F59E0B' },
