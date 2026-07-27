@@ -1,6 +1,10 @@
 mod migrations;
+mod tray;
+mod watcher;
+mod context_menu;
+mod ipc;
 
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 fn hosts_path() -> &'static str {
@@ -62,7 +66,16 @@ pub fn run() {
         })
         .build(),
     )
-    .invoke_handler(tauri::generate_handler![open_terminal, read_hosts_file, write_hosts_file])
+    .invoke_handler(tauri::generate_handler![
+      open_terminal,
+      read_hosts_file,
+      write_hosts_file,
+      watcher::start_watching,
+      watcher::stop_watching,
+      context_menu::install_context_menu,
+      context_menu::uninstall_context_menu,
+      context_menu::is_context_menu_installed,
+    ])
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(
@@ -81,6 +94,35 @@ pub fn run() {
       for s in shortcuts {
         if let Err(e) = app.global_shortcut().register(s) {
           log::warn!("Failed to register shortcut {}: {}", s, e);
+        }
+      }
+
+      // Initialize watcher state
+      app.manage(std::sync::Mutex::new(watcher::WatcherState {
+        watchers: std::collections::HashMap::new(),
+      }));
+
+      // Build system tray
+      tray::build_tray(app.handle())?;
+
+      // Start IPC listener for CLI commands
+      ipc::start_ipc_listener(app.handle());
+
+      // Auto-install Windows context menu on first run
+      if cfg!(target_os = "windows") {
+        let installed = app
+          .path()
+          .app_data_dir()
+          .map(|p| p.join(".context_menu_installed"))
+          .ok();
+        if let Some(marker) = installed {
+          if !marker.exists() {
+            if let Err(e) = context_menu::install_context_menu() {
+              log::warn!("Failed to auto-install context menu: {}", e);
+            } else if let Err(e) = std::fs::write(&marker, "1") {
+              log::warn!("Failed to write context menu marker: {}", e);
+            }
+          }
         }
       }
 

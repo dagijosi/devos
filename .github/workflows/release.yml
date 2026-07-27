@@ -39,6 +39,12 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Build CLI binary
+        shell: pwsh
+        run: |
+          cargo build --release --manifest-path cli/Cargo.toml
+          Write-Host "CLI binary built"
+
       - name: Get commit message for release notes
         id: release_notes
         shell: pwsh
@@ -145,6 +151,19 @@ jobs:
       - name: Upload latest.json to release
         run: |
           gh release upload "${{ github.ref_name }}" src-tauri/target/release/bundle/nsis/latest.json --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload CLI binary to release
+        run: |
+          $cliExe = "cli/target/release/devos-cli.exe"
+          if (Test-Path $cliExe) {
+            gh release upload "${{ github.ref_name }}" $cliExe --clobber
+            Write-Host "CLI binary uploaded"
+          } else {
+            Write-Host "CLI binary not found at $cliExe"
+          }
+        shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

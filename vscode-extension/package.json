@@ -1,0 +1,30 @@
+{
+  "name": "devos-bridge",
+  "displayName": "DevOS Bridge",
+  "description": "Bridge between VS Code and DevOS desktop app — open projects, run commands, share snippets",
+  "version": "0.1.0",
+  "publisher": "devos",
+  "license": "MIT",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./src/extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "devos.openInDevOS", "title": "DevOS: Open Project in DevOS" },
+      { "command": "devos.openTerminal", "title": "DevOS: Open Terminal" },
+      { "command": "devos.searchClipboard", "title": "DevOS: Search Clipboard History" },
+      { "command": "devos.sendSnippet", "title": "DevOS: Send Snippet to DevOS" }
+    ],
+    "configuration": {
+      "title": "DevOS",
+      "properties": {
+        "devos.cliPath": {
+          "type": "string",
+          "default": "devos-cli",
+          "description": "Path to the devos-cli executable"
+        }
+      }
+    }
+  }
+}

@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaPalette, FaDatabase, FaFolderOpen, FaInfoCircle, FaDownload, FaUpload, FaTachometerAlt, FaUniversalAccess, FaBug, FaCloudUploadAlt, FaExternalLinkAlt, FaSearch, FaTimes } from 'react-icons/fa';
+import { FaPalette, FaDatabase, FaFolderOpen, FaInfoCircle, FaDownload, FaUpload, FaTachometerAlt, FaUniversalAccess, FaBug, FaCloudUploadAlt, FaExternalLinkAlt, FaSearch, FaTimes, FaMousePointer } from 'react-icons/fa';
 import { ThemeSettings } from '../components/ThemeSettings';
 import { PerformanceSettings } from '../components/PerformanceSettings';
 import { AccessibilitySettings } from '../components/AccessibilitySettings';
 import { LogViewer } from '../components/LogViewer';
 import { UpdaterSettings } from '../components/UpdaterSettings';
+import { ContextMenuSettings } from '../../context-menu/ContextMenuSettings';
 import { database } from '../../../database';
 import { toast } from 'sonner';
 import { BACKUP } from '../../../routes/types/routeConstants';
@@ -18,10 +19,11 @@ const tabs = [
   { id: 'backup' as const, label: 'Backup Path', icon: FaFolderOpen },
   { id: 'logs' as const, label: 'Logs', icon: FaBug },
   { id: 'updates' as const, label: 'Updates', icon: FaCloudUploadAlt },
+  { id: 'context-menu' as const, label: 'Context Menu', icon: FaMousePointer },
   { id: 'about' as const, label: 'About', icon: FaInfoCircle },
 ];
 
-type SettingsTab = 'theme' | 'performance' | 'accessibility' | 'database' | 'backup' | 'logs' | 'updates' | 'about';
+type SettingsTab = 'theme' | 'performance' | 'accessibility' | 'database' | 'backup' | 'logs' | 'updates' | 'context-menu' | 'about';
 
 export function SettingsPage() {
   const navigate = useNavigate();
@@ -220,6 +222,8 @@ export function SettingsPage() {
         )}
 
         {activeTab === 'updates' && <UpdaterSettings />}
+
+        {activeTab === 'context-menu' && <ContextMenuSettings />}
 
         {activeTab === 'about' && (
           <div className="space-y-6">

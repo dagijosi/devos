@@ -4,6 +4,7 @@ import Sidebar from './Sidebar';
 import { Topbar } from './Topbar';
 import { ClipboardWatcher } from '../../features/clipboard/ClipboardWatcher';
 import { GlobalShortcutListener } from '../../features/global-shortcuts/GlobalShortcutListener';
+import { TrayHandler } from '../../features/system-tray/TrayHandler';
 
 export function AppLayout() {
   const location = useLocation();
@@ -28,6 +29,7 @@ export function AppLayout() {
     <div className="flex min-h-dvh bg-theme-background font-sans antialiased text-theme-text">
       <ClipboardWatcher />
       <GlobalShortcutListener />
+      <TrayHandler />
       <Sidebar
         isOpen={sidebarOpen}
         setIsOpen={setSidebarOpen}

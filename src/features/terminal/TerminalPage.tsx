@@ -3,6 +3,8 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { FaTerminal, FaPlus, FaTimes, FaPlay, FaStop } from 'react-icons/fa';
+import { isTauri as isTauriRuntime } from '../../lib/tauri';
+import { useTheme } from '../../theme-system';
 
 interface Tab {
   id: string;
@@ -11,35 +13,78 @@ interface Tab {
   fitAddon: FitAddon | null;
   child: any | null;
   isRunning: boolean;
+  disposable: { dispose: () => void } | null;
 }
 
 let tabCounter = 0;
 
+const LIGHT_TERMINAL_THEME = {
+  background: '#ffffff',
+  foreground: '#1f1f1f',
+  cursor: '#1f1f1f',
+  selectionBackground: '#d0d0d0',
+  black: '#4f4f4f',
+  red: '#c41e3a',
+  green: '#1a7f37',
+  yellow: '#9a6b00',
+  blue: '#0550ae',
+  magenta: '#8250df',
+  cyan: '#1b7c83',
+  white: '#656d76',
+  brightBlack: '#8b949e',
+  brightRed: '#cf222e',
+  brightGreen: '#116329',
+  brightYellow: '#9a6700',
+  brightBlue: '#0969da',
+  brightMagenta: '#8250df',
+  brightCyan: '#1b7c83',
+  brightWhite: '#1f2328',
+};
+
+const DARK_TERMINAL_THEME = {
+  background: '#0d1117',
+  foreground: '#c9d1d9',
+  cursor: '#c9d1d9',
+  selectionBackground: '#3b4252',
+  black: '#484f58',
+  red: '#ff7b72',
+  green: '#3fb950',
+  yellow: '#d29922',
+  blue: '#58a6ff',
+  magenta: '#bc8cff',
+  cyan: '#39c5cf',
+  white: '#b1bac4',
+  brightBlack: '#6e7681',
+  brightRed: '#ffa198',
+  brightGreen: '#56d364',
+  brightYellow: '#e3b341',
+  brightBlue: '#79c0ff',
+  brightMagenta: '#d2a8ff',
+  brightCyan: '#56d4dd',
+  brightWhite: '#f0f6fc',
+};
+
 export function TerminalPage() {
+  const { currentTheme } = useTheme();
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const terminalRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
   const [isTauri, setIsTauri] = useState(false);
   const [shellType, setShellType] = useState<'powershell' | 'cmd' | 'bash'>('cmd');
 
+  const isDark = currentTheme.mode === 'dark';
+  const terminalTheme = isDark ? DARK_TERMINAL_THEME : LIGHT_TERMINAL_THEME;
+  const terminalBg = terminalTheme.background;
+
   useEffect(() => {
-    const check = async () => {
-      try {
-        const { isTauri: checkTauri } = await import('@tauri-apps/api/core');
-        setIsTauri(!!checkTauri);
-      } catch {
-        setIsTauri(false);
-      }
-      // Detect shell
-      if (navigator.userAgent.includes('Windows')) {
-        setShellType('powershell');
-      } else if (navigator.userAgent.includes('Mac')) {
-        setShellType('bash');
-      } else {
-        setShellType('bash');
-      }
-    };
-    check();
+    setIsTauri(isTauriRuntime());
+    if (navigator.userAgent.includes('Windows')) {
+      setShellType('powershell');
+    } else if (navigator.userAgent.includes('Mac')) {
+      setShellType('bash');
+    } else {
+      setShellType('bash');
+    }
   }, []);
 
   const addTab = async () => {
@@ -51,28 +96,7 @@ export function TerminalPage() {
       cursorStyle: 'bar',
       fontSize: 13,
       fontFamily: "'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace",
-      theme: {
-        background: '#0d1117',
-        foreground: '#c9d1d9',
-        cursor: '#c9d1d9',
-        selectionBackground: '#3b4252',
-        black: '#484f58',
-        red: '#ff7b72',
-        green: '#3fb950',
-        yellow: '#d29922',
-        blue: '#58a6ff',
-        magenta: '#bc8cff',
-        cyan: '#39c5cf',
-        white: '#b1bac4',
-        brightBlack: '#6e7681',
-        brightRed: '#ffa198',
-        brightGreen: '#56d364',
-        brightYellow: '#e3b341',
-        brightBlue: '#79c0ff',
-        brightMagenta: '#d2a8ff',
-        brightCyan: '#56d4dd',
-        brightWhite: '#f0f6fc',
-      },
+      theme: terminalTheme,
       allowTransparency: true,
     });
 
@@ -85,6 +109,7 @@ export function TerminalPage() {
       fitAddon,
       child: null,
       isRunning: false,
+      disposable: null,
     };
 
     setTabs((prev) => [...prev, newTab]);
@@ -111,20 +136,20 @@ export function TerminalPage() {
     try {
       const { Command } = await import('@tauri-apps/plugin-shell');
       const shellCmd = shellType === 'powershell' ? 'powershell' : shellType === 'bash' ? 'bash' : 'cmd';
-      const args = shellType === 'powershell' ? ['-NoLogo'] : [];
+      const args = shellType === 'powershell' ? ['-NoLogo', '-NoProfile', '-Command', '-'] : [];
       const command = Command.create(shellCmd, args);
 
-      term.writeln('\x1b[36mDevOS Terminal — Tauri mode\x1b[0m');
-      term.writeln(`\x1b[2mShell: ${shellCmd}\x1b[0m\r\n`);
+      // Set up listeners before spawn
+      command.stdout.on('data', (data: any) => {
+        const text = typeof data === 'string' ? data : data?.data ?? '';
+        term.write(text);
+      });
+      command.stderr.on('data', (data: any) => {
+        const text = typeof data === 'string' ? data : data?.data ?? '';
+        term.write(text);
+      });
 
       const child = await command.spawn();
-
-      command.stdout.on('data', (data: string) => {
-        term.write(data);
-      });
-      command.stderr.on('data', (data: string) => {
-        term.write(data);
-      });
 
       command.on('close', () => {
         term.writeln('\r\n\x1b[31m[Process exited]\x1b[0m');
@@ -135,11 +160,16 @@ export function TerminalPage() {
         term.writeln(`\r\n\x1b[31m[Error: ${err}]\x1b[0m`);
       });
 
-      term.onData((data) => {
-        child.write(data);
+      const disposable = term.onData((data) => {
+        if (child?.write) {
+          child.write(data);
+        }
       });
 
-      setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, child, isRunning: true } : t));
+      term.writeln('\x1b[36mDevOS Terminal — Tauri mode\x1b[0m');
+      term.writeln(`\x1b[2mShell: ${shellCmd}\x1b[0m\r\n`);
+
+      setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, child, isRunning: true, disposable } : t));
     } catch (err: any) {
       term.writeln(`\x1b[31mFailed to start shell: ${err?.toString() || 'Unknown error'}\x1b[0m`);
     }
@@ -194,6 +224,9 @@ export function TerminalPage() {
     if (tab?.child && isTauri) {
       try { tab.child.kill(); } catch {}
     }
+    if (tab?.disposable) {
+      try { tab.disposable.dispose(); } catch {}
+    }
     terminalRefs.current.delete(id);
     setTabs((prev) => {
       const remaining = prev.filter((t) => t.id !== id);
@@ -242,9 +275,10 @@ export function TerminalPage() {
             onClick={() => setActiveTabId(tab.id)}
             className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-t-lg cursor-pointer transition-colors border-t border-l border-r shrink-0 ${
               activeTabId === tab.id
-                ? 'bg-[#0d1117] border-[#30363d] text-theme-text'
+                ? `text-theme-text border-theme-border/30`
                 : 'bg-theme-surface/30 border-transparent text-theme-text/50 hover:text-theme-text/80'
             }`}
+            style={activeTabId === tab.id ? { backgroundColor: terminalBg } : {}}
           >
             {tab.isRunning ? (
               <FaPlay className="w-2.5 h-2.5 text-green-500" />
@@ -271,7 +305,7 @@ export function TerminalPage() {
       </div>
 
       {/* Terminal area */}
-      <div className="flex-1 bg-[#0d1117] border border-[#30363d] rounded-xl overflow-hidden">
+      <div className="flex-1 border border-theme-border/20 rounded-xl overflow-hidden" style={{ backgroundColor: terminalBg }}>
         {tabs.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-8">
             <FaTerminal className="w-12 h-12 text-theme-text/20 mb-4" />
