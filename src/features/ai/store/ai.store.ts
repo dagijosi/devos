@@ -15,9 +15,9 @@ export const useAiStore = create<AiState>()(
   persist(
     (set) => ({
       config: {
-        provider: 'ollama',
-        model: PROVIDER_DEFAULTS.ollama.model,
-        baseUrl: PROVIDER_DEFAULTS.ollama.baseUrl,
+        provider: 'lm-studio',
+        model: PROVIDER_DEFAULTS['lm-studio'].model,
+        baseUrl: PROVIDER_DEFAULTS['lm-studio'].baseUrl,
         apiKey: '',
         temperature: 0.7,
         maxTokens: 2048,

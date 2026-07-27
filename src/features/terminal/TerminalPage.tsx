@@ -5,6 +5,7 @@ import '@xterm/xterm/css/xterm.css';
 import { FaTerminal, FaPlus, FaTimes, FaPlay, FaStop } from 'react-icons/fa';
 import { isTauri as isTauriRuntime } from '../../lib/tauri';
 import { useTheme } from '../../theme-system';
+import { getProjectContext } from '../projects/utils/projectContext';
 
 interface Tab {
   id: string;
@@ -136,17 +137,23 @@ export function TerminalPage() {
     try {
       const { Command } = await import('@tauri-apps/plugin-shell');
       const shellCmd = shellType === 'powershell' ? 'powershell' : shellType === 'bash' ? 'bash' : 'cmd';
-      const args = shellType === 'powershell' ? ['-NoLogo', '-NoProfile', '-Command', '-'] : [];
-      const command = Command.create(shellCmd, args);
+      const shellArgs = shellType === 'powershell' ? ['-NoLogo', '-NoProfile'] : [];
+      const ctx = getProjectContext();
+      const cwd = ctx?.localPath || undefined;
+      const command = Command.create(shellCmd, shellArgs, cwd ? { cwd } : undefined);
 
-      // Set up listeners before spawn
+      let currentLine = '';
+      const prompt = shellType === 'powershell' ? 'PS> ' : '$ ';
+
+      const writePrompt = () => term.write(`\r\n\x1b[32m${prompt}\x1b[0m`);
+
       command.stdout.on('data', (data: any) => {
         const text = typeof data === 'string' ? data : data?.data ?? '';
-        term.write(text);
+        term.write(text.replace(/\n/g, '\r\n'));
       });
       command.stderr.on('data', (data: any) => {
         const text = typeof data === 'string' ? data : data?.data ?? '';
-        term.write(text);
+        term.write(text.replace(/\n/g, '\r\n'));
       });
 
       const child = await command.spawn();
@@ -161,13 +168,27 @@ export function TerminalPage() {
       });
 
       const disposable = term.onData((data) => {
-        if (child?.write) {
-          child.write(data);
+        const code = data.charCodeAt(0);
+        if (code === 13) {
+          term.write('\r\n');
+          child?.write(currentLine + '\n');
+          currentLine = '';
+        } else if (code === 127) {
+          if (currentLine.length > 0) {
+            currentLine = currentLine.slice(0, -1);
+            term.write('\b \b');
+          }
+        } else if (data.length === 1 && data >= ' ') {
+          currentLine += data;
+          term.write(data);
+        } else {
+          child?.write(data);
         }
       });
 
       term.writeln('\x1b[36mDevOS Terminal — Tauri mode\x1b[0m');
-      term.writeln(`\x1b[2mShell: ${shellCmd}\x1b[0m\r\n`);
+      term.writeln(`\x1b[2mShell: ${shellCmd}${ctx ? `  |  Project: ${ctx.name}` : ''}\x1b[0m`);
+      writePrompt();
 
       setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, child, isRunning: true, disposable } : t));
     } catch (err: any) {

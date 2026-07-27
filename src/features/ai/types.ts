@@ -35,8 +35,8 @@ export interface ChatMessage {
 }
 
 export const PROVIDER_DEFAULTS: Record<AiProvider, { baseUrl: string; model: string }> = {
-  ollama: { baseUrl: 'http://localhost:11434', model: 'llama3' },
-  'lm-studio': { baseUrl: 'http://localhost:1234/v1', model: 'local-model' },
+  ollama: { baseUrl: 'http://localhost:11434', model: 'qwen2.5:7b' },
+  'lm-studio': { baseUrl: 'http://localhost:1234/v1', model: 'qwen2.5-7b-instruct' },
   openai: { baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
 };
 

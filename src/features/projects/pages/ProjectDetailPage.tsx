@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FaArrowLeft, FaStar, FaRegStar, FaEye, FaTasks, FaBook, FaLink, FaPlay, FaCloudUploadAlt, FaCog, FaFolder, FaWrench } from 'react-icons/fa';
+import { FaArrowLeft, FaStar, FaRegStar, FaEye, FaTasks, FaBook, FaLink, FaPlay, FaCloudUploadAlt, FaCog, FaFolder, FaWrench, FaTerminal } from 'react-icons/fa';
 import { useProjects } from '../hooks/useProjects';
+import { useFileWatcher } from '../../file-watcher/useFileWatcher';
 import { OverviewTab } from '../components/detail/OverviewTab';
 import { TasksTab } from '../components/detail/TasksTab';
 import { KnowledgeTab } from '../components/detail/KnowledgeTab';
@@ -10,6 +11,7 @@ import { WorkflowsTab } from '../components/detail/WorkflowsTab';
 import { UtilitiesTab } from '../components/detail/UtilitiesTab';
 import { DeploymentsTab } from '../components/detail/DeploymentsTab';
 import { SettingsTab } from '../components/detail/SettingsTab';
+import { RunConfigsTab } from '../components/detail/RunConfigsTab';
 import type { Project } from '../types';
 import { PROJECTS } from '../../../routes/types/routeConstants';
 import { setProjectContext } from '../utils/projectContext';
@@ -22,6 +24,7 @@ const TABS = [
   { id: 'workflows', label: 'Workflows', icon: FaPlay },
   { id: 'utilities', label: 'Utilities', icon: FaWrench },
   { id: 'deployments', label: 'Deployments', icon: FaCloudUploadAlt },
+  { id: 'run-configs', label: 'Run', icon: FaTerminal },
   { id: 'settings', label: 'Settings', icon: FaCog },
 ] as const;
 
@@ -51,6 +54,8 @@ export function ProjectDetailPage() {
   useEffect(() => { setProjectContext(project); return () => setProjectContext(null); }, [project]);
 
   useEffect(() => { load(); }, [load]);
+
+  const { watching } = useFileWatcher(project?.local_path || null);
 
   if (loading) {
     return (
@@ -94,6 +99,7 @@ export function ProjectDetailPage() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-bold text-theme-text truncate">{project.name}</h1>
+            {watching && <span className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium text-green-400 bg-green-400/10 rounded"><span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" /> watching</span>}
             <button onClick={() => toggleFavorite(project.id)}
               className="p-1 rounded-lg hover:bg-yellow-400/10 transition-colors">
               {project.favorite ? <FaStar className="w-4 h-4 text-yellow-400" /> : <FaRegStar className="w-4 h-4 text-theme-text/30" />}
@@ -130,6 +136,7 @@ export function ProjectDetailPage() {
         {activeTab === 'workflows' && <WorkflowsTab project={project} />}
         {activeTab === 'utilities' && <UtilitiesTab project={project} />}
         {activeTab === 'deployments' && <DeploymentsTab project={project} />}
+        {activeTab === 'run-configs' && <RunConfigsTab projectId={project.id} localPath={project.local_path} />}
         {activeTab === 'settings' && <SettingsTab project={project} onRefresh={load} />}
       </div>
     </div>

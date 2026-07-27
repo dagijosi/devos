@@ -70,23 +70,23 @@ Update the version in all three places:
 
 ```bash
 # package.json
-"version": "1.0.1"
+"version": "1.2.0"
 
 # src-tauri/Cargo.toml
-version = "1.0.1"
+version = "1.2.0"
 
 # src-tauri/tauri.conf.json
-"version": "1.0.1"
+"version": "1.2.0"
 ```
 
 ### Step 2: Commit and Tag
 
 ```bash
 git add .
-git commit -m "Release v1.0.1"
-git tag v1.0.1
+git commit -m "Release v1.2.0"
+git tag v1.2.0
 git push origin main
-git push origin v1.0.1
+git push origin v1.2.0
 ```
 
 ### Step 3: GitHub Actions Builds Automatically
