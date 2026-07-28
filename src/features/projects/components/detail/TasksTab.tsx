@@ -87,27 +87,29 @@ export function TasksTab({ projectId }: { projectId: number }) {
 
       <div className="space-y-1">
         {tasks.map(task => (
-          <div key={task.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-theme-background/20 transition-colors group">
-            <button onClick={() => toggleTask(task)} className="shrink-0">
-              {task.status === 'done' ? <FaCheckCircle className="w-4 h-4 text-green-400" /> : <FaRegCircle className="w-4 h-4 text-theme-text/30 group-hover:text-theme-text/50" />}
-            </button>
-            <div className="flex-1 min-w-0">
-              <p className={`text-sm ${task.status === 'done' ? 'line-through text-theme-text/30' : 'text-theme-text'}`}>{task.title}</p>
-              {task.description && <p className="text-xs text-theme-text/40 truncate">{task.description}</p>}
+          <div key={task.id}>
+            <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-theme-background/20 transition-colors group">
+              <button onClick={() => toggleTask(task)} className="shrink-0">
+                {task.status === 'done' ? <FaCheckCircle className="w-4 h-4 text-green-400" /> : <FaRegCircle className="w-4 h-4 text-theme-text/30 group-hover:text-theme-text/50" />}
+              </button>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm ${task.status === 'done' ? 'line-through text-theme-text/30' : 'text-theme-text'}`}>{task.title}</p>
+                {task.description && <p className="text-xs text-theme-text/40 truncate">{task.description}</p>}
+              </div>
+              <FaExclamationCircle className={`w-3 h-3 ${priorityColors[task.priority] || 'text-theme-text/20'}`} />
+              <button onClick={() => setExpandedLinks(expandedLinks === task.id ? null : task.id)} className="p-1 rounded text-theme-text/20 hover:text-theme-icon opacity-0 group-hover:opacity-100 transition-all" title="Links">
+                <FaLink className="w-3 h-3" />
+              </button>
+              <button onClick={() => deleteTask(task.id)} className="p-1 rounded text-theme-text/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
+                <FaTrash className="w-3 h-3" />
+              </button>
             </div>
-            <FaExclamationCircle className={`w-3 h-3 ${priorityColors[task.priority] || 'text-theme-text/20'}`} />
-            <button onClick={() => setExpandedLinks(expandedLinks === task.id ? null : task.id)} className="p-1 rounded text-theme-text/20 hover:text-theme-icon opacity-0 group-hover:opacity-100 transition-all" title="Links">
-              <FaLink className="w-3 h-3" />
-            </button>
-            <button onClick={() => deleteTask(task.id)} className="p-1 rounded text-theme-text/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
-              <FaTrash className="w-3 h-3" />
-            </button>
+            {expandedLinks === task.id && (
+              <div className="px-3 pb-2">
+                <TaskLinks taskId={task.id} projectId={projectId} />
+              </div>
+            )}
           </div>
-          {expandedLinks === task.id && (
-            <div className="px-3 pb-2">
-              <TaskLinks taskId={task.id} projectId={projectId} />
-            </div>
-          )}
         ))}
       </div>
     </div>
