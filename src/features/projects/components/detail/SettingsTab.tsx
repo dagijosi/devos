@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FaSave, FaTrash, FaExclamationTriangle, FaFolder, FaGithub, FaBell, FaUsers } from 'react-icons/fa';
+import { FaSave, FaTrash, FaExclamationTriangle, FaFolder, FaGithub, FaBell } from 'react-icons/fa';
 import { NotificationRules } from '../../../notifications/NotificationRules';
 import { TeamSyncSettings } from '../../../team-sync/TeamSyncSettings';
 

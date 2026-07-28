@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FaTerminal, FaSearch, FaPlus, FaTimes, FaTrash, FaStar, FaRegStar, FaCopy, FaCheck } from 'react-icons/fa';
+import { FaTerminal, FaSearch, FaPlus, FaTrash, FaStar, FaRegStar, FaCopy, FaCheck } from 'react-icons/fa';
 import { toast } from 'sonner';
 import { database } from '../../database';
 import { useSWR } from '../../hooks/useSWR';

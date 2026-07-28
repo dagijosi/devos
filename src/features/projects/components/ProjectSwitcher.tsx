@@ -4,7 +4,7 @@ import { FaFolder, FaCode, FaTerminal, FaExternalLinkAlt, FaCheck, FaTimes } fro
 import { useActiveProjectStore } from '../../../stores/activeProject.store';
 import { useProjects } from '../hooks/useProjects';
 import { PROJECT_DETAIL, PROJECTS, TERMINAL } from '../../../routes/types/routeConstants';
-import { getProjectContext, setProjectContext } from '../utils/projectContext';
+import { setProjectContext } from '../utils/projectContext';
 
 export function ProjectSwitcher() {
   const navigate = useNavigate();

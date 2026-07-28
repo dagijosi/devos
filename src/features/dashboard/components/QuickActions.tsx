@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaFolder, FaStickyNote, FaPlay, FaTerminal, FaRocket, FaSearch, FaListCheck, FaCode, FaPlus } from 'react-icons/fa';
+import { FaFolder, FaStickyNote, FaPlay, FaTerminal, FaSearch, FaTasks, FaCode, FaPlus } from 'react-icons/fa';
 import { PROJECTS, KNOWLEDGE, WORKFLOWS, TASKS } from '../../../routes/types/routeConstants';
 import { useAppStore } from '../../../stores/app.store';
 import { useActiveProjectStore } from '../../../stores/activeProject.store';
@@ -12,13 +12,13 @@ export function QuickActions() {
   const activeProject = useActiveProjectStore(s => s.activeProject);
   const [captureOpen, setCaptureOpen] = useState(false);
 
-  const actions = [
+  const actions: { label: string; icon: React.ElementType; desc: string; route?: string; action?: 'capture' | 'search' | 'terminal' | 'vscode' }[] = [
     { label: 'New Project', icon: FaFolder, desc: 'Create a new project', route: `${PROJECTS}?new=true` },
-    { label: 'Quick Capture', icon: FaPlus, desc: 'Task, note, bug, or snippet', action: 'capture' as const },
-    { label: 'Tasks', icon: FaListCheck, desc: 'Today\'s priorities', route: TASKS },
+    { label: 'Quick Capture', icon: FaPlus, desc: 'Task, note, bug, or snippet', action: 'capture' },
+    { label: 'Tasks', icon: FaTasks, desc: 'Today\'s priorities', route: TASKS },
     { label: 'New Note', icon: FaStickyNote, desc: 'Quick note capture', route: KNOWLEDGE },
     { label: 'Run Workflow', icon: FaPlay, desc: 'Execute workflows', route: WORKFLOWS },
-    { label: 'Search', icon: FaSearch, desc: 'Ctrl+K', action: 'search' as const },
+    { label: 'Search', icon: FaSearch, desc: 'Ctrl+K', action: 'search' },
   ];
 
   if (activeProject) {

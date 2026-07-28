@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FaFolder, FaGithub, FaTerminal, FaCode, FaClock, FaHistory, FaCircle, FaPlay, FaCalendarAlt, FaTasks, FaExclamationTriangle, FaGitBranch, FaShieldAlt, FaCube } from 'react-icons/fa';
+import { FaFolder, FaGithub, FaTerminal, FaCode, FaClock, FaHistory, FaCircle, FaPlay, FaCalendarAlt, FaTasks, FaExclamationTriangle, FaCodeBranch, FaShieldAlt, FaCube } from 'react-icons/fa';
 import { toast } from 'sonner';
 import { database } from '../../../../database';
 import type { Project } from '../../types';
@@ -36,16 +36,15 @@ export function OverviewTab({ project, onRefresh: _onRefresh }: OverviewTabProps
       try {
         const { useActiveProjectStore } = await import('../../../../stores/activeProject.store');
         const state = useActiveProjectStore.getState();
-        const active = state.projects.find((p: any) => p.id === project.id);
+        const active = state.recentProjects.find((p: any) => p.id === project.id);
         if (active?.branch) setGitInfo({ branch: active.branch });
       } catch {}
 
-      // Count deps
-      if (project.local_path) {
+      // Count scripts as deps proxy
+      if (project.scripts) {
         try {
-          const { useDependencies } = await import('../../../dependencies/useDependencies');
-          const deps = await useDependencies.parse(project.local_path);
-          setDepsCount(deps.length);
+          const parsed = typeof project.scripts === 'string' ? JSON.parse(project.scripts) : project.scripts;
+          setDepsCount(Object.keys(parsed).length);
         } catch {}
       }
     };
@@ -105,7 +104,7 @@ export function OverviewTab({ project, onRefresh: _onRefresh }: OverviewTabProps
             )}
             <div className="flex items-center gap-4 mt-3 text-xs text-theme-text/40">
               <span className="flex items-center gap-1"><FaCalendarAlt className="w-3 h-3" /> {new Date(project.created_at).toLocaleDateString()}</span>
-              {gitInfo?.branch && <span className="flex items-center gap-1"><FaGitBranch className="w-3 h-3 text-purple-400" /> {gitInfo.branch}</span>}
+              {gitInfo?.branch && <span className="flex items-center gap-1"><FaCodeBranch className="w-3 h-3 text-purple-400" /> {gitInfo.branch}</span>}
               {depsCount > 0 && <span className="flex items-center gap-1"><FaCube className="w-3 h-3 text-cyan-400" /> {depsCount} deps</span>}
             </div>
           </div>
@@ -146,7 +145,7 @@ export function OverviewTab({ project, onRefresh: _onRefresh }: OverviewTabProps
         </div>
         <div className="bg-theme-surface border border-theme-border/20 rounded-xl p-4">
           <div className="flex items-center gap-2 text-theme-text/40 mb-1">
-            <FaGitBranch className="w-3.5 h-3.5" />
+            <FaCodeBranch className="w-3.5 h-3.5" />
             <span className="text-[10px] uppercase tracking-wider">Branch</span>
           </div>
           <p className="text-lg font-bold text-theme-text truncate">{gitInfo?.branch || '-'}</p>

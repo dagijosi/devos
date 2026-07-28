@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { FaListCheck, FaCalendarDay, FaExclamationTriangle, FaPlus, FaFilter } from 'react-icons/fa';
+import { FaTasks, FaCalendarDay, FaExclamationTriangle, FaPlus, FaFilter } from 'react-icons/fa';
 import { useTasks } from '../useTasks';
 import { QuickCapture } from '../../quick-capture/QuickCapture';
 import { useProjects } from '../../projects/hooks/useProjects';
@@ -10,7 +10,7 @@ const VIEWS: { id: View; label: string; icon: React.ElementType }[] = [
   { id: 'today', label: 'Today', icon: FaCalendarDay },
   { id: 'overdue', label: 'Overdue', icon: FaExclamationTriangle },
   { id: 'pending', label: 'This Week', icon: FaFilter },
-  { id: 'all', label: 'All Tasks', icon: FaListCheck },
+  { id: 'all', label: 'All Tasks', icon: FaTasks },
 ];
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -19,15 +19,9 @@ const PRIORITY_COLORS: Record<string, string> = {
   low: 'text-green-400 bg-green-500/10',
 };
 
-const STATUS_ACTIONS: Record<string, string[]> = {
-  todo: ['in_progress', 'done'],
-  in_progress: ['todo', 'done'],
-  done: ['todo', 'in_progress'],
-};
-
 export function TasksPage() {
   const [view, setView] = useState<View>('today');
-  const { tasks, loading, addTask, updateTask, deleteTask } = useTasks(view);
+  const { tasks, loading, addTask: _, updateTask, deleteTask } = useTasks(view);
   const { projects = [] } = useProjects();
   const [captureOpen, setCaptureOpen] = useState(false);
   const [filterProject, setFilterProject] = useState<number | null>(null);
@@ -60,7 +54,7 @@ export function TasksPage() {
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <FaListCheck className="w-5 h-5 text-theme-icon" />
+          <FaTasks className="w-5 h-5 text-theme-icon" />
           <h1 className="text-lg font-bold text-theme-text">Tasks</h1>
           {counts.overdue > 0 && view === 'overdue' && (
             <span className="px-2 py-0.5 text-[10px] font-medium text-red-400 bg-red-500/10 rounded">{counts.overdue} overdue</span>
@@ -108,7 +102,7 @@ export function TasksPage() {
 
       {filtered.length === 0 ? (
         <div className="text-center py-16">
-          <FaListCheck className="w-12 h-12 text-theme-text/10 mx-auto mb-3" />
+          <FaTasks className="w-12 h-12 text-theme-text/10 mx-auto mb-3" />
           <p className="text-sm text-theme-text/40">
             {view === 'today' ? 'No tasks for today' : view === 'overdue' ? 'Nothing overdue' : view === 'pending' ? 'No pending tasks this week' : 'No tasks yet'}
           </p>

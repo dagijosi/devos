@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FaCheckCircle, FaCircle, FaFolder, FaGitAlt, FaCog, FaPlay, FaGithub, FaExternalLinkAlt } from 'react-icons/fa';
+import { FaCheckCircle, FaCircle, FaFolder, FaGitAlt, FaCog, FaPlay, FaGithub } from 'react-icons/fa';
 import type { Project } from '../../types';
 
 interface Props {

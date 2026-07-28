@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { FaPlay, FaStop, FaSync, FaTerminal, FaExternalLinkAlt, FaChartLine } from 'react-icons/fa';
+import { FaPlay, FaStop, FaSync, FaExternalLinkAlt } from 'react-icons/fa';
 
 interface Service {
   id: string;
@@ -19,7 +19,7 @@ interface Props {
   runConfigs?: { name: string; command: string }[];
 }
 
-export function ServiceManager({ projectId, localPath, runConfigs = [] }: Props) {
+export function ServiceManager({ projectId: _projectId, localPath, runConfigs = [] }: Props) {
   const [services, setServices] = useState<Service[]>([]);
   const logEndRefs = useRef<Record<string, HTMLDivElement | null>>({});
 

@@ -58,7 +58,7 @@ import { FindReplace } from '../components/tools/FindReplace';
 import { CronParser } from '../components/tools/CronParser';
 import { GradientBuilder } from '../components/tools/GradientBuilder';
 import { EnvViewer } from '../components/tools/EnvViewer';
-import { TELEGRAM } from '../../../routes/types/routeConstants';
+
 
 const Placeholder = () => (
   <div className="flex flex-col items-center justify-center py-12 text-theme-text/30">
@@ -139,7 +139,7 @@ export function UtilitiesPage() {
   useEffect(() => {
     if (activeTool === 'telegram-connector') {
       setActiveTool(null);
-      navigate(TELEGRAM, { replace: true });
+      navigate('/', { replace: true });
     }
   }, [activeTool]); // eslint-disable-line react-hooks/exhaustive-deps
 

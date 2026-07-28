@@ -18,7 +18,7 @@ const breadcrumbMap: Record<string, string> = {
   [KNOWLEDGE]: 'Library',
   [UTILITIES]: 'Tools',
   [WORKFLOWS]: 'Workflows',
-  [AI_ALT]: 'AI',
+
   [BACKUP]: 'Backup',
   [CLIPBOARD]: 'Clipboard',
   [SNIPPETS]: 'Snippets',
@@ -29,7 +29,6 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const toggleCommandPalette = useAppStore((s) => s.toggleCommandPalette);
-  const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen);
 
   const getBreadcrumbs = (): { name: string; path: string }[] => {
     const pathname = location.pathname;

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaLink, FaStickyNote, FaBug, FaGitCommit, FaCloudUploadAlt, FaPlus, FaTrash, FaUnlink } from 'react-icons/fa';
+import { FaLink, FaStickyNote, FaBug, FaCodeBranch, FaCloudUploadAlt, FaPlus, FaTrash } from 'react-icons/fa';
 import { database } from '../../database';
 import { toast } from 'sonner';
 
@@ -16,7 +16,7 @@ interface Props {
   projectId?: number;
 }
 
-const TYPE_ICONS: Record<string, React.ElementType> = { note: FaStickyNote, bug: FaBug, commit: FaGitCommit, deployment: FaCloudUploadAlt, knowledge: FaStickyNote };
+const TYPE_ICONS: Record<string, React.ElementType> = { note: FaStickyNote, bug: FaBug, commit: FaCodeBranch, deployment: FaCloudUploadAlt, knowledge: FaStickyNote };
 const TYPE_COLORS: Record<string, string> = { note: 'text-green-400 bg-green-500/10', bug: 'text-red-400 bg-red-500/10', commit: 'text-purple-400 bg-purple-500/10', deployment: 'text-blue-400 bg-blue-500/10', knowledge: 'text-green-400 bg-green-500/10' };
 
 export function TaskLinks({ taskId, projectId }: Props) {

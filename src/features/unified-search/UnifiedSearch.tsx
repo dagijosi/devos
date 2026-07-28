@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaFolder, FaStickyNote, FaBug, FaCode, FaTerminal, FaKey, FaCube, FaGitAlt, FaPlus, FaTimes, FaArrowRight, FaSearch, FaPlay, FaCloudUploadAlt, FaArrowDown } from 'react-icons/fa';
+import { useActiveProjectStore } from '../../stores/activeProject.store';
+import { FaFolder, FaStickyNote, FaBug, FaCode, FaTerminal, FaGitAlt, FaPlus, FaArrowRight, FaSearch, FaPlay, FaCloudUploadAlt, FaArrowDown } from 'react-icons/fa';
 import { useAppStore } from '../../stores/app.store';
 import { database } from '../../database';
 import { PROJECT_DETAIL, PROJECTS, KNOWLEDGE, TASKS, TERMINAL } from '../../routes/types/routeConstants';
-import { getProjectContext } from '../projects/utils/projectContext';
+
 import { runScript as runProjectScript, openVSCode } from '../projects/utils/projectActions';
 
 interface SearchResult {
@@ -29,15 +30,6 @@ const COMMANDS: SearchResult[] = [
   { id: 'cmd-open-vscode', type: 'action', label: 'Open in VS Code', description: 'Open project in Visual Studio Code', icon: FaCode, action: () => {} },
 ];
 
-const TYPE_ICONS: Record<string, React.ElementType> = {
-  project: FaFolder,
-  task: FaStickyNote,
-  note: FaStickyNote,
-  bug: FaBug,
-  snippet: FaCode,
-  action: FaArrowRight,
-};
-
 const TYPE_COLORS: Record<string, string> = {
   project: 'text-blue-400 bg-blue-500/10',
   task: 'text-green-400 bg-green-500/10',
@@ -50,11 +42,12 @@ const TYPE_COLORS: Record<string, string> = {
 export function UnifiedSearch() {
   const navigate = useNavigate();
   const { commandPaletteOpen, setCommandPaletteOpen } = useAppStore();
+  const activeProject = useActiveProjectStore(s => s.activeProject);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const searchTimeoutRef = useRef<any>(null);
 
   useEffect(() => {
     if (commandPaletteOpen) {
@@ -70,7 +63,7 @@ export function UnifiedSearch() {
       // Show default commands
       setResults([
         ...COMMANDS,
-        { id: 'sep', type: 'action', label: '', icon: FaSearch, action: () => {} },
+        { id: 'sep', type: 'action' as const, label: '', icon: FaSearch, action: () => {} },
       ].filter((r) => r.label));
       return;
     }
@@ -147,32 +140,28 @@ export function UnifiedSearch() {
     else if (result.id === 'cmd-open-terminal') navigate(TERMINAL);
     else if (result.id === 'cmd-switch-project') navigate(PROJECTS);
     else if (result.id === 'cmd-run-dev') {
-      const ctx = getProjectContext();
-      if (ctx?.localPath) try { runProjectScript('npm run dev', ctx.localPath); } catch {}
+      const localPath = activeProject?.localPath;
+      if (localPath) try { runProjectScript('npm run dev', localPath); } catch {}
       else navigate(PROJECTS);
     }
     else if (result.id === 'cmd-commit') {
-      const ctx = getProjectContext();
-      if (ctx?.localPath) navigate(`/projects/${ctx.id}?tab=git`);
+      if (activeProject?.localPath) navigate(`/projects/${activeProject.id}?tab=git`);
       else navigate(PROJECTS);
     }
     else if (result.id === 'cmd-push') {
-      const ctx = getProjectContext();
-      if (ctx?.localPath) navigate(`/projects/${ctx.id}?tab=git`);
+      if (activeProject?.localPath) navigate(`/projects/${activeProject.id}?tab=git`);
       else navigate(PROJECTS);
     }
     else if (result.id === 'cmd-pull') {
-      const ctx = getProjectContext();
-      if (ctx?.localPath) navigate(`/projects/${ctx.id}?tab=git`);
+      if (activeProject?.localPath) navigate(`/projects/${activeProject.id}?tab=git`);
       else navigate(PROJECTS);
     }
     else if (result.id === 'cmd-deploy') {
-      const ctx = getProjectContext();
-      if (ctx?.id) navigate(`/projects/${ctx.id}?tab=deployments`);
+      if (activeProject?.id) navigate(`/projects/${activeProject.id}?tab=deployments`);
       else navigate(PROJECTS);
     }
     else if (result.id === 'cmd-open-vscode') {
-      const ctx = getProjectContext();
+      const ctx = activeProject;
       if (ctx?.localPath) { try { openVSCode(ctx.localPath); } catch {} }
       else navigate(PROJECTS);
     }

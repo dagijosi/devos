@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { FaCube, FaSync, FaExternalLinkAlt, FaShieldAlt, FaArrowUp, FaExclamationTriangle, FaSearch, FaTag } from 'react-icons/fa';
+import { FaCube, FaSync, FaExternalLinkAlt, FaShieldAlt, FaArrowUp, FaExclamationTriangle } from 'react-icons/fa';
 import { toast } from 'sonner';
 import { isTauri } from '../../../../lib/tauri';
 import { useSWR } from '../../../../hooks/useSWR';
@@ -53,7 +53,7 @@ async function readRequirements(path: string): Promise<DepFile | null> {
     const txt = await readFile(path + '/requirements.txt');
     const deps = txt.split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('#')).map(line => {
       const [name, version] = line.split(/==|>=|<=|~=|!=|>|</, 2);
-      return { name: name.trim(), current: version?.trim() || 'unspecified', outdated: false, health: 'unknown' };
+      return { name: name.trim(), current: version?.trim() || 'unspecified', outdated: false, health: 'unknown' as const };
     });
     return { path, type: 'pip', deps };
   } catch { return null; }
@@ -82,8 +82,6 @@ async function checkVulnerability(name: string): Promise<{ vulnerable: boolean; 
   return { vulnerable: false };
 }
 
-const SEVERITY_COLORS: Record<string, string> = { critical: 'text-red-400 bg-red-500/10', high: 'text-orange-400 bg-orange-500/10', medium: 'text-yellow-400 bg-yellow-500/10', low: 'text-blue-400 bg-blue-500/10' };
-
 const GRADE_COLORS: Record<string, string> = {
   A: 'text-green-400 bg-green-500/10 border-green-500/30',
   B: 'text-blue-400 bg-blue-500/10 border-blue-500/30',
@@ -106,7 +104,7 @@ export function DependenciesTab({ localPath }: Props) {
   }, []);
 
   const key = localPath ? `deps:${localPath}` : '';
-  const { data: files, error, loading, refetch } = useSWR<DepFile[]>(key, () => localPath && tauri ? fetchDeps(localPath) : Promise.reject(new Error('Not available')));
+  const { data: files, loading, refetch } = useSWR<DepFile[]>(key, () => localPath && tauri ? fetchDeps(localPath) : Promise.reject(new Error('Not available')));
 
   // Calculate health summary
   useEffect(() => {

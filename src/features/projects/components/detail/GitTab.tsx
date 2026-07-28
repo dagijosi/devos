@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { FaGitAlt, FaCodeBranch, FaPlus, FaCheck, FaHistory, FaArrowDown, FaArrowUp, FaBox, FaExclamationTriangle, FaCopy, FaCheckDouble, FaTrash } from 'react-icons/fa';
+import { FaGitAlt, FaCodeBranch, FaPlus, FaCheck, FaHistory, FaArrowDown, FaArrowUp, FaBox, FaExclamationTriangle, FaCheckDouble, FaTrash } from 'react-icons/fa';
 import { toast } from 'sonner';
 import { useSWR } from '../../../../hooks/useSWR';
 import { TabErrorBoundary } from '../../../../components/feedback/TabErrorBoundary';
@@ -71,7 +71,7 @@ export function GitTab({ localPath }: Props) {
       return { id: i, message: match?.[2] || line, date: '' };
     });
 
-    const ahead = 0; let behind = 0;
+    let ahead = 0; let behind = 0;
     if (remoteOut) {
       const parts = remoteOut.trim().split('\t');
       if (parts.length >= 2) { ahead = parseInt(parts[0]) || 0; behind = parseInt(parts[1]) || 0; }

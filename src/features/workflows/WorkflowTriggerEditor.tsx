@@ -33,7 +33,7 @@ const GIT_EVENTS = [
 ];
 
 export function WorkflowTriggerEditor({ workflow, onUpdate }: Props) {
-  const [config, setConfig] = useState<any>(null);
+  const [_config, _setConfig] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [triggerType, setTriggerType] = useState('manual');
   const [enabled, setEnabled] = useState(true);
@@ -47,7 +47,7 @@ export function WorkflowTriggerEditor({ workflow, onUpdate }: Props) {
     (async () => {
       const tc = await database.getWorkflowTriggerConfig(workflow.id);
       if (tc) {
-        setConfig(tc);
+        _setConfig(tc);
         setTriggerType(tc.trigger_type);
         setEnabled(tc.enabled);
         try {

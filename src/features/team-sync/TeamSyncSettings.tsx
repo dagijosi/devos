@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaUsers, FaSync, FaCheck, FaTimes, FaCog, FaDatabase } from 'react-icons/fa';
+import { FaUsers, FaSync, FaCheck, FaTimes } from 'react-icons/fa';
 import { toast } from 'sonner';
 import { database } from '../../database';
 

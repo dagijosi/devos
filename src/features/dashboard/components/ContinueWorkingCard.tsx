@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { FaArrowRight, FaFolder, FaCode, FaTerminal, FaPlay, FaGitAlt, FaExternalLinkAlt } from 'react-icons/fa';
+import { FaArrowRight, FaFolder, FaCode, FaTerminal, FaGitAlt, FaExternalLinkAlt } from 'react-icons/fa';
 import { useActiveProjectStore } from '../../../stores/activeProject.store';
 import { useProjects } from '../../projects/hooks/useProjects';
 import { useTasks } from '../../tasks/useTasks';

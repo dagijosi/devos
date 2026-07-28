@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { FaArrowLeft, FaStar, FaRegStar, FaEye, FaTasks, FaBook, FaCode, FaRocket, FaCog, FaFolder, FaTerminal, FaGitAlt, FaCube, FaPlay, FaCloudUploadAlt } from 'react-icons/fa';
+import { FaArrowLeft, FaStar, FaRegStar, FaEye, FaTasks, FaBook, FaRocket, FaCog, FaFolder, FaTerminal, FaGitAlt, FaCube, FaPlay, FaCloudUploadAlt } from 'react-icons/fa';
 import { useProjects } from '../hooks/useProjects';
 import { useActiveProjectStore } from '../../../stores/activeProject.store';
 import { useFileWatcher } from '../../file-watcher/useFileWatcher';

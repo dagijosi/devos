@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { FaCloudUploadAlt, FaExternalLinkAlt, FaPlay, FaTrash, FaPlus, FaChevronDown, FaChevronUp, FaCopy, FaCheck, FaSpinner, FaExclamationCircle, FaHistory, FaBan } from 'react-icons/fa';
 import { toast } from 'sonner';
 import { database } from '../../../../database';

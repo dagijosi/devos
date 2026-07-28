@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { FaNodeJs, FaReact, FaPython, FaDocker, FaVuejs, FaAngular, FaPhp, FaJava, FaRust, FaDatabase, FaBox, FaCog } from 'react-icons/fa';
-import { SiNextdotjs, SiTypescript, SiTailwindcss, SiExpress, SiFastapi, SiGo, SiRuby, SiFlutter, SiDotnet, SiLaravel, SiDjango } from 'react-icons/si';
+import { FaReact, FaVuejs, FaRust, FaBox } from 'react-icons/fa';
+import { SiNextdotjs, SiExpress, SiFastapi, SiDjango, SiGo, SiDotnet, SiLaravel, SiFlutter } from 'react-icons/si';
 
 interface Template {
   id: string;
