@@ -33,4 +33,5 @@ tauri-plugin-http = "2"
 tauri-plugin-fs = "2"
 notify = { version = "7", features = ["macos_kqueue"] }
 winreg = "0.52"
+portable-pty = "0.8"
 

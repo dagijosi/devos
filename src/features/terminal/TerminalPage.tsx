@@ -12,7 +12,7 @@ interface Tab {
   title: string;
   terminal: Terminal | null;
   fitAddon: FitAddon | null;
-  child: any | null;
+  sessionId: string | null;
   isRunning: boolean;
   disposable: { dispose: () => void } | null;
   cwd?: string;
@@ -117,7 +117,7 @@ export function TerminalPage() {
       title: label || `Terminal ${tabCounter}`,
       terminal: term,
       fitAddon,
-      child: null,
+      sessionId: null,
       isRunning: false,
       disposable: null,
       cwd,
@@ -127,7 +127,6 @@ export function TerminalPage() {
     setTabs((prev) => [...prev, newTab]);
     setActiveTabId(id);
 
-    // Wait for DOM mount, then open terminal
     setTimeout(() => {
       const container = terminalRefs.current.get(id);
       if (container && term) {
@@ -136,7 +135,7 @@ export function TerminalPage() {
         term.focus();
 
         if (isTauri) {
-          startTauriShell(term, id, cwd, command);
+          startTauriPtyShell(term, id, cwd, command);
         } else {
           startBrowserShell(term, id);
         }
@@ -144,48 +143,54 @@ export function TerminalPage() {
     }, 50);
   }, [isTauri, shellType, terminalTheme]);
 
-  const startTauriShell = async (term: Terminal, tabId: string, configuredCwd?: string, configuredCommand?: string) => {
+  const startTauriPtyShell = async (term: Terminal, tabId: string, configuredCwd?: string, configuredCommand?: string) => {
     try {
-      const { Command } = await import('@tauri-apps/plugin-shell');
-      const shellCmd = shellType === 'powershell' ? 'powershell' : shellType === 'bash' ? 'bash' : 'cmd';
-      const shellArgs = shellType === 'powershell' ? ['-NoLogo'] : [];
+      const { invoke } = await import('@tauri-apps/api/core');
+      const { listen } = await import('@tauri-apps/api/event');
+
       const ctx = getProjectContext();
       const cwd = configuredCwd || ctx?.localPath || undefined;
-      const command = Command.create(shellCmd, shellArgs, cwd ? { cwd } : undefined);
 
-      command.stdout.on('data', (data: any) => {
-        const text = typeof data === 'string' ? data : data?.data ?? '';
-        term.write(text.replace(/\n/g, '\r\n'));
-      });
-      command.stderr.on('data', (data: any) => {
-        const text = typeof data === 'string' ? data : data?.data ?? '';
-        term.write(text.replace(/\n/g, '\r\n'));
-      });
+      const result: any = await invoke('create_pty', { cwd: cwd || null });
+      const sessionId: string = result.session_id;
 
-      const child = await command.spawn();
+      const unlisteners: (() => void)[] = [];
 
-      command.on('close', () => {
-        term.writeln('\r\n\x1b[31m[Process exited]\x1b[0m');
-        setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, isRunning: false } : t));
+      const unlistenOutput = await listen<any>('pty-output', (event) => {
+        const p = event.payload;
+        if (p.session_id === sessionId) {
+          term.write(p.data.replace(/\n/g, '\r\n'));
+        }
       });
+      unlisteners.push(unlistenOutput);
 
-      command.on('error', (err: string) => {
-        term.writeln(`\r\n\x1b[31m[Error: ${err}]\x1b[0m`);
+      const unlistenExit = await listen<any>('pty-exit', (event) => {
+        if (event.payload.session_id === sessionId) {
+          term.writeln('\r\n\x1b[31m[Process exited]\x1b[0m');
+          setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, isRunning: false } : t));
+        }
       });
+      unlisteners.push(unlistenExit);
 
       const disposable = term.onData((data) => {
-        child?.write(data);
+        invoke('write_pty', { sessionId, data }).catch(() => {});
       });
 
       term.writeln('\x1b[36mDevOS Terminal\x1b[0m');
-      term.writeln(`\x1b[2mShell: ${shellCmd}${ctx ? `  |  Project: ${ctx.name}` : ''}\x1b[0m`);
+      term.writeln(`\x1b[2mShell: ${shellType}${ctx ? `  |  Project: ${ctx.name}` : ''}\x1b[0m`);
 
       if (configuredCommand) {
         term.writeln(`\x1b[2mRunning: ${configuredCommand}\x1b[0m`);
-        child.write(`${configuredCommand}\r`);
+        invoke('write_pty', { sessionId, data: `${configuredCommand}\r` }).catch(() => {});
       }
 
-      setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, child, isRunning: true, disposable } : t));
+      setTabs((prev) =>
+        prev.map((t) =>
+          t.id === tabId
+            ? { ...t, sessionId, isRunning: true, disposable: { dispose: () => { unlisteners.forEach(u => u()); disposable.dispose(); } } }
+            : t
+        )
+      );
     } catch (err: any) {
       term.writeln(`\x1b[31mFailed to start shell: ${err?.toString() || 'Unknown error'}\x1b[0m`);
     }
@@ -196,18 +201,18 @@ export function TerminalPage() {
   }, [addTab, runtimeReady]);
 
   const startBrowserShell = (term: Terminal, tabId: string) => {
-    term.writeln('\x1b[33m⚠ Demo Mode — No shell available\x1b[0m');
+    term.writeln('\x1b[33m\u26a0 Demo Mode \u2014 No shell available\x1b[0m');
     term.writeln('\x1b[2mRun \x1b[0m\x1b[36mnpm run tauri:dev\x1b[0m\x1b[2m for an interactive terminal.\x1b[0m\r\n');
     term.writeln('\x1b[2mAvailable commands in demo mode:\x1b[0m');
-    term.writeln('  \x1b[33mclear\x1b[0m  \x1b[2m— clear screen\x1b[0m');
-    term.writeln('  \x1b[33mhelp\x1b[0m   \x1b[2m— show this message\x1b[0m');
-    term.writeln('  \x1b[33mecho\x1b[0m   \x1b[2m— echo text\x1b[0m\r\n');
+    term.writeln('  \x1b[33mclear\x1b[0m  \x1b[2m\u2014 clear screen\x1b[0m');
+    term.writeln('  \x1b[33mhelp\x1b[0m   \x1b[2m\u2014 show this message\x1b[0m');
+    term.writeln('  \x1b[33mecho\x1b[0m   \x1b[2m\u2014 echo text\x1b[0m\r\n');
 
     let buffer = '';
     term.onData((data) => {
       const code = data.charCodeAt(0);
 
-      if (code === 13) { // Enter
+      if (code === 13) {
         const cmd = buffer.trim().toLowerCase();
         if (cmd === 'clear') {
           term.clear();
@@ -220,7 +225,7 @@ export function TerminalPage() {
         }
         buffer = '';
         term.write(`\r\n\x1b[32m>\x1b[0m `);
-      } else if (code === 127) { // Backspace
+      } else if (code === 127) {
         if (buffer.length > 0) {
           buffer = buffer.slice(0, -1);
           term.write('\b \b');
@@ -235,14 +240,17 @@ export function TerminalPage() {
     setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, isRunning: true } : t));
   };
 
-  const closeTab = (id: string, e: React.MouseEvent) => {
+  const closeTab = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const tab = tabs.find((t) => t.id === id);
     if (tab?.terminal) {
       tab.terminal.dispose();
     }
-    if (tab?.child && isTauri) {
-      try { tab.child.kill(); } catch {}
+    if (tab?.sessionId && isTauri) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('close_pty', { sessionId: tab.sessionId });
+      } catch {}
     }
     if (tab?.disposable) {
       try { tab.disposable.dispose(); } catch {}
@@ -263,7 +271,6 @@ export function TerminalPage() {
     terminalRefs.current.set(id, el);
   };
 
-  // Fit active terminal on resize
   useEffect(() => {
     const handleResize = () => {
       const tab = tabs.find((t) => t.id === activeTabId);
@@ -275,7 +282,6 @@ export function TerminalPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, [tabs, activeTabId]);
 
-  // Fit when active tab changes
   useEffect(() => {
     const tab = tabs.find((t) => t.id === activeTabId);
     if (tab?.fitAddon) {
@@ -287,7 +293,6 @@ export function TerminalPage() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Tab bar */}
       <div className="flex items-center gap-0.5 mb-2 overflow-x-auto shrink-0">
         {tabs.map((tab) => (
           <div
@@ -324,7 +329,6 @@ export function TerminalPage() {
         </button>
       </div>
 
-      {/* Terminal area */}
       <div className="flex-1 border border-theme-border/20 rounded-xl overflow-hidden" style={{ backgroundColor: terminalBg }}>
         {tabs.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-8">
@@ -338,8 +342,8 @@ export function TerminalPage() {
             </button>
             <p className="text-xs text-theme-text/30 mt-4">
               {isTauri
-                ? `${shellType} shell — full interactive terminal`
-                : 'Demo mode — run `npm run tauri:dev` for interactive shell'}
+                ? `${shellType} shell \u2014 full interactive terminal`
+                : 'Demo mode \u2014 run `npm run tauri:dev` for interactive shell'}
             </p>
           </div>
         ) : (

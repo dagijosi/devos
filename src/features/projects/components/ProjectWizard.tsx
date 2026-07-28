@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaArrowLeft, FaArrowRight, FaFolder, FaCheck, FaTimes, FaPlus, FaSpinner } from 'react-icons/fa';
+import { FaArrowLeft, FaArrowRight, FaFolder, FaCheck, FaTimes, FaPlus, FaSpinner, FaRocket } from 'react-icons/fa';
 import { toast } from 'sonner';
 import { PROJECTS } from '../../../routes/types/routeConstants';
 import { database } from '../../../database';
 import type { ProjectFormData } from '../types';
+import { ProjectTemplateSelector } from './ProjectTemplateSelector';
 
 const isTauri = () => typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__;
 
@@ -225,8 +226,65 @@ function StepFinish({ data, onBack, onFinish, busy }: WizardStepProps & { onFini
   );
 }
 
+function StepTemplate({ data, setData, onNext, onBack }: WizardStepProps) {
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+
+  const handleTemplateSelect = (template: any) => {
+    setData({
+      ...data,
+      technology: template.technology || [],
+      scripts: Object.entries(template.scripts || {}).map(([name, command]) => ({ name, command })),
+    });
+    setShowTemplatePicker(false);
+  };
+
+  return (
+    <div className="space-y-5">
+      <h3 className="text-base font-semibold text-theme-text">Template</h3>
+      <p className="text-xs text-theme-text/50">Start from a template or configure manually</p>
+
+      <div className="flex flex-col items-center gap-4 py-6">
+        <button onClick={() => setShowTemplatePicker(true)}
+          className="flex items-center gap-2.5 px-6 py-3.5 bg-theme-icon/10 text-theme-icon rounded-2xl border border-theme-icon/20 hover:bg-theme-icon/20 transition-colors text-sm font-medium">
+          <FaRocket className="w-4 h-4" /> Choose a Template
+        </button>
+        {data.technology.length > 0 && (
+          <div className="w-full bg-theme-background rounded-xl p-4 space-y-2">
+            <p className="text-xs text-theme-text/50 font-medium">Pre-filled from template:</p>
+            <div className="flex flex-wrap gap-1.5">
+              {data.technology.map((t: string) => <span key={t} className="px-2 py-0.5 text-[10px] font-medium bg-theme-icon/10 text-theme-icon rounded">{t}</span>)}
+            </div>
+            {data.scripts.length > 0 && (
+              <p className="text-[10px] text-theme-text/40">{data.scripts.length} script{data.scripts.length > 1 ? 's' : ''} configured</p>
+            )}
+          </div>
+        )}
+        <button onClick={() => { setData({ ...data, technology: [], scripts: [] }); }}
+          className="text-xs text-theme-text/30 hover:text-theme-text/60 transition-colors">
+          Skip template (manual setup)
+        </button>
+      </div>
+
+      {showTemplatePicker && (
+        <ProjectTemplateSelector
+          onSelect={handleTemplateSelect}
+          onClose={() => setShowTemplatePicker(false)}
+        />
+      )}
+
+      <div className="flex justify-between">
+        <button onClick={onBack} className="flex items-center gap-2 px-4 py-2.5 text-sm text-theme-text/60 hover:text-theme-text"><FaArrowLeft className="w-3 h-3" /> Back</button>
+        <button onClick={onNext} className="flex items-center gap-2 px-5 py-2.5 bg-theme-icon text-white rounded-xl text-sm font-medium hover:bg-theme-icon/90 transition-colors">
+          Next <FaArrowRight className="w-3 h-3" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 const STEPS = [
   { title: 'Name & Description', component: StepName },
+  { title: 'Template', component: StepTemplate },
   { title: 'Path & Repository', component: StepPath },
   { title: 'Technologies', component: StepTech },
   { title: 'Scripts', component: StepScripts },

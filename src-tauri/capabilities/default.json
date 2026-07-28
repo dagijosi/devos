@@ -63,6 +63,10 @@
     "fs:default",
     "fs:allow-read-text-file",
     "fs:allow-exists",
+    {
+      "identifier": "fs:scope",
+      "allow": ["**"]
+    },
     "shell:allow-stdin-write",
     "shell:allow-kill"
   ]

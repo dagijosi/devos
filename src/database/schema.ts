@@ -490,6 +490,18 @@ export const ALL_MIGRATIONS = [
   // Deployments tables
   DEPLOYMENTS_TABLE,
   DEPLOYMENT_LOGS_TABLE,
+  // Notification rules
+  NOTIFICATION_RULES_TABLE,
+  // Task links
+  TASK_LINKS_TABLE,
+  // Command templates
+  COMMAND_TEMPLATES_TABLE,
+  // Workflow trigger config
+  WORKFLOW_TRIGGER_CONFIG_TABLE,
+  // Team sync config
+  TEAM_SYNC_CONFIG_TABLE,
+  // Workflow trigger column migrations
+  ...WORKFLOW_TRIGGER_MIGRATIONS,
 ];
 
 // ── Query constants ────────────────────────────────────────────────────
@@ -736,8 +748,11 @@ export const PROJECT_LINK_QUERIES = {
 };
 
 export const PROJECT_TASK_QUERIES = {
-  getAll: `SELECT * FROM project_tasks ORDER BY created_at DESC`,
-  getByProject: `SELECT * FROM project_tasks WHERE project_id = ? ORDER BY created_at DESC`,
+  getAll: `SELECT pt.*, p.name as project_name, p.color as project_color, p.local_path as project_path FROM project_tasks pt LEFT JOIN projects p ON pt.project_id = p.id ORDER BY pt.created_at DESC`,
+  getByProject: `SELECT pt.*, p.name as project_name, p.color as project_color FROM project_tasks pt LEFT JOIN projects p ON pt.project_id = p.id WHERE pt.project_id = ? ORDER BY pt.created_at DESC`,
+  getPending: `SELECT pt.*, p.name as project_name, p.color as project_color FROM project_tasks pt LEFT JOIN projects p ON pt.project_id = p.id WHERE pt.status != 'done' AND (pt.due_date IS NULL OR pt.due_date <= datetime('now', '+7 days')) ORDER BY pt.due_date ASC, pt.priority DESC`,
+  getOverdue: `SELECT pt.*, p.name as project_name, p.color as project_color FROM project_tasks pt LEFT JOIN projects p ON pt.project_id = p.id WHERE pt.status != 'done' AND pt.due_date < datetime('now', 'start of day') ORDER BY pt.due_date ASC`,
+  getToday: `SELECT pt.*, p.name as project_name, p.color as project_color FROM project_tasks pt LEFT JOIN projects p ON pt.project_id = p.id WHERE pt.due_date = datetime('now', 'start of day') OR (pt.status != 'done' AND pt.due_date IS NULL) ORDER BY pt.priority DESC, pt.created_at DESC`,
   insert: `INSERT INTO project_tasks (project_id, title, description, priority, status, due_date) VALUES (?, ?, ?, ?, ?, ?)`,
   update: `UPDATE project_tasks SET title = ?, description = ?, priority = ?, status = ?, due_date = ? WHERE id = ?`,
   delete: `DELETE FROM project_tasks WHERE id = ?`,
@@ -835,3 +850,122 @@ export const TOOL_SETTINGS_QUERIES = {
   getByToolId: `SELECT * FROM tool_settings WHERE tool_id = ?`,
   upsert: `INSERT INTO tool_settings (tool_id, settings_json) VALUES (?, ?) ON CONFLICT(tool_id) DO UPDATE SET settings_json = excluded.settings_json`,
 };
+
+// ── Notification rules ──────────────────────────────────────────────────
+export const NOTIFICATION_RULES_TABLE = `CREATE TABLE IF NOT EXISTS notification_rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  event_type TEXT NOT NULL CHECK(event_type IN ('workflow_failed', 'deployment_failed', 'deployment_success', 'dependency_vulnerable', 'task_overdue', 'task_due_soon', 'git_conflict', 'build_failed', 'service_crashed')),
+  condition TEXT DEFAULT '{}',
+  action_type TEXT NOT NULL DEFAULT 'toast' CHECK(action_type IN ('toast', 'notification', 'webhook', 'email')),
+  action_config TEXT DEFAULT '{}',
+  enabled INTEGER DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);`;
+
+export const NOTIFICATION_RULE_QUERIES = {
+  getAll: `SELECT * FROM notification_rules ORDER BY enabled DESC, created_at DESC`,
+  getEnabled: `SELECT * FROM notification_rules WHERE enabled = 1 ORDER BY event_type`,
+  getByEvent: `SELECT * FROM notification_rules WHERE enabled = 1 AND event_type = ?`,
+  getById: `SELECT * FROM notification_rules WHERE id = ?`,
+  insert: `INSERT INTO notification_rules (name, event_type, condition, action_type, action_config) VALUES (?, ?, ?, ?, ?)`,
+  update: `UPDATE notification_rules SET name = ?, event_type = ?, condition = ?, action_type = ?, action_config = ?, enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  toggleEnabled: `UPDATE notification_rules SET enabled = CASE WHEN enabled = 1 THEN 0 ELSE 1 END, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  delete: `DELETE FROM notification_rules WHERE id = ?`,
+};
+
+// ── Task links (connect tasks to notes, bugs, commits, deployments) ──────
+export const TASK_LINKS_TABLE = `CREATE TABLE IF NOT EXISTS task_links (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  task_id INTEGER NOT NULL,
+  linked_type TEXT NOT NULL CHECK(linked_type IN ('note', 'bug', 'commit', 'deployment', 'knowledge')),
+  linked_id INTEGER NOT NULL,
+  linked_title TEXT DEFAULT '',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (task_id) REFERENCES project_tasks(id) ON DELETE CASCADE
+);`;
+
+export const TASK_LINK_QUERIES = {
+  getByTask: `SELECT * FROM task_links WHERE task_id = ? ORDER BY created_at DESC`,
+  getByLinked: `SELECT * FROM task_links WHERE linked_type = ? AND linked_id = ?`,
+  insert: `INSERT INTO task_links (task_id, linked_type, linked_id, linked_title) VALUES (?, ?, ?, ?)`,
+  delete: `DELETE FROM task_links WHERE id = ?`,
+  deleteByTask: `DELETE FROM task_links WHERE task_id = ?`,
+};
+
+// ── Command templates per technology stack ─────────────────────────────
+export const COMMAND_TEMPLATES_TABLE = `CREATE TABLE IF NOT EXISTS command_templates (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  command TEXT NOT NULL,
+  technology TEXT NOT NULL DEFAULT '',
+  category TEXT NOT NULL DEFAULT 'dev' CHECK(category IN ('dev', 'build', 'test', 'lint', 'deploy', 'docker', 'git', 'db')),
+  favorite INTEGER DEFAULT 0,
+  usage_count INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);`;
+
+export const COMMAND_TEMPLATE_QUERIES = {
+  getAll: `SELECT * FROM command_templates ORDER BY usage_count DESC, name ASC`,
+  getByTechnology: `SELECT * FROM command_templates WHERE technology = ? ORDER BY usage_count DESC`,
+  getByCategory: `SELECT * FROM command_templates WHERE category = ? ORDER BY usage_count DESC`,
+  getById: `SELECT * FROM command_templates WHERE id = ?`,
+  insert: `INSERT INTO command_templates (name, description, command, technology, category) VALUES (?, ?, ?, ?, ?)`,
+  update: `UPDATE command_templates SET name = ?, description = ?, command = ?, technology = ?, category = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  incrementUsage: `UPDATE command_templates SET usage_count = usage_count + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  toggleFavorite: `UPDATE command_templates SET favorite = CASE WHEN favorite = 1 THEN 0 ELSE 1 END WHERE id = ?`,
+  delete: `DELETE FROM command_templates WHERE id = ?`,
+  search: `SELECT * FROM command_templates WHERE name LIKE ? OR description LIKE ? OR command LIKE ? OR technology LIKE ? ORDER BY usage_count DESC`,
+};
+
+// ── Workflow trigger extensions ─────────────────────────────────────────
+export const WORKFLOW_TRIGGER_CONFIG_TABLE = `CREATE TABLE IF NOT EXISTS workflow_trigger_config (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  workflow_id INTEGER NOT NULL UNIQUE,
+  trigger_type TEXT NOT NULL DEFAULT 'manual' CHECK(trigger_type IN ('manual', 'schedule', 'app_startup', 'project_opened', 'file_change', 'git_event', 'terminal_command')),
+  trigger_config TEXT DEFAULT '{}',
+  enabled INTEGER DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
+);`;
+
+export const WORKFLOW_TRIGGER_CONFIG_QUERIES = {
+  getByWorkflow: `SELECT * FROM workflow_trigger_config WHERE workflow_id = ?`,
+  getAllEnabled: `SELECT wtc.*, w.name as workflow_name, w.steps FROM workflow_trigger_config wtc JOIN workflows w ON wtc.workflow_id = w.id WHERE wtc.enabled = 1`,
+  getByTriggerType: `SELECT wtc.*, w.name as workflow_name, w.steps FROM workflow_trigger_config wtc JOIN workflows w ON wtc.workflow_id = w.id WHERE wtc.trigger_type = ? AND wtc.enabled = 1`,
+  insert: `INSERT INTO workflow_trigger_config (workflow_id, trigger_type, trigger_config) VALUES (?, ?, ?)`,
+  update: `UPDATE workflow_trigger_config SET trigger_type = ?, trigger_config = ?, enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE workflow_id = ?`,
+  toggleEnabled: `UPDATE workflow_trigger_config SET enabled = CASE WHEN enabled = 1 THEN 0 ELSE 1 END, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  delete: `DELETE FROM workflow_trigger_config WHERE workflow_id = ?`,
+};
+
+// ── Team sync ───────────────────────────────────────────────────────────
+export const TEAM_SYNC_CONFIG_TABLE = `CREATE TABLE IF NOT EXISTS team_sync_config (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  provider TEXT NOT NULL DEFAULT 'local' CHECK(provider IN ('local', 'git', 'http', 'custom')),
+  sync_url TEXT DEFAULT '',
+  sync_token TEXT DEFAULT '',
+  auto_sync INTEGER DEFAULT 0,
+  sync_interval_minutes INTEGER DEFAULT 60,
+  last_sync_at DATETIME,
+  sync_entities TEXT DEFAULT '["projects","tasks","workflows","knowledge"]',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);`;
+
+export const TEAM_SYNC_CONFIG_QUERIES = {
+  get: `SELECT * FROM team_sync_config LIMIT 1`,
+  upsert: `INSERT INTO team_sync_config (provider, sync_url, sync_token, auto_sync, sync_interval_minutes, sync_entities) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET provider = excluded.provider, sync_url = excluded.sync_url, sync_token = excluded.sync_token, auto_sync = excluded.auto_sync, sync_interval_minutes = excluded.sync_interval_minutes, sync_entities = excluded.sync_entities, updated_at = CURRENT_TIMESTAMP`,
+  updateLastSync: `UPDATE team_sync_config SET last_sync_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = 1`,
+};
+
+// ── Workflow trigger type extension (add file_change, git_event, terminal_command) ──
+export const WORKFLOW_TRIGGER_MIGRATIONS = [
+  `ALTER TABLE workflows ADD COLUMN trigger_type TEXT DEFAULT 'manual'`,
+  `ALTER TABLE workflows ADD COLUMN trigger_config TEXT DEFAULT '{}'`,
+  `ALTER TABLE workflows ADD COLUMN trigger_enabled INTEGER DEFAULT 1`,
+];

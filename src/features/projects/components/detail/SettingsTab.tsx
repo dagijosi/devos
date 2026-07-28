@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { FaSave, FaTrash, FaExclamationTriangle, FaFolder, FaGithub } from 'react-icons/fa';
+import { FaSave, FaTrash, FaExclamationTriangle, FaFolder, FaGithub, FaBell, FaUsers } from 'react-icons/fa';
+import { NotificationRules } from '../../../notifications/NotificationRules';
+import { TeamSyncSettings } from '../../../team-sync/TeamSyncSettings';
 
 const isTauri = () => typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__;
 import { toast } from 'sonner';
@@ -162,6 +164,20 @@ export function SettingsTab({ project, onRefresh }: SettingsTabProps) {
           </div>
         </div>
       )}
+
+      {/* Notification Rules */}
+      <div className="pt-6 border-t border-theme-border/10">
+        <div className="flex items-center gap-2 mb-4">
+          <FaBell className="w-4 h-4 text-yellow-400" />
+          <h3 className="text-sm font-semibold text-theme-text">Notifications</h3>
+        </div>
+        <NotificationRules />
+      </div>
+
+      {/* Team Sync */}
+      <div className="pt-6 border-t border-theme-border/10">
+        <TeamSyncSettings />
+      </div>
     </div>
   );
 }

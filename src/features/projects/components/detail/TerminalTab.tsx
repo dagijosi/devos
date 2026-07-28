@@ -23,7 +23,8 @@ export function TerminalTab({ localPath }: Props) {
   const [running, setRunning] = useState(false);
   const [showTerminal, setShowTerminal] = useState(false);
   const termRef = useRef<Terminal | null>(null);
-  const childRef = useRef<any>(null);
+  const sessionIdRef = useRef<string | null>(null);
+  const unlistenersRef = useRef<(() => void)[]>([]);
   const disposableRef = useRef<{ dispose: () => void } | null>(null);
 
   useEffect(() => {
@@ -38,18 +39,33 @@ export function TerminalTab({ localPath }: Props) {
 
     const start = async () => {
       try {
-        const { Command } = await import('@tauri-apps/plugin-shell');
-        const shell = navigator.userAgent.includes('Windows') ? 'powershell' : 'bash';
-        const args = navigator.userAgent.includes('Windows') ? ['-NoLogo'] : [];
-        const command = Command.create(shell, args, { cwd: localPath });
-        command.stdout.on('data', (data: any) => term.write((typeof data === 'string' ? data : data?.data ?? '').replace(/\n/g, '\r\n')));
-        command.stderr.on('data', (data: any) => term.write((typeof data === 'string' ? data : data?.data ?? '').replace(/\n/g, '\r\n')));
-        const child = await command.spawn();
-        childRef.current = child;
-        command.on('close', () => { setRunning(false); term.writeln('\r\n\x1b[31m[Process exited]\x1b[0m'); });
-        command.on('error', (err: string) => term.writeln(`\r\n\x1b[31m[Error: ${err}]\x1b[0m`));
-        disposableRef.current = term.onData((data) => child?.write(data));
-        term.writeln(`\x1b[36mDevOS Terminal — ${localPath}\x1b[0m`);
+        const { invoke } = await import('@tauri-apps/api/core');
+        const { listen } = await import('@tauri-apps/api/event');
+
+        const result: any = await invoke('create_pty', { cwd: localPath });
+        const sessionId: string = result.session_id;
+        sessionIdRef.current = sessionId;
+
+        const unlistenOutput = await listen<any>('pty-output', (event) => {
+          if (event.payload.session_id === sessionId) {
+            term.write(event.payload.data.replace(/\n/g, '\r\n'));
+          }
+        });
+        unlistenersRef.current.push(unlistenOutput);
+
+        const unlistenExit = await listen<any>('pty-exit', (event) => {
+          if (event.payload.session_id === sessionId) {
+            setRunning(false);
+            term.writeln('\r\n\x1b[31m[Process exited]\x1b[0m');
+          }
+        });
+        unlistenersRef.current.push(unlistenExit);
+
+        disposableRef.current = term.onData((data) => {
+          invoke('write_pty', { sessionId, data }).catch(() => {});
+        });
+
+        term.writeln(`\x1b[36mDevOS Terminal \u2014 ${localPath}\x1b[0m`);
         setRunning(true);
       } catch (e: any) {
         term.writeln(`\x1b[31mFailed: ${e?.toString() || 'Unknown'}\x1b[0m`);
@@ -61,7 +77,11 @@ export function TerminalTab({ localPath }: Props) {
     window.addEventListener('resize', onResize);
     return () => {
       window.removeEventListener('resize', onResize);
-      try { childRef.current?.kill(); } catch {}
+      const sid = sessionIdRef.current;
+      if (sid) {
+        import('@tauri-apps/api/core').then(({ invoke }) => invoke('close_pty', { sessionId: sid }).catch(() => {}));
+      }
+      unlistenersRef.current.forEach(u => u());
       try { disposableRef.current?.dispose(); } catch {}
       try { term.dispose(); } catch {}
     };

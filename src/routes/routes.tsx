@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { CATCH_ALL, DASHBOARD, SETTING, PROFILE, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, UTILITIES, WORKFLOWS, AI, INSIGHTS, BACKUP, API_TYPE_GENERATOR, TELEGRAM, CLIPBOARD, HOSTS_SWITCHER, TERMINAL, GIT_CLIENT, ENV_MANAGER, SNIPPETS, DEPENDENCIES } from './types/routeConstants';
+import { useActiveProjectStore } from '../stores/activeProject.store';
+import { CATCH_ALL, DASHBOARD, SETTING, PROFILE, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, UTILITIES, WORKFLOWS, AI, BACKUP, CLIPBOARD, SNIPPETS, TASKS, TERMINAL, GIT_CLIENT, ENV_MANAGER, DEPENDENCIES } from './types/routeConstants';
 import { createRoute } from './types/createRoute';
 import { AppLayout } from '../components/layout/AppLayout';
 
@@ -44,51 +45,32 @@ const AiPage = React.lazy(() =>
   import('../features/ai/pages/AiPage').then((m) => ({ default: m.AiPage }))
 );
 
-const InsightsPage = React.lazy(() =>
-  import('../features/insights/pages/InsightsPage').then((m) => ({ default: m.InsightsPage }))
-);
-
 const BackupPage = React.lazy(() =>
   import('../features/backup/pages/BackupPage').then((m) => ({ default: m.BackupPage }))
-);
-
-const ApiTypeGeneratorPage = React.lazy(() =>
-  import('../features/api-type-generator/pages/ApiTypeGeneratorPage').then((m) => ({ default: m.ApiTypeGeneratorPage }))
-);
-
-const TelegramPage = React.lazy(() =>
-  import('../features/telegram/pages/TelegramPage').then((m) => ({ default: m.TelegramPage }))
 );
 
 const ClipboardPage = React.lazy(() =>
   import('../features/clipboard/ClipboardPage').then((m) => ({ default: m.ClipboardPage }))
 );
 
-const HostsSwitcherPage = React.lazy(() =>
-  import('../features/hosts-switcher/HostsSwitcherPage').then((m) => ({ default: m.HostsSwitcherPage }))
-);
-
-const TerminalPage = React.lazy(() =>
-  import('../features/terminal/TerminalPage').then((m) => ({ default: m.TerminalPage }))
-);
-
-const GitClientPage = React.lazy(() =>
-  import('../features/git-client/GitClientPage').then((m) => ({ default: m.GitClientPage }))
-);
-
-const EnvManagerPage = React.lazy(() =>
-  import('../features/env-manager/EnvManagerPage').then((m) => ({ default: m.EnvManagerPage }))
-);
-
 const SnippetsPage = React.lazy(() =>
   import('../features/snippets/SnippetsPage').then((m) => ({ default: m.SnippetsPage }))
 );
 
-const DependenciesPage = React.lazy(() =>
-  import('../features/dependencies/DependenciesPage').then((m) => ({ default: m.DependenciesPage }))
+const TasksPage = React.lazy(() =>
+  import('../features/tasks/pages/TasksPage').then((m) => ({ default: m.TasksPage }))
 );
 
 const ErrorPage = React.lazy(() => import('../pages/ErrorPage'));
+
+// Deprecated standalone tool routes — redirect to project detail with appropriate tab
+function DeprecatedToolRedirect({ tab }: { tab: string }) {
+  const ap = useActiveProjectStore((s) => s.activeProject);
+  if (ap) {
+    return <Navigate to={`/projects/${ap.id}?tab=${tab}`} replace />;
+  }
+  return <Navigate to={PROJECTS} replace />;
+}
 
 const routes = [
   createRoute('/', () => <Navigate to={DASHBOARD} replace />),
@@ -103,17 +85,15 @@ const routes = [
   createRoute(UTILITIES, UtilitiesPage, { layout: AppLayout }),
   createRoute(WORKFLOWS, WorkflowsPage, { layout: AppLayout }),
   createRoute(AI, AiPage, { layout: AppLayout }),
-  createRoute(INSIGHTS, InsightsPage, { layout: AppLayout }),
   createRoute(BACKUP, BackupPage, { layout: AppLayout }),
-  createRoute(API_TYPE_GENERATOR, ApiTypeGeneratorPage, { layout: AppLayout }),
-  createRoute(TELEGRAM, TelegramPage, { layout: AppLayout }),
   createRoute(CLIPBOARD, ClipboardPage, { layout: AppLayout }),
-  createRoute(HOSTS_SWITCHER, HostsSwitcherPage, { layout: AppLayout }),
-  createRoute(TERMINAL, TerminalPage, { layout: AppLayout }),
-  createRoute(GIT_CLIENT, GitClientPage, { layout: AppLayout }),
-  createRoute(ENV_MANAGER, EnvManagerPage, { layout: AppLayout }),
   createRoute(SNIPPETS, SnippetsPage, { layout: AppLayout }),
-  createRoute(DEPENDENCIES, DependenciesPage, { layout: AppLayout }),
+  createRoute(TASKS, TasksPage, { layout: AppLayout }),
+  // Deprecated standalone tool routes - redirect to project context
+  createRoute(TERMINAL, () => <DeprecatedToolRedirect tab="terminal" />),
+  createRoute(GIT_CLIENT, () => <DeprecatedToolRedirect tab="git" />),
+  createRoute(ENV_MANAGER, () => <DeprecatedToolRedirect tab="env" />),
+  createRoute(DEPENDENCIES, () => <DeprecatedToolRedirect tab="dependencies" />),
   createRoute(CATCH_ALL, ErrorPage),
 ];
 

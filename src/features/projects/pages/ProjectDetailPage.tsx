@@ -1,14 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { FaArrowLeft, FaStar, FaRegStar, FaEye, FaTasks, FaBook, FaLink, FaPlay, FaCloudUploadAlt, FaCog, FaFolder, FaWrench, FaTerminal, FaGitAlt, FaCube } from 'react-icons/fa';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { FaArrowLeft, FaStar, FaRegStar, FaEye, FaTasks, FaBook, FaCode, FaRocket, FaCog, FaFolder, FaTerminal, FaGitAlt, FaCube, FaPlay, FaCloudUploadAlt } from 'react-icons/fa';
 import { useProjects } from '../hooks/useProjects';
+import { useActiveProjectStore } from '../../../stores/activeProject.store';
 import { useFileWatcher } from '../../file-watcher/useFileWatcher';
 import { OverviewTab } from '../components/detail/OverviewTab';
 import { TasksTab } from '../components/detail/TasksTab';
 import { KnowledgeTab } from '../components/detail/KnowledgeTab';
-import { ApisTab } from '../components/detail/ApisTab';
 import { WorkflowsTab } from '../components/detail/WorkflowsTab';
-import { UtilitiesTab } from '../components/detail/UtilitiesTab';
 import { DeploymentsTab } from '../components/detail/DeploymentsTab';
 import { SettingsTab } from '../components/detail/SettingsTab';
 import { RunConfigsTab } from '../components/detail/RunConfigsTab';
@@ -19,30 +18,64 @@ import type { Project } from '../types';
 import { PROJECTS } from '../../../routes/types/routeConstants';
 import { setProjectContext } from '../utils/projectContext';
 
-const TABS = [
-  { id: 'overview', label: 'Overview', icon: FaEye },
-  { id: 'tasks', label: 'Tasks', icon: FaTasks },
-  { id: 'knowledge', label: 'Knowledge', icon: FaBook },
-  { id: 'apis', label: 'APIs', icon: FaLink },
-  { id: 'workflows', label: 'Workflows', icon: FaPlay },
-  { id: 'git', label: 'Git', icon: FaGitAlt },
-  { id: 'terminal', label: 'Terminal', icon: FaTerminal },
-  { id: 'dependencies', label: 'Dependencies', icon: FaCube },
-  { id: 'utilities', label: 'Utilities', icon: FaWrench },
-  { id: 'deployments', label: 'Deployments', icon: FaCloudUploadAlt },
-  { id: 'run-configs', label: 'Run', icon: FaTerminal },
-  { id: 'settings', label: 'Settings', icon: FaCog },
-] as const;
+interface TabGroup {
+  label: string;
+  tabs: { id: string; label: string; icon: React.ElementType }[];
+}
 
-type TabId = typeof TABS[number]['id'];
+const TAB_GROUPS: TabGroup[] = [
+  {
+    label: 'Overview',
+    tabs: [{ id: 'overview', label: 'Overview', icon: FaEye }],
+  },
+  {
+    label: 'Work',
+    tabs: [
+      { id: 'tasks', label: 'Tasks', icon: FaTasks },
+      { id: 'knowledge', label: 'Knowledge', icon: FaBook },
+    ],
+  },
+  {
+    label: 'Code',
+    tabs: [
+      { id: 'terminal', label: 'Terminal', icon: FaTerminal },
+      { id: 'git', label: 'Git', icon: FaGitAlt },
+      { id: 'dependencies', label: 'Dependencies', icon: FaCube },
+    ],
+  },
+  {
+    label: 'Ship',
+    tabs: [
+      { id: 'run-configs', label: 'Run', icon: FaPlay },
+      { id: 'deployments', label: 'Deployments', icon: FaCloudUploadAlt },
+      { id: 'workflows', label: 'Workflows', icon: FaRocket },
+    ],
+  },
+  {
+    label: 'Settings',
+    tabs: [{ id: 'settings', label: 'Settings', icon: FaCog }],
+  },
+];
+
+const ALL_TABS = TAB_GROUPS.flatMap((g) => g.tabs);
+type TabId = typeof ALL_TABS[number]['id'];
 
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { getProject, toggleFavorite, updateLastOpened } = useProjects();
+  const setActiveProject = useActiveProjectStore((s) => s.setActiveProject);
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabId>('overview');
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ALL_TABS.some((t) => t.id === tabParam)) {
+      setActiveTab(tabParam as TabId);
+    }
+  }, [searchParams]);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -50,15 +83,16 @@ export function ProjectDetailPage() {
     try {
       const p = await getProject(Number(id));
       setProject(p);
-      if (p) await updateLastOpened(p.id).catch(() => {});
+      if (p) {
+        await updateLastOpened(p.id).catch(() => {});
+        setActiveProject({ id: p.id, name: p.name, localPath: p.local_path || '' });
+        setProjectContext(p);
+      }
     } catch {
       setProject(null);
     }
     setLoading(false);
-  }, [id, getProject, updateLastOpened]);
-
-  // Keep the last opened project available to the global terminal, Git, and tools pages.
-  useEffect(() => { if (project) setProjectContext(project); }, [project]);
+  }, [id, getProject, updateLastOpened, setActiveProject]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -76,9 +110,6 @@ export function ProjectDetailPage() {
               <div className="h-4 bg-theme-border/20 rounded w-1/2" />
             </div>
           </div>
-        </div>
-        <div className="flex gap-2">
-          {[1, 2, 3, 4, 5].map(i => <div key={i} className="h-8 bg-theme-border/10 rounded-xl w-24 animate-pulse" />)}
         </div>
       </div>
     );
@@ -98,7 +129,6 @@ export function ProjectDetailPage() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
       <div className="flex items-center gap-3">
         <button onClick={() => navigate(PROJECTS)} className="p-2 rounded-lg hover:bg-theme-surface/50 text-theme-text/50 hover:text-theme-text transition-colors">
           <FaArrowLeft className="w-4 h-4" />
@@ -116,37 +146,46 @@ export function ProjectDetailPage() {
         </div>
       </div>
 
-      {/* Tab bar */}
-      <div className="flex gap-1 overflow-x-auto pb-0.5 border-b border-theme-border/10">
-        {TABS.map(tab => {
-          const Icon = tab.icon;
-          return (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium whitespace-nowrap border-b-2 transition-all ${
-                activeTab === tab.id
-                  ? 'text-theme-icon border-theme-icon'
-                  : 'text-theme-text/40 border-transparent hover:text-theme-text/70 hover:border-theme-text/20'
-              }`}>
-              <Icon className="w-3.5 h-3.5" />
-              {tab.label}
-            </button>
-          );
-        })}
+      {/* Grouped tab bar */}
+      <div className="flex flex-wrap gap-x-6 gap-y-1 pb-0.5 border-b border-theme-border/10">
+        {TAB_GROUPS.map((group) => (
+          <div key={group.label} className="flex items-center gap-0.5">
+            <span className="text-[10px] font-medium text-theme-text/30 uppercase tracking-wider mr-1 shrink-0">{group.label}</span>
+            {group.tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    navigate(`/projects/${project.id}?tab=${tab.id}`, { replace: true });
+                  }}
+                  className={`flex items-center gap-1.5 px-2.5 py-2 text-xs font-medium whitespace-nowrap border-b-2 transition-all ${
+                    isActive
+                      ? 'text-theme-icon border-theme-icon'
+                      : 'text-theme-text/40 border-transparent hover:text-theme-text/70 hover:border-theme-text/20'
+                  }`}
+                >
+                  <Icon className="w-3 h-3" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </div>
 
-      {/* Tab content */}
       <div>
         {activeTab === 'overview' && <OverviewTab project={project} onRefresh={load} />}
         {activeTab === 'tasks' && <TasksTab projectId={project.id} />}
         {activeTab === 'knowledge' && <KnowledgeTab projectId={project.id} />}
-        {activeTab === 'apis' && <ApisTab projectId={project.id} />}
-        {activeTab === 'workflows' && <WorkflowsTab project={project} />}
-        {activeTab === 'git' && <GitTab localPath={project.local_path} />}
         {activeTab === 'terminal' && <TerminalTab localPath={project.local_path} />}
+        {activeTab === 'git' && <GitTab localPath={project.local_path} />}
         {activeTab === 'dependencies' && <DependenciesTab localPath={project.local_path} />}
-        {activeTab === 'utilities' && <UtilitiesTab project={project} />}
-        {activeTab === 'deployments' && <DeploymentsTab project={project} />}
         {activeTab === 'run-configs' && <RunConfigsTab projectId={project.id} localPath={project.local_path} />}
+        {activeTab === 'deployments' && <DeploymentsTab project={project} />}
+        {activeTab === 'workflows' && <WorkflowsTab project={project} />}
         {activeTab === 'settings' && <SettingsTab project={project} onRefresh={load} />}
       </div>
     </div>

@@ -3,6 +3,7 @@ mod tray;
 mod watcher;
 mod context_menu;
 mod ipc;
+mod pty;
 
 use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
@@ -68,6 +69,7 @@ pub fn run() {
         })
         .build(),
     )
+    .manage(pty::PtyState::default())
     .invoke_handler(tauri::generate_handler![
       open_terminal,
       read_hosts_file,
@@ -77,6 +79,10 @@ pub fn run() {
       context_menu::install_context_menu,
       context_menu::uninstall_context_menu,
       context_menu::is_context_menu_installed,
+      pty::create_pty,
+      pty::write_pty,
+      pty::resize_pty,
+      pty::close_pty,
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {

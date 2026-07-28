@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FaPlay, FaPlus, FaTrash, FaTerminal } from 'react-icons/fa';
+import { FaPlay, FaPlus, FaTrash, FaTerminal, FaServer } from 'react-icons/fa';
 import { database } from '../../../../database';
-import { useNavigate } from 'react-router-dom';
-import { TERMINAL } from '../../../../routes/types/routeConstants';
+import { ServiceManager } from '../../../service-manager/ServiceManager';
 
 interface Props {
   projectId: number;
@@ -17,7 +16,6 @@ interface Script {
 }
 
 export function RunConfigsTab({ projectId, localPath }: Props) {
-  const navigate = useNavigate();
   const [scripts, setScripts] = useState<Script[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
@@ -42,16 +40,14 @@ export function RunConfigsTab({ projectId, localPath }: Props) {
     await load();
   };
 
-  const handleRun = (script: Script) => {
-    navigate(`${TERMINAL}?cmd=${encodeURIComponent(script.command)}&cwd=${encodeURIComponent(localPath || '')}&label=${encodeURIComponent(script.name)}`);
-  };
+  const runConfigs = scripts.map((s) => ({ name: s.name, command: s.command }));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold text-theme-text">Run Configurations</h3>
-          <p className="text-xs text-theme-text/40 mt-0.5">Save and launch dev commands</p>
+          <p className="text-xs text-theme-text/40 mt-0.5">Manage and launch dev commands</p>
         </div>
         <button onClick={() => setShowForm(!showForm)}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-theme-icon text-white rounded-xl hover:bg-theme-icon/90 transition-colors">
@@ -82,38 +78,53 @@ export function RunConfigsTab({ projectId, localPath }: Props) {
         </div>
       )}
 
-      {scripts.length === 0 && !showForm && (
+      {/* Service Manager - running processes */}
+      {runConfigs.length > 0 && (
+        <div>
+          <h4 className="text-xs font-semibold text-theme-text/60 mb-2 flex items-center gap-1.5">
+            <FaServer className="w-3 h-3" /> Running
+          </h4>
+          <ServiceManager projectId={projectId} localPath={localPath} runConfigs={runConfigs} />
+        </div>
+      )}
+
+      {/* Saved configs list */}
+      {scripts.length === 0 && !showForm ? (
         <div className="text-center py-8 text-theme-text/30">
           <FaTerminal className="w-8 h-8 mx-auto mb-2 opacity-40" />
           <p className="text-xs">No run configs yet</p>
           <p className="text-[10px] mt-0.5">Add commands like <span className="font-mono text-theme-text/50">npm run dev</span></p>
         </div>
+      ) : (
+        <div className="space-y-2">
+          <h4 className="text-xs font-semibold text-theme-text/60 mb-2 uppercase tracking-wider">Saved Configs</h4>
+          {scripts.map(script => (
+            <div key={script.id}
+              className="flex items-center gap-3 bg-theme-surface border border-theme-border/20 rounded-xl px-4 py-3 group hover:border-theme-icon/30 transition-colors">
+              <FaTerminal className="w-4 h-4 text-theme-text/30 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-theme-text truncate">{script.name}</p>
+                <p className="text-xs font-mono text-theme-text/40 truncate">{script.command}</p>
+              </div>
+              <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={() => {
+                  const { invoke } = require('@tauri-apps/api/core');
+                  invoke('create_pty', { cwd: localPath || '', cmd: script.command });
+                }}
+                  title="Start service"
+                  className="p-2 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors">
+                  <FaPlay className="w-3 h-3" />
+                </button>
+                <button onClick={() => handleDelete(script.id)}
+                  title="Delete"
+                  className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">
+                  <FaTrash className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
-
-      <div className="space-y-2">
-        {scripts.map(script => (
-          <div key={script.id}
-            className="flex items-center gap-3 bg-theme-surface border border-theme-border/20 rounded-xl px-4 py-3 group hover:border-theme-icon/30 transition-colors">
-            <FaTerminal className="w-4 h-4 text-theme-text/30 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-theme-text truncate">{script.name}</p>
-              <p className="text-xs font-mono text-theme-text/40 truncate">{script.command}</p>
-            </div>
-            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={() => handleRun(script)}
-                title="Run in terminal"
-                className="p-2 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors">
-                <FaPlay className="w-3 h-3" />
-              </button>
-              <button onClick={() => handleDelete(script.id)}
-                title="Delete"
-                className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">
-                <FaTrash className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

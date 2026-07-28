@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { FaUser, FaChevronRight } from "react-icons/fa";
+import { FaUser, FaChevronRight, FaFolder } from "react-icons/fa";
 import { Portal, SidebarFooterFlyout } from "../overlays";
-import { PROFILE } from "../../../routes/types/routeConstants";
+import { PROFILE, PROJECT_DETAIL } from "../../../routes/types/routeConstants";
+import { useActiveProjectStore } from "../../../stores/activeProject.store";
 
 interface MenuItem {
   id: string;
@@ -33,6 +34,7 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({
   const [menuCoords, setMenuCoords] = useState({ top: 0, left: 0, width: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const activeProject = useActiveProjectStore((s) => s.activeProject);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -78,6 +80,20 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({
 
   return (
     <div className={`mt-auto transition-all duration-300 ${isOpen ? "p-2.5" : "p-2"}`}>
+      {/* Active project indicator */}
+      {isOpen && activeProject && (
+        <button onClick={() => { navigate(PROJECT_DETAIL.replace(':id', String(activeProject.id))); if (isMobile && onLinkClick) onLinkClick(); }}
+          className="w-full flex items-center gap-2.5 px-3 py-2 mb-2 rounded-xl bg-theme-icon/5 border border-theme-icon/15 hover:bg-theme-icon/10 transition-colors group">
+          <div className="w-6 h-6 rounded-lg bg-theme-icon/10 flex items-center justify-center shrink-0">
+            <FaFolder className="w-3 h-3 text-theme-icon" />
+          </div>
+          <div className="flex-1 min-w-0 text-left">
+            <p className="text-xs font-medium text-theme-text truncate">{activeProject.name}</p>
+            <p className="text-[9px] text-theme-icon/60 uppercase tracking-widest">Active Project</p>
+          </div>
+        </button>
+      )}
+
       {isOpen ? (
         <>
           <Portal>

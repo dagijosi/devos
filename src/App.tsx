@@ -3,8 +3,7 @@ import { Toaster } from 'sonner';
 import routes from './routes/routes';
 import { renderRoutes } from './routes/RouteRenderer';
 import { ThemeProvider } from './theme-system';
-import { CommandPalette } from './features/command-palette';
-import { GlobalSearch } from './features/global-search/components/GlobalSearch';
+import { UnifiedSearch } from './features/unified-search/UnifiedSearch';
 import { useEffect, useState } from 'react';
 import { database } from './database';
 import { useAuthStore } from './store/authStore';
@@ -26,6 +25,8 @@ function App() {
     const initApp = async () => {
       await database.initialize();
       await database.ensureDefaultUser();
+      await database.seedDefaultCommandTemplates();
+      await database.seedDefaultNotificationRules();
 
       const user = await database.getUserByEmail('developer@localhost');
       if (user) {
@@ -48,8 +49,7 @@ function App() {
         <SkipToContent />
         <AriaAnnouncer />
         <CrashRecoveryOverlay />
-        <CommandPalette />
-        <GlobalSearch />
+        <UnifiedSearch />
         <Toaster richColors position="bottom-right" />
         <TelegramPollingProvider>
           <Routes>

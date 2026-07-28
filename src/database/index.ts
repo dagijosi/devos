@@ -36,6 +36,11 @@ import {
   TOOL_SETTINGS_QUERIES,
   DEPLOYMENT_QUERIES,
   DEPLOYMENT_LOG_QUERIES,
+  NOTIFICATION_RULE_QUERIES,
+  TASK_LINK_QUERIES,
+  COMMAND_TEMPLATE_QUERIES,
+  WORKFLOW_TRIGGER_CONFIG_QUERIES,
+  TEAM_SYNC_CONFIG_QUERIES,
 } from './schema';
 import type { Project } from '../features/projects/types';
 import type { KnowledgeItem, Note, Folder, CodeSnippet, Bug, Attachment, ItemStatus } from '../features/knowledge/types';
@@ -1231,6 +1236,24 @@ export const database = {
     const inst = await getDatabase();
     if (!inst) return [];
     return inst.select<any>(PROJECT_TASK_QUERIES.getAll);
+  },
+
+  async getPendingProjectTasks(): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select<any>(PROJECT_TASK_QUERIES.getPending);
+  },
+
+  async getOverdueProjectTasks(): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select<any>(PROJECT_TASK_QUERIES.getOverdue);
+  },
+
+  async getTodayProjectTasks(): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select<any>(PROJECT_TASK_QUERIES.getToday);
   },
 
   async addProjectTask(projectId: number, title: string, priority: string = 'medium', due_date?: string): Promise<void> {
@@ -2545,5 +2568,228 @@ export const database = {
     const inst = await getDatabase();
     if (!inst) return [];
     return inst.select(CLIPBOARD_QUERIES.search, [`%${query}%`]);
+  },
+
+  // ── Notification rules ───────────────────────────────────────────────────
+  async getNotificationRules(): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(NOTIFICATION_RULE_QUERIES.getAll);
+  },
+
+  async getEnabledNotificationRules(): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(NOTIFICATION_RULE_QUERIES.getEnabled);
+  },
+
+  async getNotificationRulesByEvent(eventType: string): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(NOTIFICATION_RULE_QUERIES.getByEvent, [eventType]);
+  },
+
+  async createNotificationRule(data: { name: string; event_type: string; condition?: string; action_type?: string; action_config?: string }): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(NOTIFICATION_RULE_QUERIES.insert, [data.name, data.event_type, data.condition || '{}', data.action_type || 'toast', data.action_config || '{}']);
+  },
+
+  async updateNotificationRule(id: number, data: any): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(NOTIFICATION_RULE_QUERIES.update, [data.name, data.event_type, data.condition, data.action_type, data.action_config, data.enabled ?? 1, id]);
+  },
+
+  async toggleNotificationRule(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(NOTIFICATION_RULE_QUERIES.toggleEnabled, [id]);
+  },
+
+  async deleteNotificationRule(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(NOTIFICATION_RULE_QUERIES.delete, [id]);
+  },
+
+  // ── Task links ───────────────────────────────────────────────────────────
+  async getTaskLinks(taskId: number): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(TASK_LINK_QUERIES.getByTask, [taskId]);
+  },
+
+  async addTaskLink(taskId: number, linkedType: string, linkedId: number, linkedTitle?: string): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(TASK_LINK_QUERIES.insert, [taskId, linkedType, linkedId, linkedTitle || '']);
+  },
+
+  async removeTaskLink(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(TASK_LINK_QUERIES.delete, [id]);
+  },
+
+  async getLinkedTasks(linkedType: string, linkedId: number): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(TASK_LINK_QUERIES.getByLinked, [linkedType, linkedId]);
+  },
+
+  // ── Command templates ────────────────────────────────────────────────────
+  async getCommandTemplates(technology?: string): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    if (technology) return inst.select(COMMAND_TEMPLATE_QUERIES.getByTechnology, [technology]);
+    return inst.select(COMMAND_TEMPLATE_QUERIES.getAll);
+  },
+
+  async getCommandTemplatesByCategory(category: string): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(COMMAND_TEMPLATE_QUERIES.getByCategory, [category]);
+  },
+
+  async createCommandTemplate(data: { name: string; description?: string; command: string; technology?: string; category?: string }): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(COMMAND_TEMPLATE_QUERIES.insert, [data.name, data.description || '', data.command, data.technology || '', data.category || 'dev']);
+  },
+
+  async incrementCommandTemplateUsage(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(COMMAND_TEMPLATE_QUERIES.incrementUsage, [id]);
+  },
+
+  async toggleCommandTemplateFavorite(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(COMMAND_TEMPLATE_QUERIES.toggleFavorite, [id]);
+  },
+
+  async deleteCommandTemplate(id: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(COMMAND_TEMPLATE_QUERIES.delete, [id]);
+  },
+
+  async searchCommandTemplates(query: string): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(COMMAND_TEMPLATE_QUERIES.search, [`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`]);
+  },
+
+  // ── Workflow trigger config ─────────────────────────────────────────────
+  async getWorkflowTriggerConfig(workflowId: number): Promise<any | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    const rows = await inst.select(WORKFLOW_TRIGGER_CONFIG_QUERIES.getByWorkflow, [workflowId]);
+    return rows.length ? rows[0] : null;
+  },
+
+  async getAllEnabledTriggerConfigs(): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(WORKFLOW_TRIGGER_CONFIG_QUERIES.getAllEnabled);
+  },
+
+  async getTriggerConfigsByType(triggerType: string): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(WORKFLOW_TRIGGER_CONFIG_QUERIES.getByTriggerType, [triggerType]);
+  },
+
+  async upsertWorkflowTriggerConfig(workflowId: number, triggerType: string, triggerConfig: string = '{}'): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    const existing = await this.getWorkflowTriggerConfig(workflowId);
+    if (existing) {
+      await inst.execute(WORKFLOW_TRIGGER_CONFIG_QUERIES.update, [triggerType, triggerConfig, '1', workflowId]);
+    } else {
+      await inst.execute(WORKFLOW_TRIGGER_CONFIG_QUERIES.insert, [workflowId, triggerType, triggerConfig]);
+    }
+  },
+
+  async toggleWorkflowTrigger(workflowId: number): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    const config = await this.getWorkflowTriggerConfig(workflowId);
+    if (config) {
+      await inst.execute(WORKFLOW_TRIGGER_CONFIG_QUERIES.toggleEnabled, [config.id]);
+    }
+  },
+
+  // ── Team sync config ─────────────────────────────────────────────────────
+  async getTeamSyncConfig(): Promise<any | null> {
+    const inst = await getDatabase();
+    if (!inst) return null;
+    const rows = await inst.select(TEAM_SYNC_CONFIG_QUERIES.get);
+    return rows.length ? rows[0] : null;
+  },
+
+  async upsertTeamSyncConfig(data: { provider: string; sync_url?: string; sync_token?: string; auto_sync?: number; sync_interval_minutes?: number; sync_entities?: string }): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(TEAM_SYNC_CONFIG_QUERIES.upsert, [data.provider, data.sync_url || '', data.sync_token || '', data.auto_sync ?? 0, data.sync_interval_minutes ?? 60, data.sync_entities || '["projects","tasks","workflows","knowledge"]']);
+  },
+
+  async updateTeamSyncLastSync(): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    await inst.execute(TEAM_SYNC_CONFIG_QUERIES.updateLastSync);
+  },
+
+  // ── Seed default data ────────────────────────────────────────────────────
+  async seedDefaultCommandTemplates(): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    const existing = await this.getCommandTemplates();
+    if (existing.length > 0) return;
+
+    const templates = [
+      { name: 'npm run dev', description: 'Start development server', command: 'npm run dev', technology: 'Node.js', category: 'dev' },
+      { name: 'npm run build', description: 'Build for production', command: 'npm run build', technology: 'Node.js', category: 'build' },
+      { name: 'npm run test', description: 'Run test suite', command: 'npm run test', technology: 'Node.js', category: 'test' },
+      { name: 'npm run lint', description: 'Lint codebase', command: 'npm run lint', technology: 'Node.js', category: 'lint' },
+      { name: 'cargo run', description: 'Run Rust project', command: 'cargo run', technology: 'Rust', category: 'dev' },
+      { name: 'cargo build', description: 'Build Rust project', command: 'cargo build', technology: 'Rust', category: 'build' },
+      { name: 'cargo test', description: 'Test Rust project', command: 'cargo test', technology: 'Rust', category: 'test' },
+      { name: 'python manage.py runserver', description: 'Django dev server', command: 'python manage.py runserver', technology: 'Python', category: 'dev' },
+      { name: 'uvicorn main:app --reload', description: 'FastAPI dev server', command: 'uvicorn main:app --reload', technology: 'Python', category: 'dev' },
+      { name: 'flutter run', description: 'Run Flutter app', command: 'flutter run', technology: 'Flutter', category: 'dev' },
+      { name: 'flutter build', description: 'Build Flutter app', command: 'flutter build', technology: 'Flutter', category: 'build' },
+      { name: 'docker compose up', description: 'Start Docker services', command: 'docker compose up', technology: 'Docker', category: 'docker' },
+      { name: 'docker compose down', description: 'Stop Docker services', command: 'docker compose down', technology: 'Docker', category: 'docker' },
+      { name: 'git push', description: 'Push commits to remote', command: 'git push', technology: 'Git', category: 'git' },
+      { name: 'git pull', description: 'Pull latest changes', command: 'git pull', technology: 'Git', category: 'git' },
+      { name: 'dotnet run', description: 'Run .NET project', command: 'dotnet run', technology: '.NET', category: 'dev' },
+      { name: 'go run .', description: 'Run Go project', command: 'go run .', technology: 'Go', category: 'dev' },
+      { name: 'php artisan serve', description: 'Laravel dev server', command: 'php artisan serve', technology: 'PHP', category: 'dev' },
+    ];
+
+    for (const t of templates) {
+      await inst.execute(COMMAND_TEMPLATE_QUERIES.insert, [t.name, t.description, t.command, t.technology, t.category]);
+    }
+  },
+
+  async seedDefaultNotificationRules(): Promise<void> {
+    const inst = await getDatabase();
+    if (!inst) return;
+    const existing = await this.getNotificationRules();
+    if (existing.length > 0) return;
+
+    const rules = [
+      { name: 'Deployment failed', event_type: 'deployment_failed', condition: '{}', action_type: 'notification', action_config: '{}' },
+      { name: 'Workflow failed', event_type: 'workflow_failed', condition: '{}', action_type: 'notification', action_config: '{}' },
+      { name: 'Overdue tasks', event_type: 'task_overdue', condition: '{}', action_type: 'toast', action_config: '{}' },
+      { name: 'Vulnerable dependencies', event_type: 'dependency_vulnerable', condition: '{}', action_type: 'notification', action_config: '{}' },
+    ];
+
+    for (const r of rules) {
+      await inst.execute(NOTIFICATION_RULE_QUERIES.insert, [r.name, r.event_type, r.condition, r.action_type, r.action_config]);
+    }
   },
 };

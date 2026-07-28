@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { FaPlus, FaCheckCircle, FaRegCircle, FaTrash, FaExclamationCircle } from 'react-icons/fa';
+import { FaPlus, FaCheckCircle, FaRegCircle, FaTrash, FaExclamationCircle, FaLink } from 'react-icons/fa';
 import { database } from '../../../../database';
+import { TaskLinks } from '../../../tasks/TaskLinks';
 
 interface Task {
   id: number;
@@ -18,6 +19,7 @@ export function TasksTab({ projectId }: { projectId: number }) {
   const [loading, setLoading] = useState(true);
   const [newTitle, setNewTitle] = useState('');
   const [adding, setAdding] = useState(false);
+  const [expandedLinks, setExpandedLinks] = useState<number | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -94,10 +96,18 @@ export function TasksTab({ projectId }: { projectId: number }) {
               {task.description && <p className="text-xs text-theme-text/40 truncate">{task.description}</p>}
             </div>
             <FaExclamationCircle className={`w-3 h-3 ${priorityColors[task.priority] || 'text-theme-text/20'}`} />
+            <button onClick={() => setExpandedLinks(expandedLinks === task.id ? null : task.id)} className="p-1 rounded text-theme-text/20 hover:text-theme-icon opacity-0 group-hover:opacity-100 transition-all" title="Links">
+              <FaLink className="w-3 h-3" />
+            </button>
             <button onClick={() => deleteTask(task.id)} className="p-1 rounded text-theme-text/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
               <FaTrash className="w-3 h-3" />
             </button>
           </div>
+          {expandedLinks === task.id && (
+            <div className="px-3 pb-2">
+              <TaskLinks taskId={task.id} projectId={projectId} />
+            </div>
+          )}
         ))}
       </div>
     </div>

@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { FaFolder, FaGithub, FaTerminal, FaCode, FaClock, FaHistory, FaCircle, FaPlay, FaCalendarAlt } from 'react-icons/fa';
+import { FaFolder, FaGithub, FaTerminal, FaCode, FaClock, FaHistory, FaCircle, FaPlay, FaCalendarAlt, FaTasks, FaExclamationTriangle, FaGitBranch, FaShieldAlt, FaCube } from 'react-icons/fa';
 import { toast } from 'sonner';
 import { database } from '../../../../database';
 import type { Project } from '../../types';
 import { TechnologyBadge } from '../TechnologyBadge';
 import { openFolder, openVSCode, openTerminal, openBrowser, runScript as runProjectScript } from '../../utils/projectActions';
+import { ServiceManager } from '../../../service-manager/ServiceManager';
+import { OnboardingChecklist } from './OnboardingChecklist';
 
 interface OverviewTabProps {
   project: Project;
@@ -15,18 +17,40 @@ export function OverviewTab({ project, onRefresh: _onRefresh }: OverviewTabProps
   void _onRefresh;
   const [activity, setActivity] = useState<any[]>([]);
   const [scripts, setScripts] = useState<any[]>([]);
+  const [pendingTasks, setPendingTasks] = useState<any[]>([]);
+  const [gitInfo, setGitInfo] = useState<{ branch?: string; ahead?: number; behind?: number; hasChanges?: boolean } | null>(null);
+  const [depsCount, setDepsCount] = useState(0);
 
   useEffect(() => {
     const load = async () => {
-      const [act, scr] = await Promise.all([
+      const [act, scr, tasks] = await Promise.all([
         database.getProjectActivity(project.id, 8),
         database.getProjectScripts(project.id),
+        database.getProjectTasks(project.id),
       ]);
       setActivity(act || []);
       setScripts(scr || []);
+      setPendingTasks((tasks || []).filter((t: any) => t.status !== 'done'));
+
+      // Load git info from active project store
+      try {
+        const { useActiveProjectStore } = await import('../../../../stores/activeProject.store');
+        const state = useActiveProjectStore.getState();
+        const active = state.projects.find((p: any) => p.id === project.id);
+        if (active?.branch) setGitInfo({ branch: active.branch });
+      } catch {}
+
+      // Count deps
+      if (project.local_path) {
+        try {
+          const { useDependencies } = await import('../../../dependencies/useDependencies');
+          const deps = await useDependencies.parse(project.local_path);
+          setDepsCount(deps.length);
+        } catch {}
+      }
     };
     load();
-  }, [project.id]);
+  }, [project.id, project.local_path]);
 
   const handleRunScript = async (cmd: string) => {
     const r = await runProjectScript(cmd, project.local_path);
@@ -49,6 +73,10 @@ export function OverviewTab({ project, onRefresh: _onRefresh }: OverviewTabProps
     ...scripts,
   ];
 
+  const runConfigsTyped = allScripts.slice(0, 10).map((s) => ({ name: s.name, command: typeof s.command === 'string' ? s.command : '' }));
+
+  const healthStatus = pendingTasks.length > 3 ? 'needs-attention' : pendingTasks.length > 0 ? 'active' : 'healthy';
+
   return (
     <div className="space-y-6">
       {/* Hero */}
@@ -58,18 +86,27 @@ export function OverviewTab({ project, onRefresh: _onRefresh }: OverviewTabProps
             <FaFolder className="w-7 h-7 text-theme-icon" />
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold text-theme-text">{project.name}</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold text-theme-text">{project.name}</h1>
+              <span className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full ${
+                healthStatus === 'healthy' ? 'text-green-400 bg-green-500/10' :
+                healthStatus === 'needs-attention' ? 'text-yellow-400 bg-yellow-500/10' :
+                'text-blue-400 bg-blue-500/10'
+              }`}>
+                <FaCircle className={`w-1.5 h-1.5 ${healthStatus === 'active' ? 'animate-pulse' : ''}`} />
+                {healthStatus === 'healthy' ? 'Healthy' : healthStatus === 'needs-attention' ? 'Needs attention' : 'Active'}
+              </span>
+            </div>
             <p className="text-sm text-theme-text/50 mt-0.5">{project.description || 'No description'}</p>
             {techs.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-3">
                 {techs.map((t: string) => <TechnologyBadge key={t} name={t} />)}
               </div>
             )}
-            <div className="flex items-center gap-3 mt-3 text-xs text-theme-text/40">
-              <span className="flex items-center gap-1"><FaCalendarAlt className="w-3 h-3" /> Started {new Date(project.created_at).toLocaleDateString()}</span>
-              <span className={`flex items-center gap-1 ${project.status === 'active' ? 'text-green-400' : 'text-gray-400'}`}>
-                <FaCircle className="w-2 h-2" /> {project.status}
-              </span>
+            <div className="flex items-center gap-4 mt-3 text-xs text-theme-text/40">
+              <span className="flex items-center gap-1"><FaCalendarAlt className="w-3 h-3" /> {new Date(project.created_at).toLocaleDateString()}</span>
+              {gitInfo?.branch && <span className="flex items-center gap-1"><FaGitBranch className="w-3 h-3 text-purple-400" /> {gitInfo.branch}</span>}
+              {depsCount > 0 && <span className="flex items-center gap-1"><FaCube className="w-3 h-3 text-cyan-400" /> {depsCount} deps</span>}
             </div>
           </div>
         </div>
@@ -88,8 +125,43 @@ export function OverviewTab({ project, onRefresh: _onRefresh }: OverviewTabProps
         </div>
       </div>
 
+      {/* Onboarding checklist */}
+      <OnboardingChecklist project={project} />
+
+      {/* Health cards row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-theme-surface border border-theme-border/20 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-theme-text/40 mb-1">
+            <FaTasks className="w-3.5 h-3.5" />
+            <span className="text-[10px] uppercase tracking-wider">Pending</span>
+          </div>
+          <p className="text-lg font-bold text-theme-text">{pendingTasks.length}</p>
+        </div>
+        <div className="bg-theme-surface border border-theme-border/20 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-theme-text/40 mb-1">
+            <FaExclamationTriangle className="w-3.5 h-3.5" />
+            <span className="text-[10px] uppercase tracking-wider">Overdue</span>
+          </div>
+          <p className="text-lg font-bold text-red-400">{pendingTasks.filter((t: any) => t.due_date && new Date(t.due_date) < new Date()).length}</p>
+        </div>
+        <div className="bg-theme-surface border border-theme-border/20 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-theme-text/40 mb-1">
+            <FaGitBranch className="w-3.5 h-3.5" />
+            <span className="text-[10px] uppercase tracking-wider">Branch</span>
+          </div>
+          <p className="text-lg font-bold text-theme-text truncate">{gitInfo?.branch || '-'}</p>
+        </div>
+        <div className="bg-theme-surface border border-theme-border/20 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-theme-text/40 mb-1">
+            <FaShieldAlt className="w-3.5 h-3.5" />
+            <span className="text-[10px] uppercase tracking-wider">Deps</span>
+          </div>
+          <p className="text-lg font-bold text-theme-text">{depsCount || 0}</p>
+        </div>
+      </div>
+
+      {/* Scripts, Activity, Environment grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Scripts */}
         {allScripts.length > 0 && (
           <div className="bg-theme-surface border border-theme-border/20 rounded-2xl p-5">
             <h3 className="text-sm font-semibold text-theme-text mb-3 flex items-center gap-2"><FaPlay className="w-3.5 h-3.5 text-theme-icon" /> Scripts</h3>
@@ -109,7 +181,6 @@ export function OverviewTab({ project, onRefresh: _onRefresh }: OverviewTabProps
           </div>
         )}
 
-        {/* Recent Activity */}
         <div className="bg-theme-surface border border-theme-border/20 rounded-2xl p-5">
           <h3 className="text-sm font-semibold text-theme-text mb-3 flex items-center gap-2"><FaHistory className="w-3.5 h-3.5 text-theme-icon" /> Activity</h3>
           {activity.length === 0 ? (
@@ -131,7 +202,6 @@ export function OverviewTab({ project, onRefresh: _onRefresh }: OverviewTabProps
           )}
         </div>
 
-        {/* Environment */}
         {Object.keys(project.environment || {}).length > 0 && (
           <div className="bg-theme-surface border border-theme-border/20 rounded-2xl p-5">
             <h3 className="text-sm font-semibold text-theme-text mb-3">Environment</h3>
@@ -146,6 +216,14 @@ export function OverviewTab({ project, onRefresh: _onRefresh }: OverviewTabProps
           </div>
         )}
       </div>
+
+      {/* Running Services */}
+      {runConfigsTyped.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-theme-text flex items-center gap-2"><FaPlay className="w-3.5 h-3.5 text-green-400" /> Running Services</h3>
+          <ServiceManager projectId={project.id} localPath={project.local_path} runConfigs={runConfigsTyped} />
+        </div>
+      )}
     </div>
   );
 }
