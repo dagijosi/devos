@@ -10,6 +10,7 @@ import {
   FaClipboard,
   FaTelegram,
   FaRobot,
+  FaLightbulb,
 } from "react-icons/fa";
 import {
   DASHBOARD,
@@ -22,6 +23,7 @@ import {
   CLIPBOARD,
   SNIPPETS,
   TELEGRAM,
+  INSIGHTS,
 } from "../routes/types/routeConstants";
 
 export interface NavLink {
@@ -47,6 +49,7 @@ export const navigationCategories: NavCategory[] = [
       { name: "Dashboard", href: DASHBOARD, icon: FaChartBar },
       { name: "Projects", href: PROJECTS, icon: FaFolder },
       { name: "Library", href: KNOWLEDGE, icon: FaBook },
+      { name: "Insights", href: INSIGHTS, icon: FaLightbulb },
     ],
   },
   {
