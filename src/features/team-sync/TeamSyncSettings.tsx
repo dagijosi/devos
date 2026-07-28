@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaUsers, FaSync, FaCheck, FaTimes } from 'react-icons/fa';
+import { FaUsers, FaSync, FaCheck, FaTimes, FaExclamationTriangle } from 'react-icons/fa';
 import { toast } from 'sonner';
 import { database } from '../../database';
 
@@ -68,6 +68,14 @@ export function TeamSyncSettings() {
         <div>
           <h3 className="text-sm font-semibold text-theme-text">Team Sync</h3>
           <p className="text-xs text-theme-text/40">Sync project data across team members</p>
+        </div>
+      </div>
+
+      <div className="flex items-start gap-2 px-3 py-2.5 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-[11px] text-yellow-400/90">
+        <FaExclamationTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+        <div>
+          <p className="font-medium text-yellow-400">Simulated — coming in a future release</p>
+          <p className="text-yellow-400/60 mt-0.5">Sync now runs a simulated sync. Real Git/HTTP sync, conflict handling, and authentication will ship in a later update.</p>
         </div>
       </div>
 

@@ -22,6 +22,7 @@ interface Props {
 export function ServiceManager({ projectId: _projectId, localPath, runConfigs = [] }: Props) {
   const [services, setServices] = useState<Service[]>([]);
   const logEndRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const childProcesses = useRef<Map<string, any>>(new Map());
 
   useEffect(() => {
     const initial: Service[] = runConfigs.map((rc, i) => ({
@@ -64,12 +65,14 @@ export function ServiceManager({ projectId: _projectId, localPath, runConfigs = 
       });
 
       const child = await cmd.spawn();
-      (child as any)._svcId = id;
+      childProcesses.current.set(id, child);
 
       cmd.on('close', () => {
+        childProcesses.current.delete(id);
         setServices((prev) => prev.map((s) => s.id === id ? { ...s, status: 'stopped', logs: [...s.logs, `[${new Date().toLocaleTimeString()}] Process exited`] } : s));
       });
       cmd.on('error', (err: string) => {
+        childProcesses.current.delete(id);
         setServices((prev) => prev.map((s) => s.id === id ? { ...s, status: 'failed', logs: [...s.logs, `[error] ${err}`] } : s));
       });
 
@@ -79,7 +82,14 @@ export function ServiceManager({ projectId: _projectId, localPath, runConfigs = 
     }
   }, [services]);
 
-  const stopService = useCallback((id: string) => {
+  const stopService = useCallback(async (id: string) => {
+    const child = childProcesses.current.get(id);
+    if (child) {
+      try {
+        await child.kill();
+      } catch { /* process may already be dead */ }
+      childProcesses.current.delete(id);
+    }
     setServices((prev) => prev.map((s) => s.id === id ? { ...s, status: 'stopped', logs: [...s.logs, `[${new Date().toLocaleTimeString()}] Stopped`] } : s));
   }, []);
 

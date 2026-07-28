@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { FaTimes, FaPlus, FaBug, FaStickyNote, FaCode, FaTasks } from 'react-icons/fa';
+import { FaTimes, FaPlus, FaBug, FaStickyNote, FaCode, FaTasks, FaExclamationTriangle } from 'react-icons/fa';
+import { toast } from 'sonner';
 import { useActiveProjectStore } from '../../stores/activeProject.store';
 import { database } from '../../database';
 
@@ -36,10 +37,15 @@ export function QuickCapture({ onClose, onCreated }: Props) {
 
   const handleSubmit = async () => {
     if (!title.trim()) return;
+    if ((type === 'task' || type === 'bug') && !activeProject) {
+      toast.error('Select a project first, or use Library for notes/snippets');
+      return;
+    }
     setSaving(true);
     try {
-      const projectId = activeProject?.id || 0;
+      const projectId = activeProject?.id;
       if (type === 'task') {
+        if (!projectId) { toast.error('Tasks require an active project'); setSaving(false); return; }
         await database.addProjectTask(projectId, title.trim(), priority, dueDate || undefined);
       } else if (type === 'note') {
         await database.createNote({ title: title.trim(), content: description });
@@ -48,9 +54,12 @@ export function QuickCapture({ onClose, onCreated }: Props) {
       } else if (type === 'snippet') {
         await database.createSnippet({ title: title.trim(), code: description, language: 'text' });
       }
+      toast.success(`${TYPE_CONFIG[type].label} created`);
       onCreated?.();
       onClose();
-    } catch {}
+    } catch (e) {
+      toast.error(`Failed to create ${TYPE_CONFIG[type].label}`);
+    }
     setSaving(false);
   };
 
@@ -100,6 +109,13 @@ export function QuickCapture({ onClose, onCreated }: Props) {
             className="w-full bg-theme-background/50 border border-theme-border/20 rounded-xl px-4 py-2.5 text-sm text-theme-text placeholder:text-theme-text/30 outline-none focus:border-theme-icon/40"
             onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
           />
+
+          {(type === 'task' || type === 'bug') && !activeProject && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-xs text-yellow-400">
+              <FaExclamationTriangle className="w-3 h-3 shrink-0" />
+              <span>No active project — switch or create one first</span>
+            </div>
+          )}
 
           {type === 'task' && (
             <div className="flex gap-3">

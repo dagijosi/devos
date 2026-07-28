@@ -10,6 +10,7 @@ import { RecentActivity } from '../components/RecentActivity';
 import { PinnedProjects } from '../components/PinnedProjects';
 import { ContinueWorkingCard } from '../components/ContinueWorkingCard';
 import { Upcoming } from '../components/Upcoming';
+import { DeveloperInbox } from '../components/DeveloperInbox';
 import { useNotifications } from '../../notifications/hooks/useNotifications';
 import { useActiveProjectStore } from '../../../stores/activeProject.store';
 import { useNavigate } from 'react-router-dom';
@@ -59,6 +60,11 @@ export function DashboardPage() {
       <TodayOverview stats={{ active: activeCount, failed: failedCount, tasks: pendingCount + overdueCount }} />
 
       <div className="grid grid-cols-12 gap-5">
+
+        {/* Developer Inbox — full width, answers "What needs my attention?" */}
+        <div className="col-span-12">
+          <DeveloperInbox />
+        </div>
 
         {/* Continue Working — full width when present */}
         {activeProject && (
