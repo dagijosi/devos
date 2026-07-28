@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { FaCode, FaPlus, FaEdit, FaTrash, FaCopy, FaTerminal, FaSearch, FaStar, FaRegStar, FaTimes, FaDownload, FaCheck } from 'react-icons/fa';
+import { FaCode, FaPlus, FaEdit, FaTrash, FaCopy, FaTerminal, FaSearch, FaStar, FaRegStar, FaTimes, FaDownload, FaCheck, FaExpand } from 'react-icons/fa';
 import { database } from '../../database';
 import { toast } from 'sonner';
 import LoadingComponent from '../../components/ui/feedback/LoadingComponent';
@@ -27,12 +27,14 @@ function SnippetCard({
   onEdit,
   onDelete,
   onToggleFav,
+  onView,
 }: {
   snippet: Snippet;
   onCopyToTerminal: (s: Snippet) => void;
   onEdit: (s: Snippet) => void;
   onDelete: (id: number) => void;
   onToggleFav: (id: number) => void;
+  onView: (s: Snippet) => void;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -61,8 +63,13 @@ function SnippetCard({
         </button>
       </div>
 
-      <div className="px-4 pb-2">
+      <div className="px-4 pb-2 relative group/code">
         <CodeBlock code={snippet.code} language={snippet.language} maxHeight="240px" />
+        <button onClick={() => onView(snippet)}
+          className="absolute top-2 right-2 p-1.5 rounded-lg bg-theme-background/80 border border-theme-border/10 text-theme-text/30 hover:text-theme-icon opacity-0 group-hover/code:opacity-100 transition-opacity"
+          title="View full code">
+          <FaExpand className="w-3 h-3" />
+        </button>
       </div>
 
       {snippet.tags.length > 0 && (
@@ -103,6 +110,7 @@ export function SnippetsPage() {
   const [description, setDescription] = useState('');
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  const [viewSnippet, setViewSnippet] = useState<Snippet | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -258,6 +266,7 @@ export function SnippetsPage() {
               onEdit={openEdit}
               onDelete={handleDelete}
               onToggleFav={handleToggleFav}
+              onView={setViewSnippet}
             />
           ))}
         </div>
@@ -322,6 +331,19 @@ export function SnippetsPage() {
             )}
           </div>
         </div>
+      </Modal>
+
+      {/* Full-code viewer modal */}
+      <Modal isOpen={!!viewSnippet} onClose={() => setViewSnippet(null)} title={viewSnippet?.title || ''} size="xl">
+        {viewSnippet && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 text-[11px] font-medium bg-theme-icon/10 text-theme-icon rounded font-mono">{viewSnippet.language}</span>
+              {viewSnippet.description && <span className="text-xs text-theme-text/40">{viewSnippet.description}</span>}
+            </div>
+            <CodeBlock code={viewSnippet.code} language={viewSnippet.language} showLineNumbers />
+          </div>
+        )}
       </Modal>
     </div>
   );

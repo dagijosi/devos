@@ -102,15 +102,22 @@ export function OverviewTab({ project, onRefresh: _onRefresh }: OverviewTabProps
                 {techs.map((t: string) => <TechnologyBadge key={t} name={t} />)}
               </div>
             )}
-            {Array.isArray(project.tags) && project.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {project.tags.map(t => (
-                  <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] bg-theme-icon/5 text-theme-text/40 rounded">
-                    <FaTag className="w-2 h-2" />{t}
-                  </span>
-                ))}
-              </div>
-            )}
+            {(() => {
+              const tagsArr = Array.isArray(project.tags)
+                ? project.tags
+                : typeof project.tags === 'string'
+                  ? (() => { try { return JSON.parse(project.tags); } catch { return []; } })()
+                  : [];
+              return tagsArr.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                {tagsArr.map((t: string) => (
+                    <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] bg-theme-icon/5 text-theme-text/40 rounded">
+                      <FaTag className="w-2 h-2" />{t}
+                    </span>
+                  ))}
+                </div>
+              ) : null;
+            })()}
             <div className="flex items-center gap-4 mt-3 text-xs text-theme-text/40">
               <span className="flex items-center gap-1"><FaCalendarAlt className="w-3 h-3" /> {new Date(project.created_at).toLocaleDateString()}</span>
               {gitInfo?.branch && <span className="flex items-center gap-1"><FaCodeBranch className="w-3 h-3 text-purple-400" /> {gitInfo.branch}</span>}

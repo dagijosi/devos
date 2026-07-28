@@ -15,6 +15,12 @@ interface SettingsTabProps {
   onRefresh: () => void;
 }
 
+const parseTags = (tags: unknown): string[] => {
+  if (Array.isArray(tags)) return tags;
+  if (typeof tags === 'string') { try { return JSON.parse(tags); } catch { return []; } }
+  return [];
+};
+
 export function SettingsTab({ project, onRefresh }: SettingsTabProps) {
   const navigate = useNavigate();
   const [form, setForm] = useState<ProjectFormData>({
@@ -24,7 +30,7 @@ export function SettingsTab({ project, onRefresh }: SettingsTabProps) {
     icon: project.icon,
     color: project.color,
     category: project.category,
-    tags: project.tags,
+    tags: parseTags(project.tags),
     technology: project.technology,
     repository_url: project.repository_url,
     local_path: project.local_path,
