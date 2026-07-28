@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./theme-system/styles.css";
+@import "highlight.js/styles/atom-one-dark.css";
 
 :root {
   font-family: 'DM Sans', system-ui, -apple-system, sans-serif;

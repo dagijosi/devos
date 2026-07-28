@@ -1,6 +1,7 @@
 import { FaCode, FaStar, FaRegStar, FaRegCopy, FaRegTrashAlt, FaCheck } from 'react-icons/fa';
 import { useState } from 'react';
 import type { CodeSnippet } from '../types';
+import { CodeBlock } from '../../../components/ui/CodeBlock';
 
 interface Props {
   snippet: CodeSnippet;
@@ -40,9 +41,9 @@ export function SnippetCard({ snippet, onToggleFavorite, onDelete }: Props) {
           </button>
         </div>
       </div>
-      <pre className="px-4 py-3 text-xs text-theme-text/80 font-mono overflow-x-auto max-h-48 overflow-y-auto leading-relaxed">
-        <code>{snippet.code}</code>
-      </pre>
+      <div className="px-4 py-3">
+        <CodeBlock code={snippet.code} language={snippet.language} maxHeight="288px" showLineNumbers />
+      </div>
       {snippet.description && (
         <div className="px-4 py-2 border-t border-theme-border/10">
           <p className="text-[11px] text-theme-text/40">{snippet.description}</p>
