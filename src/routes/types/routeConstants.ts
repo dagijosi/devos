@@ -20,3 +20,4 @@ export const TERMINAL = "/terminal";
 export const GIT_CLIENT = "/git";
 export const ENV_MANAGER = "/env";
 export const DEPENDENCIES = "/dependencies";
+export const TELEGRAM = "/telegram";

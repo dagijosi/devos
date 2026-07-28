@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useActiveProjectStore } from '../../stores/activeProject.store';
-import { FaFolder, FaStickyNote, FaBug, FaCode, FaTerminal, FaGitAlt, FaPlus, FaArrowRight, FaSearch, FaPlay, FaCloudUploadAlt, FaArrowDown } from 'react-icons/fa';
+import { FaFolder, FaStickyNote, FaBug, FaCode, FaTerminal, FaGitAlt, FaPlus, FaArrowRight, FaSearch, FaPlay, FaCloudUploadAlt, FaArrowDown, FaTelegram } from 'react-icons/fa';
 import { useAppStore } from '../../stores/app.store';
 import { database } from '../../database';
-import { PROJECT_DETAIL, PROJECTS, KNOWLEDGE, TASKS, TERMINAL } from '../../routes/types/routeConstants';
+import { PROJECT_DETAIL, PROJECTS, KNOWLEDGE, TASKS, TERMINAL, TELEGRAM } from '../../routes/types/routeConstants';
 
 import { runScript as runProjectScript, openVSCode } from '../projects/utils/projectActions';
 
@@ -28,6 +28,7 @@ const COMMANDS: SearchResult[] = [
   { id: 'cmd-pull', type: 'action', label: 'Git Pull', description: 'Pull latest changes from remote', icon: FaArrowDown, action: () => {} },
   { id: 'cmd-deploy', type: 'action', label: 'Deploy Project', description: 'Deploy the active project', icon: FaCloudUploadAlt, action: () => {} },
   { id: 'cmd-open-vscode', type: 'action', label: 'Open in VS Code', description: 'Open project in Visual Studio Code', icon: FaCode, action: () => {} },
+  { id: 'cmd-telegram', type: 'action', label: 'Telegram Bot', description: 'Open Telegram bot & import messages', icon: FaTelegram, action: () => {} },
 ];
 
 const TYPE_COLORS: Record<string, string> = {
@@ -165,6 +166,7 @@ export function UnifiedSearch() {
       if (ctx?.localPath) { try { openVSCode(ctx.localPath); } catch {} }
       else navigate(PROJECTS);
     }
+    else if (result.id === 'cmd-telegram') navigate(TELEGRAM);
     else result.action();
     setCommandPaletteOpen(false);
   };

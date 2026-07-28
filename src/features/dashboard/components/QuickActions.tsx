@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaFolder, FaStickyNote, FaPlay, FaTerminal, FaSearch, FaTasks, FaCode, FaPlus } from 'react-icons/fa';
-import { PROJECTS, KNOWLEDGE, WORKFLOWS, TASKS } from '../../../routes/types/routeConstants';
+import { FaFolder, FaStickyNote, FaPlay, FaTerminal, FaSearch, FaTasks, FaCode, FaPlus, FaTelegram } from 'react-icons/fa';
+import { PROJECTS, KNOWLEDGE, WORKFLOWS, TASKS, TELEGRAM } from '../../../routes/types/routeConstants';
 import { useAppStore } from '../../../stores/app.store';
 import { useActiveProjectStore } from '../../../stores/activeProject.store';
 import { QuickCapture } from '../../quick-capture/QuickCapture';
@@ -12,21 +12,22 @@ export function QuickActions() {
   const activeProject = useActiveProjectStore(s => s.activeProject);
   const [captureOpen, setCaptureOpen] = useState(false);
 
-  const actions: { label: string; icon: React.ElementType; desc: string; route?: string; action?: 'capture' | 'search' | 'terminal' | 'vscode' }[] = [
+  const actions: { label: string; icon: React.ElementType; desc: string; route?: string; action?: 'capture' | 'search' | 'terminal' | 'vscode' | 'telegram' }[] = [
     { label: 'New Project', icon: FaFolder, desc: 'Create a new project', route: `${PROJECTS}?new=true` },
     { label: 'Quick Capture', icon: FaPlus, desc: 'Task, note, bug, or snippet', action: 'capture' },
     { label: 'Tasks', icon: FaTasks, desc: 'Today\'s priorities', route: TASKS },
+    { label: 'Telegram Bot', icon: FaTelegram, desc: 'Import messages & command your workspace', action: 'telegram' },
     { label: 'New Note', icon: FaStickyNote, desc: 'Quick note capture', route: KNOWLEDGE },
     { label: 'Run Workflow', icon: FaPlay, desc: 'Execute workflows', route: WORKFLOWS },
     { label: 'Search', icon: FaSearch, desc: 'Ctrl+K', action: 'search' },
   ];
 
   if (activeProject) {
-    actions.splice(1, 0, {
+    actions.splice(2, 0, {
       label: 'Open Terminal', icon: FaTerminal, desc: activeProject.name,
       action: 'terminal' as const,
     });
-    actions.splice(2, 0, {
+    actions.splice(3, 0, {
       label: 'Open in VS Code', icon: FaCode, desc: activeProject.localPath,
       action: 'vscode' as const,
     });
@@ -47,6 +48,7 @@ export function QuickActions() {
                   import('@tauri-apps/api/core').then(({ invoke }) => invoke('open_vscode', { path: activeProject.localPath }).catch(() => {}));
                 }
               }
+              else if (a.action === 'telegram') navigate(TELEGRAM);
               else if (a.route) navigate(a.route);
             }}
               className="group flex flex-col items-start gap-2 p-4 bg-theme-background/30 border border-theme-border/10 hover:border-theme-border/30 rounded-xl transition-all text-left hover:bg-theme-background/50"

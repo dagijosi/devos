@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useActiveProjectStore } from '../stores/activeProject.store';
-import { CATCH_ALL, DASHBOARD, SETTING, PROFILE, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, UTILITIES, WORKFLOWS, AI, BACKUP, CLIPBOARD, SNIPPETS, TASKS, TERMINAL, GIT_CLIENT, ENV_MANAGER, DEPENDENCIES } from './types/routeConstants';
+import { CATCH_ALL, DASHBOARD, SETTING, PROFILE, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, UTILITIES, WORKFLOWS, AI, BACKUP, CLIPBOARD, SNIPPETS, TASKS, TERMINAL, GIT_CLIENT, ENV_MANAGER, DEPENDENCIES, TELEGRAM } from './types/routeConstants';
 import { createRoute } from './types/createRoute';
 import { AppLayout } from '../components/layout/AppLayout';
 
@@ -61,6 +61,10 @@ const TasksPage = React.lazy(() =>
   import('../features/tasks/pages/TasksPage').then((m) => ({ default: m.TasksPage }))
 );
 
+const TelegramPage = React.lazy(() =>
+  import('../features/telegram/pages/TelegramPage').then((m) => ({ default: m.TelegramPage }))
+);
+
 const ErrorPage = React.lazy(() => import('../pages/ErrorPage'));
 
 // Deprecated standalone tool routes — redirect to project detail with appropriate tab
@@ -89,6 +93,7 @@ const routes = [
   createRoute(CLIPBOARD, ClipboardPage, { layout: AppLayout }),
   createRoute(SNIPPETS, SnippetsPage, { layout: AppLayout }),
   createRoute(TASKS, TasksPage, { layout: AppLayout }),
+  createRoute(TELEGRAM, TelegramPage, { layout: AppLayout }),
   // Deprecated standalone tool routes - redirect to project context
   createRoute(TERMINAL, () => <DeprecatedToolRedirect tab="terminal" />),
   createRoute(GIT_CLIENT, () => <DeprecatedToolRedirect tab="git" />),

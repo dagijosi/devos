@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import {
   FaTelegram, FaSync, FaTrash, FaCog, FaCheck, FaPause, FaPlay,
   FaSearch, FaTimes, FaCopy, FaChevronDown, FaChevronUp, FaWifi,
+  FaExclamationTriangle, FaLink, FaKey, FaCheckDouble,
 } from 'react-icons/fa';
 import {
   loadTelegramConfig, saveTelegramConfig, UPDATES_KEY, type TelegramConfig,
@@ -16,7 +17,6 @@ import { KNOWLEDGE } from '../../../../routes/types/routeConstants';
 
 const API = 'https://api.telegram.org/bot';
 
-// ── Helpers ──────────────────────────────────────────────────────────────
 function loadUpdates(): ProcessedUpdate[] {
   try { return JSON.parse(localStorage.getItem(UPDATES_KEY) || '[]'); }
   catch { return []; }
@@ -31,12 +31,20 @@ function timeAgo(ts: number): string {
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
   return `${Math.floor(s / 86400)}d ago`;
 }
+function maskToken(token: string): string {
+  if (token.length <= 8) return '••••••••';
+  return `${token.slice(0, 2)}••••••••${token.slice(-4)}`;
+}
+function getStateLabel(config: TelegramConfig, isOnline: boolean): { label: string; color: string; pulse: boolean } {
+  if (!config.bot_token) return { label: 'Not configured', color: 'text-theme-text/40', pulse: false };
+  if (!isOnline) return { label: 'Offline', color: 'text-red-400', pulse: false };
+  if (config.auto_poll === false) return { label: 'Paused', color: 'text-yellow-400', pulse: false };
+  return { label: 'Polling', color: 'text-emerald-400', pulse: true };
+}
 
-// ── Types ────────────────────────────────────────────────────────────────
 interface Project { id: number; name: string; status: string }
 interface TimestampedUpdate extends ProcessedUpdate { ts?: number }
 
-// ── Command reference data ───────────────────────────────────────────────
 const CMD_GROUPS = [
   {
     label: 'Projects',
@@ -133,7 +141,6 @@ const CMD_GROUPS = [
 
 const STATUS_EMOJI: Record<string, string> = { active: '🟢', archived: '🔴', planning: '🟡' };
 
-// ── Component ────────────────────────────────────────────────────────────
 export function TelegramConnector() {
   const [config, setConfig] = useState<TelegramConfig>(loadTelegramConfig);
   const [updates, setUpdates] = useState<TimestampedUpdate[]>(() =>
@@ -149,10 +156,13 @@ export function TelegramConnector() {
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showSkipped, setShowSkipped] = useState(false);
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+  const [tokenRevealed, setTokenRevealed] = useState(false);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [, setTick] = useState(0); // Force re-render for relative timestamps
+  const [, setTick] = useState(0);
 
-  // ── Online / offline ─────────────────────────────────────────────────
+  const state = getStateLabel(config, isOnline);
+
   useEffect(() => {
     const on = () => setIsOnline(true);
     const off = () => setIsOnline(false);
@@ -161,7 +171,6 @@ export function TelegramConnector() {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, []);
 
-  // ── Tick for relative timestamps ─────────────────────────────────────
   useEffect(() => {
     tickRef.current = setInterval(() => setTick(t => t + 1), 30_000);
     return () => { if (tickRef.current) clearInterval(tickRef.current); };
@@ -174,12 +183,11 @@ export function TelegramConnector() {
     saveTelegramConfig(next);
   }, []);
 
-  // ── Load projects ────────────────────────────────────────────────────
   const loadProjects = useCallback(async () => {
     try {
       const projs = await database.getProjects();
       setProjects(projs.map((p: any) => ({ id: p.id, name: p.name, status: p.status || 'active' })));
-    } catch { /* DB not ready yet */ }
+    } catch {}
   }, []);
 
   useEffect(() => { loadProjects(); }, [loadProjects]);
@@ -190,7 +198,6 @@ export function TelegramConnector() {
     return () => window.removeEventListener('knowledge-updated', onKnowledge);
   }, [loadProjects]);
 
-  // ── Bot info on token change ─────────────────────────────────────────
   useEffect(() => {
     if (!config.bot_token) return;
     (async () => {
@@ -207,7 +214,6 @@ export function TelegramConnector() {
 
   useEffect(() => { saveUpdates(updates); }, [updates]);
 
-  // ── React to polling events ──────────────────────────────────────────
   useEffect(() => {
     const refresh = () => {
       setUpdates(loadUpdates().map(u => ({ ...u, ts: (u as TimestampedUpdate).ts ?? Date.now() })));
@@ -222,7 +228,6 @@ export function TelegramConnector() {
     };
   }, []);
 
-  // ── Test connection ──────────────────────────────────────────────────
   const testConnection = async () => {
     if (!config.bot_token) { toast.error('Enter bot token first'); return; }
     try {
@@ -239,7 +244,6 @@ export function TelegramConnector() {
     } catch { toast.error('Connection failed — check your token and internet'); }
   };
 
-  // ── Manual sync ──────────────────────────────────────────────────────
   const syncNow = async () => {
     if (!config.bot_token) { toast.error('Configure bot token first'); return; }
     setLoading(true);
@@ -269,7 +273,6 @@ export function TelegramConnector() {
     setLoading(false);
   };
 
-  // ── Copy project ID ──────────────────────────────────────────────────
   const copyProjectId = (id: number) => {
     navigator.clipboard.writeText(String(id)).then(() => {
       setCopiedId(id);
@@ -278,9 +281,29 @@ export function TelegramConnector() {
     });
   };
 
+  const copyBotLink = () => {
+    if (!botInfo?.username) return;
+    const link = `https://t.me/${botInfo.username}`;
+    navigator.clipboard.writeText(link).then(() => toast.success('Bot link copied'));
+  };
+
+  const disconnect = () => {
+    localStorage.removeItem('devos_telegram_config');
+    localStorage.removeItem('devos_telegram_updates');
+    localStorage.removeItem('devos_telegram_processed_ids');
+    setConfig({ bot_token: '', chat_id: '', last_update_id: 0, auto_poll: true, poll_interval: 15 });
+    setBotInfo(null);
+    setUpdates([]);
+    setLastSync(null);
+    setShowDisconnectConfirm(false);
+    setShowConfig(true);
+    setTokenRevealed(false);
+    toast.success('Disconnected — config cleared');
+  };
+
   const clearUpdates = () => { setUpdates([]); saveUpdates([]); };
 
-  const ic = 'w-full bg-theme-surface border border-theme-border/20 rounded-lg px-3 py-2 text-xs text-theme-text outline-none focus:border-theme-icon/50';
+  const ic = 'w-full bg-theme-background border border-theme-border/30 rounded-lg px-3 py-2 text-xs text-theme-text outline-none focus:border-theme-icon/50';
 
   const visibleUpdates = updates.filter(u =>
     showSkipped ? true : !u.skipped
@@ -293,7 +316,6 @@ export function TelegramConnector() {
 
   const skippedCount = updates.filter(u => u.skipped).length;
 
-  // ── Render ────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
 
@@ -301,32 +323,30 @@ export function TelegramConnector() {
       <div className="rounded-xl border border-theme-border/15 bg-theme-background/40 px-4 py-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            {/* Bot icon with animated poll indicator */}
             <div className="relative shrink-0">
               <div className="w-9 h-9 rounded-lg bg-[#229ED9]/15 flex items-center justify-center">
                 <FaTelegram className="w-4 h-4 text-[#229ED9]" />
               </div>
               {config.bot_token && config.auto_poll !== false && isOnline && (
-                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-theme-background animate-pulse" />
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-theme-background" />
               )}
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <p className="text-sm font-medium text-theme-text truncate">
-                  {botInfo ? `@${botInfo.username}` : 'Telegram Bot'}
+                  {botInfo ? `@${botInfo.username}` : config.bot_token ? 'Connecting...' : 'Telegram Bot'}
                 </p>
-                {/* Online / offline badge */}
-                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium ${isOnline ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
-                  <FaWifi className="w-2 h-2" />
-                  {isOnline ? 'Online' : 'Offline'}
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium ${state.pulse ? 'bg-emerald-500/10 text-emerald-400' : state.label === 'Paused' ? 'bg-yellow-500/10 text-yellow-400' : state.label === 'Offline' ? 'bg-red-500/10 text-red-400' : 'bg-theme-icon/10 text-theme-text/50'}`}>
+                  {state.pulse ? <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> : <FaWifi className="w-2 h-2" />}
+                  {state.label}
                 </span>
               </div>
               <p className="text-[10px] text-theme-text/40 mt-0.5">
                 {config.bot_token
                   ? config.auto_poll !== false
-                    ? `Polling every ${config.poll_interval || 15}s`
+                    ? `Polling every ${config.poll_interval || 15}s${botInfo ? ` · ${botInfo.name}` : ''}`
                     : '⏸ Polling paused'
-                  : 'Not configured — click ⚙️ to set up'}
+                  : 'Not configured — click the settings icon to set up'}
                 {lastSync ? ` · synced ${timeAgo(lastSync)}` : ''}
               </p>
             </div>
@@ -346,6 +366,7 @@ export function TelegramConnector() {
             <button
               onClick={() => setShowConfig(v => !v)}
               className={`p-2 rounded-lg transition-colors ${showConfig ? 'text-theme-icon bg-theme-icon/10' : 'text-theme-text/35 hover:text-theme-text hover:bg-theme-surface'}`}
+              aria-label="Telegram settings"
               title="Settings"
             >
               <FaCog className="w-3.5 h-3.5" />
@@ -354,7 +375,7 @@ export function TelegramConnector() {
               onClick={syncNow}
               disabled={loading || !config.bot_token || !isOnline}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-icon text-white hover:bg-theme-icon/90 disabled:opacity-40 transition-colors"
-              title={!isOnline ? 'Offline — cannot sync' : undefined}
+              title={!isOnline ? 'Offline — cannot sync' : 'Manually fetch pending updates'}
             >
               <FaSync className={`w-2.5 h-2.5 ${loading ? 'animate-spin' : ''}`} />
               Sync
@@ -366,26 +387,62 @@ export function TelegramConnector() {
       {/* ── Config panel ───────────────────────────────────────────── */}
       {showConfig && (
         <div className="rounded-xl border border-theme-border/20 bg-theme-surface p-4 space-y-3">
+          {/* Setup steps */}
+          {!config.bot_token && (
+            <div className="bg-theme-icon/5 border border-theme-icon/15 rounded-lg p-3 space-y-1.5 mb-1">
+              <p className="text-xs font-semibold text-theme-text">Setup guide</p>
+              <div className="space-y-1 text-[10px] text-theme-text/50">
+                <p className="flex items-center gap-2"><span className="w-4 h-4 rounded-full bg-theme-icon/15 text-theme-icon flex items-center justify-center text-[8px] font-bold shrink-0">1</span>Create a bot with <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" className="text-theme-icon underline">@BotFather</a> on Telegram</p>
+                <p className="flex items-center gap-2"><span className="w-4 h-4 rounded-full bg-theme-icon/15 text-theme-icon flex items-center justify-center text-[8px] font-bold shrink-0">2</span>Paste the bot token below</p>
+                <p className="flex items-center gap-2"><span className="w-4 h-4 rounded-full bg-theme-icon/15 text-theme-icon flex items-center justify-center text-[8px] font-bold shrink-0">3</span>Click <strong>Test connection</strong> — if OK, the bot will start polling</p>
+                <p className="flex items-center gap-2"><span className="w-4 h-4 rounded-full bg-theme-icon/15 text-theme-icon flex items-center justify-center text-[8px] font-bold shrink-0">4</span>Open your bot in Telegram and send <code className="text-theme-text/60">/start</code></p>
+              </div>
+            </div>
+          )}
+
           <div>
-            <p className="text-xs font-medium text-theme-text">Bot setup</p>
-            <p className="text-[10px] text-theme-text/40 mt-0.5">
-              Create a bot with{' '}
-              <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" className="text-theme-icon underline">@BotFather</a>
-              , paste the token, then send <code className="text-theme-text/60">/start</code> to the bot. Messages save into your Library.
-            </p>
+            <label className="text-[10px] font-medium text-theme-text/40 uppercase mb-1 block">Bot token</label>
+            <div className="flex items-center gap-2">
+              {config.bot_token && !tokenRevealed ? (
+                <div className="flex-1 flex items-center gap-2 bg-theme-background border border-theme-border/30 rounded-lg px-3 py-2 text-xs text-theme-text/60 font-mono">
+                  <FaKey className="w-3 h-3 text-theme-text/30 shrink-0" />
+                  <span className="tracking-wider">{maskToken(config.bot_token)}</span>
+                  <button
+                    onClick={() => setTokenRevealed(true)}
+                    className="ml-auto text-[10px] text-theme-icon hover:underline"
+                    title="Show full token"
+                  >
+                    Reveal
+                  </button>
+                </div>
+              ) : (
+                <input
+                  value={config.bot_token}
+                  onChange={e => { setTokenRevealed(true); save({ bot_token: e.target.value.trim() }); }}
+                  placeholder="Bot token (from @BotFather)"
+                  type={tokenRevealed ? 'text' : 'password'}
+                  className={ic}
+                  autoFocus={!config.bot_token}
+                />
+              )}
+              {config.bot_token && tokenRevealed && (
+                <button
+                  onClick={() => setTokenRevealed(false)}
+                  className="shrink-0 px-2.5 py-2 rounded-lg text-[10px] border border-theme-border/20 text-theme-text/50 hover:text-theme-text hover:bg-theme-background"
+                >
+                  Hide
+                </button>
+              )}
+            </div>
           </div>
-          <input
-            value={config.bot_token}
-            onChange={e => save({ bot_token: e.target.value.trim() })}
-            placeholder="Bot token  (from @BotFather)"
-            className={ic}
-          />
+
           <div className="space-y-1">
+            <label className="text-[10px] font-medium text-theme-text/40 uppercase mb-1 block">Chat ID (optional)</label>
             <div className="flex items-center gap-2">
               <input
                 value={config.chat_id}
                 onChange={e => save({ chat_id: e.target.value.trim() })}
-                placeholder="Chat ID — optional, digits only"
+                placeholder="Digits only — leave empty for auto-lock"
                 className={ic}
               />
               {config.chat_id && (
@@ -403,8 +460,9 @@ export function TelegramConnector() {
               Send <code className="text-theme-text/55">/id</code> from Telegram to find your chat ID.
             </p>
           </div>
+
           <div className="flex flex-wrap items-center gap-2">
-            <label className="text-[10px] text-theme-text/40">Poll every</label>
+            <label className="text-[10px] text-theme-text/40">Poll interval</label>
             <select
               value={config.poll_interval || 15}
               onChange={e => save({ poll_interval: Number(e.target.value) })}
@@ -414,17 +472,95 @@ export function TelegramConnector() {
             </select>
             <div className="flex-1" />
             <button onClick={testConnection} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-icon/10 text-theme-icon border border-theme-icon/20 hover:bg-theme-icon/20 transition-colors">
+              <FaCheckDouble className="w-3 h-3 inline mr-1" />
               Test connection
             </button>
             <button onClick={() => setShowConfig(false)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-icon text-white hover:bg-theme-icon/90 transition-colors">
               Done
             </button>
           </div>
+
           {botInfo && (
-            <div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 rounded-lg px-3 py-2">
-              <FaCheck className="w-3 h-3" /> Connected as @{botInfo.username}
+            <div className="flex items-center justify-between gap-2 text-xs text-emerald-400 bg-emerald-500/10 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2">
+                <FaCheck className="w-3 h-3" />
+                <span>Connected as @{botInfo.username}</span>
+              </div>
+              <button
+                onClick={copyBotLink}
+                className="flex items-center gap-1 text-[10px] text-emerald-400 hover:text-emerald-300 bg-emerald-500/15 hover:bg-emerald-500/25 px-2 py-1 rounded transition-colors"
+                title="Copy bot link to clipboard"
+              >
+                <FaLink className="w-2.5 h-2.5" />
+                Copy bot link
+              </button>
             </div>
           )}
+
+          {/* Replace Token / Disconnect — only when already configured */}
+          {config.bot_token && !showDisconnectConfirm && (
+            <div className="flex items-center gap-2 pt-1 border-t border-theme-border/10">
+              <button
+                onClick={() => { setTokenRevealed(true); }}
+                className="text-[10px] text-theme-icon hover:underline"
+              >
+                Replace token
+              </button>
+              <span className="text-theme-border/30">·</span>
+              <button
+                onClick={() => setShowDisconnectConfirm(true)}
+                className="text-[10px] text-red-400 hover:text-red-300"
+              >
+                Disconnect
+              </button>
+            </div>
+          )}
+
+          {/* Disconnect confirmation dialog */}
+          {showDisconnectConfirm && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 space-y-2">
+              <div className="flex items-center gap-2 text-xs text-red-400">
+                <FaExclamationTriangle className="w-3.5 h-3.5" />
+                <span className="font-medium">Disconnect Telegram bot?</span>
+              </div>
+              <p className="text-[10px] text-theme-text/50">
+                This will clear your bot token, chat ID, and all activity log.
+                You can reconnect anytime with a new token.
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={disconnect}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500 text-white hover:bg-red-400 transition-colors"
+                >
+                  Yes, disconnect
+                </button>
+                <button
+                  onClick={() => setShowDisconnectConfirm(false)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-background border border-theme-border/20 text-theme-text/60 hover:text-theme-text transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Connected badge (when config is hidden) ────────────────── */}
+      {!showConfig && botInfo && (
+        <div className="flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-2.5">
+          <div className="flex items-center gap-2 text-xs text-emerald-400">
+            <FaCheck className="w-3 h-3" />
+            <span>Connected as @{botInfo.username}</span>
+          </div>
+          <button
+            onClick={copyBotLink}
+            className="flex items-center gap-1 text-[10px] text-theme-text/50 hover:text-theme-text bg-theme-background/50 hover:bg-theme-surface border border-theme-border/20 px-2.5 py-1 rounded-lg transition-colors"
+            title="Copy bot link"
+          >
+            <FaLink className="w-2.5 h-2.5" />
+            Copy link
+          </button>
         </div>
       )}
 
@@ -513,6 +649,7 @@ export function TelegramConnector() {
             <button
               onClick={() => setShowSkipped(v => !v)}
               className="text-[10px] text-theme-text/35 hover:text-theme-text/60 transition-colors"
+              title={showSkipped ? 'Hide skipped messages' : `Show ${skippedCount} skipped messages`}
             >
               {showSkipped ? 'Hide' : 'Show'} {skippedCount} skipped
             </button>
@@ -530,14 +667,13 @@ export function TelegramConnector() {
 
       {/* ── Activity log ───────────────────────────────────────────── */}
       {visibleUpdates.length === 0 && updates.length === 0 ? (
-        /* Empty state — onboarding */
         <div className="rounded-xl border border-dashed border-theme-border/20 py-10 px-6 text-center space-y-4">
           <FaTelegram className="w-10 h-10 text-theme-text/10 mx-auto" />
           <div>
             <p className="text-xs font-medium text-theme-text/50">No messages yet</p>
             <p className="text-[10px] text-theme-text/25 mt-1 max-w-sm mx-auto">
               {!config.bot_token
-                ? 'Click ⚙️ above to paste your bot token, then send /start from Telegram.'
+                ? 'Configure your bot token above, then send /start from Telegram.'
                 : 'Open your bot in Telegram and send /start — messages appear here automatically.'}
             </p>
           </div>
@@ -549,7 +685,7 @@ export function TelegramConnector() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-4 h-4 rounded-full bg-theme-icon/15 text-theme-icon flex items-center justify-center text-[8px] font-bold shrink-0">2</span>
-                <span>Click ⚙️ and paste the token</span>
+                <span>Paste the token in settings</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-4 h-4 rounded-full bg-theme-icon/15 text-theme-icon flex items-center justify-center text-[8px] font-bold shrink-0">3</span>
@@ -598,7 +734,15 @@ export function TelegramConnector() {
                   </div>
                 </div>
                 <p className="px-3 py-2 text-[11px] text-theme-text/55 whitespace-pre-wrap leading-relaxed">
-                  {u.result}
+                  {u.skipped && u.result ? (
+                    <span className="text-theme-text/35 italic">{u.result}</span>
+                  ) : u.result ? (
+                    u.result
+                  ) : u.skipped ? (
+                    <span className="text-theme-text/35 italic">Message skipped — see reason above</span>
+                  ) : (
+                    <span className="text-theme-text/35 italic">No result</span>
+                  )}
                 </p>
               </div>
             );

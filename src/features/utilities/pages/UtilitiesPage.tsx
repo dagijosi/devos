@@ -1,5 +1,6 @@
 import { useMemo, useEffect, useRef, type ComponentType } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { TELEGRAM } from '../../../routes/types/routeConstants';
 import { FaExclamationTriangle } from 'react-icons/fa';
 import { UtilitiesSidebar } from '../components/UtilitiesSidebar';
 import { ToolGrid } from '../components/ToolGrid';
@@ -139,7 +140,7 @@ export function UtilitiesPage() {
   useEffect(() => {
     if (activeTool === 'telegram-connector') {
       setActiveTool(null);
-      navigate('/', { replace: true });
+      navigate(TELEGRAM, { replace: true });
     }
   }, [activeTool]); // eslint-disable-line react-hooks/exhaustive-deps
 
