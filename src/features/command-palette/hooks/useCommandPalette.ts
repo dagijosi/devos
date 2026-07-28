@@ -89,7 +89,7 @@ export function useCommandPalette() {
     label: n.title,
     description: n.type === 'bug' ? 'Bug Report' : n.type === 'doc' ? 'Document' : 'Note',
     category: 'Knowledge',
-    action: () => navigate(KNOWLEDGE),
+    action: () => navigate(`${KNOWLEDGE}?item=${n.id}`),
   }));
 
   const snippetCommands: Command[] = snippets.map((s) => ({
@@ -97,7 +97,7 @@ export function useCommandPalette() {
     label: s.title,
     description: `Snippet • ${s.language || 'code'}`,
     category: 'Snippets',
-    action: () => navigate(SNIPPETS),
+    action: () => navigate(`${SNIPPETS}?item=${s.id}`),
   }));
 
   const commands = [...baseCommands, ...toolCommands, ...projectCommands, ...noteCommands, ...snippetCommands];

@@ -43,6 +43,17 @@ async function readCargoToml(path: string): Promise<DepFile | null> {
   } catch { return null; }
 }
 
+async function readRequirements(path: string): Promise<DepFile | null> {
+  try {
+    const txt = await readFile(path + '/requirements.txt');
+    const deps = txt.split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('#')).map(line => {
+      const [name, version] = line.split(/==|>=|<=|~=|!=|>|</, 2);
+      return { name: name.trim(), current: version?.trim() || 'unspecified', outdated: false };
+    });
+    return { path, type: 'pip', deps };
+  } catch { return null; }
+}
+
 async function checkLatest(name: string, current: string, type: string): Promise<DepItem> {
   try {
     if (type === 'npm') {
@@ -51,6 +62,10 @@ async function checkLatest(name: string, current: string, type: string): Promise
     } else if (type === 'cargo') {
       const res = await fetch(`https://crates.io/api/v1/crates/${encodeURIComponent(name)}`);
       if (res.ok) { const d = await res.json(); const latest = d.crate?.max_stable_version || current; return { name, current, latest, outdated: latest !== current }; }
+    }
+    else if (type === 'pip') {
+      const res = await fetch(`https://pypi.org/pypi/${encodeURIComponent(name)}/json`);
+      if (res.ok) { const d = await res.json(); return { name, current, latest: d.info?.version || current, outdated: d.info?.version !== current }; }
     }
   } catch {}
   return { name, current, outdated: false };
@@ -71,9 +86,9 @@ export function DependenciesTab({ localPath }: Props) {
     if (!localPath || !tauri) return;
     setScanning(true);
     try {
-      const results = (await Promise.all([readPackageJson(localPath), readCargoToml(localPath)])).filter(Boolean) as DepFile[];
+      const results = (await Promise.all([readPackageJson(localPath), readCargoToml(localPath), readRequirements(localPath)])).filter(Boolean) as DepFile[];
       setFiles(results);
-      if (results.length === 0) toast.error('No lockfiles found');
+      if (results.length === 0) toast.error('No dependency manifests found');
     } catch { toast.error('Failed to read files'); }
     setScanning(false);
   }, [localPath, tauri]);
@@ -109,8 +124,8 @@ export function DependenciesTab({ localPath }: Props) {
     return (
       <div className="text-center py-12">
         <FaCube className="w-10 h-10 text-theme-text/20 mx-auto mb-3" />
-        <p className="text-sm text-theme-text/40">No lockfiles found</p>
-        <p className="text-xs text-theme-text/30 mt-1">Looked for package.json, Cargo.toml in {localPath}</p>
+        <p className="text-sm text-theme-text/40">No dependency manifests found</p>
+        <p className="text-xs text-theme-text/30 mt-1">Looked for package.json, Cargo.toml, and requirements.txt in {localPath}</p>
       </div>
     );
   }
@@ -148,7 +163,7 @@ export function DependenciesTab({ localPath }: Props) {
                   </div>
                   <div className="flex items-center gap-2">
                     {d.outdated ? <span className="px-2 py-0.5 text-[10px] font-medium text-yellow-400 bg-yellow-400/10 rounded">Update available</span> : d.latest ? <span className="px-2 py-0.5 text-[10px] font-medium text-green-400 bg-green-400/10 rounded">Up to date</span> : null}
-                    <a href={`https://www.npmjs.com/package/${d.name}`} target="_blank" rel="noopener noreferrer" className="p-1.5 text-theme-text/30 hover:text-theme-icon transition-colors"><FaExternalLinkAlt className="w-3 h-3" /></a>
+                    <a href={f.type === 'cargo' ? `https://crates.io/crates/${d.name}` : f.type === 'pip' ? `https://pypi.org/project/${d.name}` : `https://www.npmjs.com/package/${d.name}`} target="_blank" rel="noopener noreferrer" aria-label={`Open ${d.name} package page`} className="p-1.5 text-theme-text/30 hover:text-theme-icon transition-colors"><FaExternalLinkAlt className="w-3 h-3" /></a>
                   </div>
                 </div>
               ))}

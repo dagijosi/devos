@@ -34,7 +34,7 @@ export function GitTab({ localPath }: Props) {
   const [committing, setCommitting] = useState(false);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileDiff, setFileDiff] = useState('');
-  const [isTauriEnvEnv, setIsTauri] = useState(false);
+  const [isTauriEnv, setIsTauri] = useState(false);
 
   useEffect(() => { setIsTauri(typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined); }, []);
 
@@ -132,6 +132,8 @@ export function GitTab({ localPath }: Props) {
   };
 
   const checkoutBranch = async (name: string) => {
+    const current = branches.find(branch => branch.current);
+    if (current?.name !== name && !window.confirm(`Switch from ${current?.name || 'the current branch'} to ${name}? Uncommitted changes can conflict.`)) return;
     try { await runGit(['checkout', name], localPath!); toast.success(`Switched to ${name}`); loadRepo(localPath!); }
     catch { toast.error('Checkout failed'); }
   };

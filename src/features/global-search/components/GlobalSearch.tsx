@@ -68,22 +68,22 @@ export function GlobalSearch() {
       });
       notes.forEach((n: Note) => {
         if (n.title?.toLowerCase().includes(ql) || (n.content || '').toLowerCase().includes(ql)) {
-          all.push({ id: `note-${n.id}`, label: n.title, description: (n.content || '').slice(0, 80), type: 'note', action: () => navigate(KNOWLEDGE) });
+          all.push({ id: `note-${n.id}`, label: n.title, description: (n.content || '').slice(0, 80), type: 'note', action: () => navigate(`${KNOWLEDGE}?item=${n.id}`) });
         }
       });
       snippets.forEach((s: CodeSnippet) => {
         if (s.title?.toLowerCase().includes(ql) || s.code?.toLowerCase().includes(ql)) {
-          all.push({ id: `snip-${s.id}`, label: s.title, description: `${s.language || 'code'} snippet`, type: 'snippet', action: () => navigate(KNOWLEDGE) });
+          all.push({ id: `snip-${s.id}`, label: s.title, description: `${s.language || 'code'} snippet`, type: 'snippet', action: () => navigate(`/snippets?item=${s.id}`) });
         }
       });
       bugs.forEach((b: Bug) => {
         if (b.title?.toLowerCase().includes(ql) || b.problem?.toLowerCase().includes(ql)) {
-          all.push({ id: `bug-${b.id}`, label: b.title, description: (b.problem || '').slice(0, 80), type: 'bug', action: () => navigate(KNOWLEDGE) });
+          all.push({ id: `bug-${b.id}`, label: b.title, description: (b.problem || '').slice(0, 80), type: 'bug', action: () => navigate(`${KNOWLEDGE}?item=${b.id}`) });
         }
       });
       knowledgeItems.forEach((k: KnowledgeItem) => {
         if (k.title?.toLowerCase().includes(ql) || (k.content || '').toLowerCase().includes(ql)) {
-          all.push({ id: `know-${k.id}`, label: k.title, description: `${k.type || 'item'} · ${(k.content || '').slice(0, 60)}`, type: 'knowledge', action: () => navigate(KNOWLEDGE) });
+          all.push({ id: `know-${k.id}`, label: k.title, description: `${k.type || 'item'} · ${(k.content || '').slice(0, 60)}`, type: 'knowledge', action: () => navigate(`${KNOWLEDGE}?item=${k.id}`) });
         }
       });
       setResults(all.slice(0, 20));

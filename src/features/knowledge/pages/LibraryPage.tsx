@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { FaSearch, FaTimes, FaTrash } from 'react-icons/fa';
 import { database } from '../../../database';
 import { LibrarySidebar } from '../components/LibrarySidebar';
@@ -12,6 +13,7 @@ interface LibraryPageProps {
 }
 
 export function LibraryPage({ projectId }: LibraryPageProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<KnowledgeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -61,6 +63,16 @@ export function LibraryPage({ projectId }: LibraryPageProps) {
     load(activeCategory, undefined, projectId);
     loadCounts();
   }, [activeCategory, projectId]);
+
+  useEffect(() => {
+    const itemId = Number(searchParams.get('item'));
+    if (!itemId || selected?.id === itemId) return;
+    const found = items.find(item => item.id === itemId);
+    if (found) {
+      setSelected(found);
+      setSearchParams({}, { replace: true });
+    }
+  }, [items, searchParams, selected?.id, setSearchParams]);
 
   useEffect(() => {
     const handler = () => { load(activeCategory, undefined, projectId); loadCounts(); };

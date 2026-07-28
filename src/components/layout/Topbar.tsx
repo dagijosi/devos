@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../stores/app.store';
 import { NotificationCenter } from '../../features/notifications/components/NotificationCenter';
 import { ThemeSwitcher } from '../../theme-system';
-import { DASHBOARD, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, UTILITIES, WORKFLOWS, SETTING, AI, INSIGHTS, TELEGRAM, BACKUP, API_TYPE_GENERATOR, PROFILE, CLIPBOARD, HOSTS_SWITCHER, TERMINAL, GIT_CLIENT } from '../../routes/types/routeConstants';
+import { DASHBOARD, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, UTILITIES, WORKFLOWS, SETTING, AI, INSIGHTS, TELEGRAM, BACKUP, API_TYPE_GENERATOR, PROFILE, CLIPBOARD, HOSTS_SWITCHER, TERMINAL, GIT_CLIENT, ENV_MANAGER, SNIPPETS, DEPENDENCIES } from '../../routes/types/routeConstants';
 
 interface TopbarProps {
   sidebarOpen: boolean;
@@ -26,6 +26,9 @@ const breadcrumbMap: Record<string, string> = {
   [HOSTS_SWITCHER]: 'Hosts Switcher',
   [TERMINAL]: 'Terminal',
   [GIT_CLIENT]: 'Git Client',
+  [ENV_MANAGER]: 'Environment',
+  [SNIPPETS]: 'Snippets',
+  [DEPENDENCIES]: 'Dependencies',
   [SETTING]: 'Settings',
   [PROFILE]: 'Profile',
 };

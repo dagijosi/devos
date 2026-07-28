@@ -1227,6 +1227,12 @@ export const database = {
     return inst.select<any>(PROJECT_TASK_QUERIES.getByProject, [projectId]);
   },
 
+  async getAllProjectTasks(): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select<any>(PROJECT_TASK_QUERIES.getAll);
+  },
+
   async addProjectTask(projectId: number, title: string, priority: string = 'medium', due_date?: string): Promise<void> {
     const inst = await getDatabase();
     if (!inst) return;

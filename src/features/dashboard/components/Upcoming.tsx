@@ -1,82 +1,58 @@
-import { useState } from 'react';
-import { FaCheckCircle, FaRegCircle, FaPlus, FaTasks } from 'react-icons/fa';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FaCheckCircle, FaRegCircle, FaTasks } from 'react-icons/fa';
+import { database } from '../../../database';
+import { PROJECTS } from '../../../routes/types/routeConstants';
 
-interface Goal {
-  id: string;
-  text: string;
-  done: boolean;
+interface Task {
+  id: number;
+  project_id: number;
+  title: string;
+  status: string;
+  due_date: string | null;
 }
 
 export function Upcoming() {
-  const [goals, setGoals] = useState<Goal[]>(() => {
-    try {
-      const saved = localStorage.getItem('devos_dashboard_goals');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
+  const navigate = useNavigate();
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [projectNames, setProjectNames] = useState<Record<number, string>>({});
 
-  const [adding, setAdding] = useState(false);
-  const [newText, setNewText] = useState('');
+  useEffect(() => {
+    const load = async () => {
+      const [allTasks, projects] = await Promise.all([database.getAllProjectTasks(), database.getProjects()]);
+      setTasks(allTasks.filter(task => task.status !== 'done').slice(0, 6));
+      setProjectNames(Object.fromEntries(projects.map(project => [project.id, project.name])));
+    };
+    void load();
+  }, []);
 
-  const toggle = (id: string) => {
-    const next = goals.map(g => g.id === id ? { ...g, done: !g.done } : g);
-    setGoals(next);
-    localStorage.setItem('devos_dashboard_goals', JSON.stringify(next));
+  const complete = async (task: Task) => {
+    await database.updateProjectTask(task.id, { ...task, description: '', priority: 'medium', status: 'done' });
+    setTasks(current => current.filter(item => item.id !== task.id));
   };
 
-  const add = () => {
-    if (!newText.trim()) return;
-    const next = [...goals, { id: crypto.randomUUID(), text: newText.trim(), done: false }];
-    setGoals(next);
-    localStorage.setItem('devos_dashboard_goals', JSON.stringify(next));
-    setNewText('');
-    setAdding(false);
-  };
-
-  const done = goals.filter(g => g.done).length;
+  if (tasks.length === 0) {
+    return (
+      <div className="text-center py-6">
+        <FaTasks className="w-7 h-7 text-theme-text/20 mx-auto mb-2" />
+        <p className="text-xs text-theme-text/40">No open project tasks</p>
+        <button onClick={() => navigate(PROJECTS)} className="mt-2 text-xs text-theme-icon hover:text-theme-icon/80">Open projects</button>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2 text-xs text-theme-text/40">
-          <FaTasks className="w-3 h-3" />
-          <span>{done}/{goals.length} complete</span>
-        </div>
-        <button onClick={() => setAdding(true)} className="flex items-center gap-1 text-xs text-theme-icon hover:text-theme-icon/80 transition-colors">
-          <FaPlus className="w-2.5 h-2.5" /> Add
+    <div className="space-y-1">
+      {tasks.map(task => (
+        <button key={task.id} onClick={() => complete(task)} className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-theme-background/20 transition-colors text-left group">
+          <FaRegCircle className="w-4 h-4 text-theme-text/30 group-hover:text-theme-icon shrink-0" />
+          <span className="flex-1 min-w-0">
+            <span className="block text-sm text-theme-text truncate">{task.title}</span>
+            <span className="block text-[10px] text-theme-text/30 truncate">{projectNames[task.project_id] || 'Project'}{task.due_date ? ` · Due ${task.due_date}` : ''}</span>
+          </span>
+          <FaCheckCircle className="w-3 h-3 text-theme-text/10 group-hover:text-green-400" />
         </button>
-      </div>
-
-      {adding && (
-        <div className="flex items-center gap-2 mb-3">
-          <input
-            type="text"
-            value={newText}
-            onChange={e => setNewText(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') add(); if (e.key === 'Escape') setAdding(false); }}
-            placeholder="What do you want to accomplish?"
-            className="flex-1 bg-theme-background border border-theme-border/30 rounded-lg px-3 py-2 text-xs text-theme-text placeholder:text-theme-text/40 outline-none focus:border-theme-icon/50"
-            autoFocus
-          />
-          <button onClick={add} className="px-3 py-2 bg-theme-icon text-white rounded-lg text-xs font-medium hover:bg-theme-icon/90">Add</button>
-        </div>
-      )}
-
-      <div className="space-y-1">
-        {goals.map(g => (
-          <div key={g.id}
-            onClick={() => toggle(g.id)}
-            className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-theme-background/20 transition-colors cursor-pointer group"
-          >
-            {g.done ? (
-              <FaCheckCircle className="w-4 h-4 text-green-400 shrink-0" />
-            ) : (
-              <FaRegCircle className="w-4 h-4 text-theme-text/30 group-hover:text-theme-text/50 shrink-0" />
-            )}
-            <span className={`text-sm ${g.done ? 'line-through text-theme-text/30' : 'text-theme-text'}`}>{g.text}</span>
-          </div>
-        ))}
-      </div>
+      ))}
     </div>
   );
 }

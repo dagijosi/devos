@@ -40,6 +40,12 @@ export function RunningServices() {
   }
 
   return (
+    services.length === 0 ? (
+      <div className="text-center py-6">
+        <p className="text-xs text-theme-text/40">No services detected</p>
+        <p className="text-[10px] text-theme-text/30 mt-1">Service monitoring is not configured yet.</p>
+      </div>
+    ) : (
     <div className="space-y-1">
       {services.map(s => {
         const cfg = statusConfig[s.status];
@@ -63,5 +69,6 @@ export function RunningServices() {
         );
       })}
     </div>
+    )
   );
 }

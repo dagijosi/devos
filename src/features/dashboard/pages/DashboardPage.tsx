@@ -15,23 +15,26 @@ import { useNotifications } from '../../notifications/hooks/useNotifications';
 export function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [failedCount, setFailedCount] = useState(0);
+  const [pendingTasks, setPendingTasks] = useState(0);
   const [loading, setLoading] = useState(true);
   const { notifications, unreadCount, markAllAsRead } = useNotifications();
 
   const stats = {
     active: projects.filter(p => p.status === 'active').length,
     failed: failedCount,
-    tasks: projects.filter(p => p.status !== 'completed').length,
+    tasks: pendingTasks,
   };
 
   useEffect(() => {
     const load = async () => {
-      const [all, deployments] = await Promise.all([
+      const [all, deployments, tasks] = await Promise.all([
         database.getProjects(),
         database.getAllDeployments(),
+        database.getAllProjectTasks(),
       ]);
       setProjects(all);
       setFailedCount(deployments.filter((d) => d.status === 'failed').length);
+      setPendingTasks(tasks.filter((task) => task.status !== 'done').length);
       setLoading(false);
     };
     load();
@@ -67,7 +70,7 @@ export function DashboardPage() {
 
         {/* Section 4 — Upcoming (col-span-3) */}
         <div className="col-span-12 sm:col-span-6 lg:col-span-3">
-          <DashboardWidget title="Today's Goals" icon={<FaList className="w-4 h-4" />}>
+          <DashboardWidget title="Open Tasks" icon={<FaList className="w-4 h-4" />}>
             <Upcoming />
           </DashboardWidget>
         </div>

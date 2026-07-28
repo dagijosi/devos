@@ -35,7 +35,7 @@ export function ProjectCard({ project, onToggleFavorite }: Props) {
     : null;
 
   return (
-    <div className="group bg-theme-surface border border-theme-border/20 hover:border-theme-border/40 rounded-2xl transition-all overflow-hidden">
+    <div role="link" tabIndex={0} onClick={() => navigate(`${PROJECTS}/${project.id}`)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); navigate(`${PROJECTS}/${project.id}`); } }} className="group bg-theme-surface border border-theme-border/20 hover:border-theme-border/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-theme-icon rounded-2xl transition-all overflow-hidden cursor-pointer">
       <div className="p-5">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3 min-w-0">
@@ -51,6 +51,7 @@ export function ProjectCard({ project, onToggleFavorite }: Props) {
           </div>
           <button
             onClick={e => { e.stopPropagation(); onToggleFavorite(project.id); }}
+            aria-label={project.favorite ? `Remove ${project.name} from pinned projects` : `Pin ${project.name}`}
             className="p-1.5 rounded-lg hover:bg-yellow-400/10 transition-colors opacity-0 group-hover:opacity-100"
           >
             {project.favorite ? <FaStar className="w-3.5 h-3.5 text-yellow-400" /> : <FaRegStar className="w-3.5 h-3.5 text-theme-text/30" />}

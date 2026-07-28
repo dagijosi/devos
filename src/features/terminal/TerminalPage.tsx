@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
@@ -15,6 +15,8 @@ interface Tab {
   child: any | null;
   isRunning: boolean;
   disposable: { dispose: () => void } | null;
+  cwd?: string;
+  command?: string;
 }
 
 let tabCounter = 0;
@@ -71,7 +73,9 @@ export function TerminalPage() {
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const terminalRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
   const [isTauri, setIsTauri] = useState(false);
+  const [runtimeReady, setRuntimeReady] = useState(false);
   const [shellType, setShellType] = useState<'powershell' | 'cmd' | 'bash'>('cmd');
+  const autoStartedRef = useRef(false);
 
   const isDark = currentTheme.mode === 'dark';
   const terminalTheme = isDark ? DARK_TERMINAL_THEME : LIGHT_TERMINAL_THEME;
@@ -84,9 +88,16 @@ export function TerminalPage() {
     } else {
       setShellType('bash');
     }
+    setRuntimeReady(true);
   }, []);
 
-  const addTab = async () => {
+  const addTab = useCallback(async () => {
+    const params = new URLSearchParams(window.location.search);
+    const shouldRunConfiguredCommand = !autoStartedRef.current && Boolean(params.get('cmd'));
+    const command = shouldRunConfiguredCommand ? params.get('cmd') || undefined : undefined;
+    const cwd = shouldRunConfiguredCommand ? params.get('cwd') || undefined : undefined;
+    const label = shouldRunConfiguredCommand ? params.get('label') || undefined : undefined;
+    if (shouldRunConfiguredCommand) autoStartedRef.current = true;
     tabCounter++;
     const id = `tab-${tabCounter}`;
     const fitAddon = new FitAddon();
@@ -103,12 +114,14 @@ export function TerminalPage() {
 
     const newTab: Tab = {
       id,
-      title: `Terminal ${tabCounter}`,
+      title: label || `Terminal ${tabCounter}`,
       terminal: term,
       fitAddon,
       child: null,
       isRunning: false,
       disposable: null,
+      cwd,
+      command,
     };
 
     setTabs((prev) => [...prev, newTab]);
@@ -123,21 +136,21 @@ export function TerminalPage() {
         term.focus();
 
         if (isTauri) {
-          startTauriShell(term, id);
+          startTauriShell(term, id, cwd, command);
         } else {
           startBrowserShell(term, id);
         }
       }
     }, 50);
-  };
+  }, [isTauri, shellType, terminalTheme]);
 
-  const startTauriShell = async (term: Terminal, tabId: string) => {
+  const startTauriShell = async (term: Terminal, tabId: string, configuredCwd?: string, configuredCommand?: string) => {
     try {
       const { Command } = await import('@tauri-apps/plugin-shell');
       const shellCmd = shellType === 'powershell' ? 'powershell' : shellType === 'bash' ? 'bash' : 'cmd';
       const shellArgs = shellType === 'powershell' ? ['-NoLogo'] : [];
       const ctx = getProjectContext();
-      const cwd = ctx?.localPath || undefined;
+      const cwd = configuredCwd || ctx?.localPath || undefined;
       const command = Command.create(shellCmd, shellArgs, cwd ? { cwd } : undefined);
 
       command.stdout.on('data', (data: any) => {
@@ -167,11 +180,20 @@ export function TerminalPage() {
       term.writeln('\x1b[36mDevOS Terminal\x1b[0m');
       term.writeln(`\x1b[2mShell: ${shellCmd}${ctx ? `  |  Project: ${ctx.name}` : ''}\x1b[0m`);
 
+      if (configuredCommand) {
+        term.writeln(`\x1b[2mRunning: ${configuredCommand}\x1b[0m`);
+        child.write(`${configuredCommand}\r`);
+      }
+
       setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, child, isRunning: true, disposable } : t));
     } catch (err: any) {
       term.writeln(`\x1b[31mFailed to start shell: ${err?.toString() || 'Unknown error'}\x1b[0m`);
     }
   };
+
+  useEffect(() => {
+    if (runtimeReady && !autoStartedRef.current && new URLSearchParams(window.location.search).get('cmd')) void addTab();
+  }, [addTab, runtimeReady]);
 
   const startBrowserShell = (term: Terminal, tabId: string) => {
     term.writeln('\x1b[33m⚠ Demo Mode — No shell available\x1b[0m');

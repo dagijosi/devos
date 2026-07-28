@@ -57,7 +57,8 @@ export function ProjectDetailPage() {
     setLoading(false);
   }, [id, getProject, updateLastOpened]);
 
-  useEffect(() => { setProjectContext(project); return () => setProjectContext(null); }, [project]);
+  // Keep the last opened project available to the global terminal, Git, and tools pages.
+  useEffect(() => { if (project) setProjectContext(project); }, [project]);
 
   useEffect(() => { load(); }, [load]);
 

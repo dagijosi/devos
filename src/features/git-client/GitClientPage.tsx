@@ -191,7 +191,7 @@ export function GitClientPage() {
 
   const stageAll = async () => {
     if (isDemo) {
-      setFiles((prev) => prev.map((f) => f.status !== 'untracked' ? { ...f, staged: true } : f));
+      setFiles((prev) => prev.map((f) => ({ ...f, staged: true })));
       return;
     }
     await runGit(['add', '-A']);
@@ -236,6 +236,8 @@ export function GitClientPage() {
   };
 
   const checkoutBranch = async (name: string) => {
+    const current = branches.find(branch => branch.current);
+    if (current?.name !== name && !window.confirm(`Switch from ${current?.name || 'the current branch'} to ${name}? Uncommitted changes can conflict.`)) return;
     if (isDemo) {
       setBranches((prev) => prev.map((b) => ({ ...b, current: b.name === name })));
       return;

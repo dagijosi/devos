@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { FaPlus, FaSearch, FaStar, FaFolder, FaFire, FaDatabase, FaFileImport } from 'react-icons/fa';
 import { useProjects } from '../hooks/useProjects';
 import { ProjectCard } from '../components/ProjectCard';
@@ -9,12 +9,21 @@ import { Portal } from '../../../components/ui/overlays/Portal';
 
 export function ProjectsPage() {
   const { projects, loading, toggleFavorite, refresh } = useProjects();
-  const navigate = useNavigate();
-  void navigate;
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'favorites' | 'active'>('all');
   const [showWizard, setShowWizard] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('new') !== 'true') return;
+    setShowWizard(true);
+    setSearchParams(params => {
+      const next = new URLSearchParams(params);
+      next.delete('new');
+      return next;
+    }, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const techs = useMemo(() => {
     const raw = projects.flatMap(p => Array.isArray(p.technology) ? p.technology : []);

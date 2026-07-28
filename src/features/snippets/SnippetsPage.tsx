@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import LoadingComponent from '../../components/ui/feedback/LoadingComponent';
 import Modal from '../../components/ui/overlays/Modal';
 import { getProjectContext } from '../projects/utils/projectContext';
+import { useSearchParams } from 'react-router-dom';
 
 interface Snippet {
   id: number;
@@ -21,6 +22,7 @@ interface Snippet {
 const LANGUAGES = ['typescript', 'javascript', 'rust', 'python', 'css', 'html', 'json', 'yaml', 'shell', 'sql'];
 
 export function SnippetsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [snippets, setSnippets] = useState<Snippet[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -44,6 +46,16 @@ export function SnippetsPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    const itemId = Number(searchParams.get('item'));
+    if (!itemId || loading) return;
+    const item = snippets.find(snippet => snippet.id === itemId);
+    if (item) {
+      openEdit(item);
+      setSearchParams({}, { replace: true });
+    }
+  }, [snippets, loading, searchParams, setSearchParams]);
 
   const filtered = useMemo(() => snippets.filter(s => {
     if (search && !s.title.toLowerCase().includes(search.toLowerCase()) && !s.code.toLowerCase().includes(search.toLowerCase())) return false;
