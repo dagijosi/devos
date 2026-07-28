@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FaSave, FaTrash, FaExclamationTriangle, FaFolder, FaGithub, FaBell } from 'react-icons/fa';
+import { FaSave, FaTrash, FaExclamationTriangle, FaFolder, FaGithub, FaBell, FaTag, FaTimes } from 'react-icons/fa';
 import { NotificationRules } from '../../../notifications/NotificationRules';
 import { TeamSyncSettings } from '../../../team-sync/TeamSyncSettings';
 
@@ -33,6 +33,15 @@ export function SettingsTab({ project, onRefresh }: SettingsTabProps) {
   });
   const [saving, setSaving] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const [tagInput, setTagInput] = useState('');
+
+  const addTag = () => {
+    const t = tagInput.trim().toLowerCase();
+    if (t && !form.tags.includes(t)) updateForm('tags', [...form.tags, t]);
+    setTagInput('');
+  };
+
+  const removeTag = (t: string) => updateForm('tags', form.tags.filter(x => x !== t));
 
   const handleSave = async () => {
     setSaving(true);
@@ -99,6 +108,30 @@ export function SettingsTab({ project, onRefresh }: SettingsTabProps) {
                 <option value="library">Library</option>
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-theme-text/60 mb-1 block flex items-center gap-1"><FaTag className="w-3 h-3" /> Tags</label>
+            <div className="flex gap-2 mb-2">
+              <input type="text" value={tagInput} onChange={e => setTagInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }}
+                placeholder="Add a tag..."
+                className="flex-1 bg-theme-background border border-theme-border/30 rounded-xl px-4 py-2 text-xs text-theme-text placeholder:text-theme-text/40 outline-none focus:border-theme-icon/50" />
+              <button onClick={addTag}
+                className="px-3 py-2 text-xs font-medium bg-theme-icon/10 text-theme-icon rounded-xl hover:bg-theme-icon/20 transition-colors">Add</button>
+            </div>
+            {form.tags.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {form.tags.map(t => (
+                  <span key={t} className="flex items-center gap-1 px-2 py-0.5 text-[10px] bg-theme-border/10 text-theme-text/50 rounded">
+                    {t}
+                    <button onClick={() => removeTag(t)} className="hover:text-red-400"><FaTimes className="w-2.5 h-2.5" /></button>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[10px] text-theme-text/30 italic">No tags — add one above</p>
+            )}
           </div>
         </div>
       </div>

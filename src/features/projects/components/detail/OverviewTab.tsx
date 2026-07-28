@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FaFolder, FaGithub, FaTerminal, FaCode, FaClock, FaHistory, FaCircle, FaPlay, FaCalendarAlt, FaTasks, FaExclamationTriangle, FaCodeBranch, FaShieldAlt, FaCube } from 'react-icons/fa';
+import { FaFolder, FaGithub, FaTerminal, FaCode, FaClock, FaHistory, FaCircle, FaPlay, FaCalendarAlt, FaTasks, FaExclamationTriangle, FaCodeBranch, FaShieldAlt, FaCube, FaTag } from 'react-icons/fa';
 import { toast } from 'sonner';
 import { database } from '../../../../database';
 import type { Project } from '../../types';
@@ -100,6 +100,15 @@ export function OverviewTab({ project, onRefresh: _onRefresh }: OverviewTabProps
             {techs.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-3">
                 {techs.map((t: string) => <TechnologyBadge key={t} name={t} />)}
+              </div>
+            )}
+            {Array.isArray(project.tags) && project.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {project.tags.map(t => (
+                  <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] bg-theme-icon/5 text-theme-text/40 rounded">
+                    <FaTag className="w-2 h-2" />{t}
+                  </span>
+                ))}
               </div>
             )}
             <div className="flex items-center gap-4 mt-3 text-xs text-theme-text/40">
