@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { database } from '../../database';
 import type { Workflow, WorkflowLog, StepLog } from './types';
 import { actionExecutors } from './actionRegistry';
+import { getProjectContext } from '../projects/utils/projectContext';
 
 const SEED_KEY = 'devos_workflows_v7';
 
@@ -84,17 +85,19 @@ async function dedupeBuiltInWorkflows() {
 
 let seedLock: Promise<void> | null = null;
 
-export function useWorkflows() {
+export function useWorkflows(projectId?: number | null) {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     await dedupeBuiltInWorkflows();
-    const data = await database.getWorkflows();
+    const data = projectId != null
+      ? [...(await database.getWorkflowsByProject(projectId)), ...(await database.getGlobalWorkflows())]
+      : await database.getWorkflows();
     setWorkflows(data);
     setLoading(false);
-  }, []);
+  }, [projectId]);
 
   const ensureSeeded = useCallback(async () => {
     if (seedLock) return seedLock;
@@ -159,10 +162,10 @@ export function useWorkflows() {
   }, [ensureSeeded]);
 
   const createWorkflow = useCallback(async (data: any) => {
-    const created = await database.createWorkflow(data);
+    const created = await database.createWorkflow(data, projectId ?? null);
     if (created) setWorkflows(prev => [created, ...prev]);
     return created;
-  }, []);
+  }, [projectId]);
 
   const updateWorkflow = useCallback(async (id: number, data: any) => {
     await database.updateWorkflow(id, data);
@@ -191,9 +194,7 @@ export function useWorkflowRunner() {
   const [currentLog, setCurrentLog] = useState<WorkflowLog | null>(null);
 
   function injectProjectContext(config: any, projectPath?: string) {
-    const ctxPath =
-      projectPath ||
-      (typeof window !== 'undefined' ? (window as any).__workflow_context?.project_folder : null);
+    const ctxPath = projectPath || getProjectContext()?.localPath || null;
     if (!ctxPath) return config;
     const c = { ...config };
     if (!c.path || c.path === '.' || c.path === '') c.path = ctxPath;

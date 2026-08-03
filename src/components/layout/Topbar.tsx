@@ -5,7 +5,7 @@ import { useAppStore } from '../../stores/app.store';
 import { ProjectSwitcher } from '../../features/projects/components/ProjectSwitcher';
 import { NotificationCenter } from '../../features/notifications/components/NotificationCenter';
 import { ThemeSwitcher } from '../../theme-system';
-import { DASHBOARD, PROJECTS, PROJECT_DETAIL, KNOWLEDGE, UTILITIES, WORKFLOWS, SETTING, BACKUP, CLIPBOARD, SNIPPETS } from '../../routes/types/routeConstants';
+import { HOME, PROJECTS, LIBRARY, UTILITIES, WORKFLOWS, SETTING, BACKUP, CLIPBOARD, AI, INSIGHTS } from '../../routes/types/routeConstants';
 
 interface TopbarProps {
   sidebarOpen: boolean;
@@ -13,16 +13,30 @@ interface TopbarProps {
 }
 
 const breadcrumbMap: Record<string, string> = {
-  [DASHBOARD]: 'Dashboard',
+  [HOME]: 'Home',
   [PROJECTS]: 'Projects',
-  [KNOWLEDGE]: 'Library',
+  [LIBRARY]: 'Library',
   [UTILITIES]: 'Tools',
   [WORKFLOWS]: 'Workflows',
-
+  [AI]: 'AI Assistant',
+  [INSIGHTS]: 'Insights',
   [BACKUP]: 'Backup',
   [CLIPBOARD]: 'Clipboard',
-  [SNIPPETS]: 'Snippets',
   [SETTING]: 'Settings',
+};
+
+const projectSectionLabels: Record<string, string> = {
+  tasks: 'Tasks',
+  knowledge: 'Knowledge',
+  terminal: 'Terminal',
+  git: 'Git',
+  dependencies: 'Dependencies',
+  environment: 'Environment',
+  'run-configs': 'Run',
+  deployments: 'Deployments',
+  workflows: 'Workflows',
+  apis: 'APIs',
+  settings: 'Settings',
 };
 
 const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
@@ -32,14 +46,19 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
 
   const getBreadcrumbs = (): { name: string; path: string }[] => {
     const pathname = location.pathname;
-    if (pathname === DASHBOARD) return [{ name: 'Dashboard', path: DASHBOARD }];
 
-    if (pathname.startsWith(PROJECTS)) {
-      const crumbs = [{ name: 'Projects', path: PROJECTS }];
-      if (pathname.startsWith(PROJECT_DETAIL)) {
-        crumbs.push({ name: 'Project', path: pathname });
-      } else if (pathname.endsWith('/new')) {
-        crumbs.push({ name: 'New Project', path: pathname });
+    if (pathname === HOME) return [{ name: 'Home', path: HOME }];
+
+    if (pathname.startsWith('/projects')) {
+      const segments = pathname.split('/').filter(Boolean); // ['projects', id, section?]
+      if (segments[1] === 'new') return [{ name: 'Projects', path: PROJECTS }, { name: 'New Project', path: pathname }];
+      const id = segments[1];
+      if (!id) return [{ name: 'Projects', path: PROJECTS }];
+      const crumbs = [{ name: 'Projects', path: PROJECTS }, { name: `Project #${id}`, path: `/projects/${id}` }];
+      if (segments[2] === 'edit') {
+        crumbs.push({ name: 'Edit', path: pathname });
+      } else if (segments[2] && projectSectionLabels[segments[2]]) {
+        crumbs.push({ name: projectSectionLabels[segments[2]], path: pathname });
       }
       return crumbs;
     }
@@ -48,7 +67,7 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       return [{ name: breadcrumbMap[pathname], path: pathname }];
     }
 
-    return [{ name: 'Dashboard', path: DASHBOARD }];
+    return [{ name: 'Home', path: HOME }];
   };
 
   const breadcrumbs = getBreadcrumbs();

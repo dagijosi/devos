@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   SidebarHeader,
@@ -6,6 +7,8 @@ import {
   SidebarFooter,
 } from '../ui/navigation';
 import { MobileOverlay } from '../ui/overlays';
+import { workspaceNavigationCategories, projectNavigationCategories } from '../../constants/navigation';
+import { useActiveProjectStore } from '../../stores/activeProject.store';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -14,6 +17,20 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isMobile }) => {
+  const location = useLocation();
+  const params = useParams<{ id: string }>();
+  const activeProject = useActiveProjectStore((s) => s.activeProject);
+
+  // URL is the source of truth: /projects/:id/* → project hub mode
+  const isProjectMode =
+    /^\/projects\/[^/]+/.test(location.pathname) &&
+    !location.pathname.startsWith('/projects/new') &&
+    !/^\/projects\/[^/]+\/edit/.test(location.pathname);
+
+  const categories = isProjectMode
+    ? projectNavigationCategories(params.id!, activeProject?.name || 'Project', activeProject?.enabledModules)
+    : workspaceNavigationCategories;
+
   return (
     <>
       <MobileOverlay
@@ -50,6 +67,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isMobile }) => {
             isOpen={isOpen}
             isMobile={isMobile}
             onLinkClick={() => isMobile && setIsOpen(false)}
+            categories={categories}
           />
 
           <SidebarFooter

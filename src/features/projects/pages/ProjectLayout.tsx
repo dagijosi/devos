@@ -1,21 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { FaArrowLeft, FaStar, FaRegStar, FaEye, FaTasks, FaBook, FaRocket, FaCog, FaFolder, FaTerminal, FaGitAlt, FaCube, FaPlay, FaCloudUploadAlt } from 'react-icons/fa';
+import { useParams, useNavigate, useLocation, Outlet, Navigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { FaStar, FaRegStar, FaEye, FaTasks, FaBook, FaRocket, FaCog, FaFolder, FaTerminal, FaGitAlt, FaCube, FaKey, FaPlay, FaCloudUploadAlt, FaLink } from 'react-icons/fa';
 import { useProjects } from '../hooks/useProjects';
 import { useActiveProjectStore } from '../../../stores/activeProject.store';
 import { useFileWatcher } from '../../file-watcher/useFileWatcher';
-import { OverviewTab } from '../components/detail/OverviewTab';
-import { TasksTab } from '../components/detail/TasksTab';
-import { KnowledgeTab } from '../components/detail/KnowledgeTab';
-import { WorkflowsTab } from '../components/detail/WorkflowsTab';
-import { DeploymentsTab } from '../components/detail/DeploymentsTab';
-import { SettingsTab } from '../components/detail/SettingsTab';
-import { RunConfigsTab } from '../components/detail/RunConfigsTab';
-import { GitTab } from '../components/detail/GitTab';
-import { TerminalTab } from '../components/detail/TerminalTab';
-import { DependenciesTab } from '../components/detail/DependenciesTab';
 import type { Project } from '../types';
 import { PROJECTS } from '../../../routes/types/routeConstants';
+import { PROJECT_TAB_ROUTES } from '../../../routes/types/routeConstants';
 import { setProjectContext } from '../utils/projectContext';
 
 interface TabGroup {
@@ -41,6 +33,7 @@ const TAB_GROUPS: TabGroup[] = [
       { id: 'terminal', label: 'Terminal', icon: FaTerminal },
       { id: 'git', label: 'Git', icon: FaGitAlt },
       { id: 'dependencies', label: 'Dependencies', icon: FaCube },
+      { id: 'environment', label: 'Environment', icon: FaKey },
     ],
   },
   {
@@ -49,6 +42,7 @@ const TAB_GROUPS: TabGroup[] = [
       { id: 'run-configs', label: 'Run', icon: FaPlay },
       { id: 'deployments', label: 'Deployments', icon: FaCloudUploadAlt },
       { id: 'workflows', label: 'Workflows', icon: FaRocket },
+      { id: 'apis', label: 'APIs', icon: FaLink },
     ],
   },
   {
@@ -57,25 +51,14 @@ const TAB_GROUPS: TabGroup[] = [
   },
 ];
 
-const ALL_TABS = TAB_GROUPS.flatMap((g) => g.tabs);
-type TabId = typeof ALL_TABS[number]['id'];
-
-export function ProjectDetailPage() {
+export function ProjectLayout() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const location = useLocation();
   const { getProject, toggleFavorite, updateLastOpened } = useProjects();
   const setActiveProject = useActiveProjectStore((s) => s.setActiveProject);
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabId>('overview');
-
-  useEffect(() => {
-    const tabParam = searchParams.get('tab');
-    if (tabParam && ALL_TABS.some((t) => t.id === tabParam)) {
-      setActiveTab(tabParam as TabId);
-    }
-  }, [searchParams]);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -85,7 +68,7 @@ export function ProjectDetailPage() {
       setProject(p);
       if (p) {
         await updateLastOpened(p.id).catch(() => {});
-        setActiveProject({ id: p.id, name: p.name, localPath: p.local_path || '' });
+        setActiveProject({ id: p.id, name: p.name, localPath: p.local_path || '', enabledModules: p.enabled_modules });
         setProjectContext(p);
       }
     } catch {
@@ -116,25 +99,36 @@ export function ProjectDetailPage() {
   }
 
   if (!project) {
-    return (
-      <div className="text-center py-16">
-        <FaFolder className="w-12 h-12 text-theme-text/10 mx-auto mb-3" />
-        <p className="text-sm text-theme-text/40">Project not found</p>
-        <button onClick={() => navigate(PROJECTS)} className="mt-4 px-4 py-2 bg-theme-icon text-white rounded-xl text-sm font-medium">
-          Back to Projects
-        </button>
-      </div>
-    );
+    return <Navigate to={PROJECTS} replace />;
   }
+
+  const base = `/projects/${project.id}`;
+  const activeSegment = location.pathname.replace(base, '').replace(/^\//, '');
+  const activeTab = activeSegment === '' ? 'overview' : activeSegment;
+
+  const moduleSet = project.enabled_modules ? new Set(project.enabled_modules) : null;
+  const visibleGroups = TAB_GROUPS
+    .map((group) => ({
+      ...group,
+      tabs: group.tabs.filter((t) => {
+        if (t.id === 'overview' || t.id === 'settings') return true;
+        return moduleSet ? moduleSet.has(t.id) : true;
+      }),
+    }))
+    .filter((g) => g.tabs.length > 0);
 
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
-        <button onClick={() => navigate(PROJECTS)} className="p-2 rounded-lg hover:bg-theme-surface/50 text-theme-text/50 hover:text-theme-text transition-colors">
-          <FaArrowLeft className="w-4 h-4" />
+        <button onClick={() => navigate('/')} className="p-2 rounded-lg hover:bg-theme-surface/50 text-theme-text/50 hover:text-theme-text transition-colors" title="Back to Home">
+          <FaFolder className="w-4 h-4" />
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
+            <Link to={`/projects`} className="text-xs text-theme-text/40 hover:text-theme-icon transition-colors">
+              All Projects
+            </Link>
+            <span className="text-theme-text/20">/</span>
             <h1 className="text-lg font-bold text-theme-text truncate">{project.name}</h1>
             {watching && <span className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium text-green-400 bg-green-400/10 rounded"><span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" /> watching</span>}
             <button onClick={() => toggleFavorite(project.id)}
@@ -146,21 +140,19 @@ export function ProjectDetailPage() {
         </div>
       </div>
 
-      {/* Grouped tab bar */}
+      {/* Grouped tab bar → real nested routes */}
       <div className="flex flex-wrap gap-x-6 gap-y-1 pb-0.5 border-b border-theme-border/10">
-        {TAB_GROUPS.map((group) => (
+        {visibleGroups.map((group) => (
           <div key={group.label} className="flex items-center gap-0.5">
             <span className="text-[10px] font-medium text-theme-text/30 uppercase tracking-wider mr-1 shrink-0">{group.label}</span>
             {group.tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
+              const href = (PROJECT_TAB_ROUTES[tab.id] || PROJECT_TAB_ROUTES.overview).replace(':id', String(project.id));
               return (
-                <button
+                <Link
                   key={tab.id}
-                  onClick={() => {
-                    setActiveTab(tab.id);
-                    navigate(`/projects/${project.id}?tab=${tab.id}`, { replace: true });
-                  }}
+                  to={href}
                   className={`flex items-center gap-1.5 px-2.5 py-2 text-xs font-medium whitespace-nowrap border-b-2 transition-all ${
                     isActive
                       ? 'text-theme-icon border-theme-icon'
@@ -169,7 +161,7 @@ export function ProjectDetailPage() {
                 >
                   <Icon className="w-3 h-3" />
                   {tab.label}
-                </button>
+                </Link>
               );
             })}
           </div>
@@ -177,16 +169,7 @@ export function ProjectDetailPage() {
       </div>
 
       <div>
-        {activeTab === 'overview' && <OverviewTab project={project} onRefresh={load} />}
-        {activeTab === 'tasks' && <TasksTab projectId={project.id} />}
-        {activeTab === 'knowledge' && <KnowledgeTab projectId={project.id} />}
-        {activeTab === 'terminal' && <TerminalTab localPath={project.local_path} />}
-        {activeTab === 'git' && <GitTab localPath={project.local_path} />}
-        {activeTab === 'dependencies' && <DependenciesTab localPath={project.local_path} />}
-        {activeTab === 'run-configs' && <RunConfigsTab projectId={project.id} localPath={project.local_path} />}
-        {activeTab === 'deployments' && <DeploymentsTab project={project} />}
-        {activeTab === 'workflows' && <WorkflowsTab project={project} />}
-        {activeTab === 'settings' && <SettingsTab project={project} onRefresh={load} />}
+        <Outlet context={{ project, onRefresh: load }} />
       </div>
     </div>
   );

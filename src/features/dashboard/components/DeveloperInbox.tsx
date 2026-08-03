@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { FaInbox, FaExclamationTriangle, FaBug, FaPlay, FaChevronRight, FaTelegram, FaCodeBranch, FaRocket } from 'react-icons/fa';
 import { database } from '../../../database';
 import { useNavigate } from 'react-router-dom';
-import { TASKS, WORKFLOWS, TELEGRAM } from '../../../routes/types/routeConstants';
+import { TASKS, WORKFLOWS, TELEGRAM, PROJECT_TASKS } from '../../../routes/types/routeConstants';
 import { UPDATES_KEY } from '../../utilities/telegramConfig';
 
 interface InboxItem {
@@ -37,7 +37,7 @@ export function DeveloperInbox() {
             type: 'overdue_task',
             label: t.title,
             description: `Overdue · ${t.project_name || 'No project'}`,
-            route: TASKS,
+            route: t.project_id ? PROJECT_TASKS.replace(':id', String(t.project_id)) : TASKS,
             severity: 'high',
           });
         });

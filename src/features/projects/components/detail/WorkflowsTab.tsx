@@ -26,8 +26,14 @@ export function WorkflowsTab({ project }: Props) {
 
   useEffect(() => {
     setLoading(true);
-    database.getWorkflows().then(setWorkflows).catch(setError).finally(() => setLoading(false));
-  }, []);
+    Promise.all([
+      database.getWorkflowsByProject(project.id).catch(() => []),
+      database.getGlobalWorkflows().catch(() => []),
+    ])
+      .then(([scoped, global]) => setWorkflows([...(scoped || []), ...(global || [])]))
+      .catch(setError)
+      .finally(() => setLoading(false));
+  }, [project.id]);
 
   const filtered = useMemo(() => {
     let list = workflows;

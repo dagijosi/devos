@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../stores/app.store';
-import { DASHBOARD, CLIPBOARD } from '../../routes/types/routeConstants';
+import { HOME, CLIPBOARD } from '../../routes/types/routeConstants';
 
 export function GlobalShortcutListener() {
   const navigate = useNavigate();
@@ -19,7 +19,7 @@ export function GlobalShortcutListener() {
               toggleCommandPalette();
               break;
             case 'Ctrl+Shift+N':
-              navigate(DASHBOARD);
+              navigate(HOME);
               break;
             case 'Ctrl+Shift+C':
               navigate(CLIPBOARD);

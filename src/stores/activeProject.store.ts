@@ -6,6 +6,7 @@ interface ActiveProject {
   name: string;
   localPath: string;
   branch?: string;
+  enabledModules?: string[];
 }
 
 interface ActiveProjectState {

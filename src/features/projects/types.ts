@@ -14,6 +14,7 @@ export interface Project {
   local_path: string;
   scripts: Record<string, string>;
   environment: Record<string, string>;
+  enabled_modules?: string[];
   last_opened: string | null;
   created_at: string;
   updated_at: string;
@@ -36,6 +37,7 @@ export interface ProjectFormData {
   local_path: string;
   scripts: Record<string, string>;
   environment: Record<string, string>;
+  enabled_modules?: string[];
 }
 
 export interface ProjectPath {

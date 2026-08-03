@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { database } from '../../../../database';
 import type { Project, ProjectFormData } from '../../types';
 import { PROJECTS } from '../../../../routes/types/routeConstants';
+import { PROJECT_MODULES, PROJECT_MODULE_LABELS, DEFAULT_ENABLED_MODULES } from '../../projectModules';
 
 interface SettingsTabProps {
   project: Project;
@@ -36,6 +37,7 @@ export function SettingsTab({ project, onRefresh }: SettingsTabProps) {
     local_path: project.local_path,
     scripts: project.scripts,
     environment: project.environment,
+    enabled_modules: project.enabled_modules ?? DEFAULT_ENABLED_MODULES,
   });
   const [saving, setSaving] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
@@ -48,6 +50,11 @@ export function SettingsTab({ project, onRefresh }: SettingsTabProps) {
   };
 
   const removeTag = (t: string) => updateForm('tags', form.tags.filter(x => x !== t));
+
+  const toggleModule = (m: (typeof PROJECT_MODULES)[number]) => {
+    const current = form.enabled_modules ?? DEFAULT_ENABLED_MODULES;
+    updateForm('enabled_modules', current.includes(m) ? current.filter(x => x !== m) : [...current, m]);
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -171,6 +178,32 @@ export function SettingsTab({ project, onRefresh }: SettingsTabProps) {
               placeholder="https://github.com/user/repo" className="w-full bg-theme-background border border-theme-border/30 rounded-xl px-4 py-2.5 text-sm text-theme-text outline-none focus:border-theme-icon/50" />
           </div>
         </div>
+      </div>
+
+      <div className="border-t border-theme-border/10 pt-6">
+        <h3 className="text-sm font-semibold text-theme-text mb-1">Modules</h3>
+        <p className="text-xs text-theme-text/40 mb-4">Choose which sections appear in this project's hub</p>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {PROJECT_MODULES.map((m) => {
+            const enabled = (form.enabled_modules ?? DEFAULT_ENABLED_MODULES).includes(m);
+            return (
+              <button
+                key={m}
+                onClick={() => toggleModule(m)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-medium transition-colors ${
+                  enabled
+                    ? 'bg-theme-icon/10 border-theme-icon/40 text-theme-icon'
+                    : 'bg-theme-background border-theme-border/30 text-theme-text/40 hover:text-theme-text/70'
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${enabled ? 'bg-theme-icon' : 'bg-theme-text/20'}`} />
+                {PROJECT_MODULE_LABELS[m]}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[10px] text-theme-text/30 mt-2">Overview and Settings are always shown.</p>
       </div>
 
       <div className="flex items-center justify-between pt-4 border-t border-theme-border/10">

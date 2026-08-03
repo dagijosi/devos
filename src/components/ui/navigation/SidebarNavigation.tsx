@@ -1,7 +1,7 @@
 import React from "react";
 import { useLocation } from "react-router-dom";
 import { navigationCategories } from "../../../constants/navigation";
-import type { NavLink } from "../../../constants/navigation";
+import type { NavCategory, NavLink } from "../../../constants/navigation";
 import { SidebarCategory } from "./SidebarCategory";
 import SidebarLink from "./SidebarLink";
 import { useAbility } from "../../../hooks/useAbility";
@@ -11,12 +11,14 @@ interface SidebarNavigationProps {
   isOpen: boolean;
   isMobile: boolean;
   onLinkClick: () => void;
+  categories?: NavCategory[];
 }
 
 const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
   isOpen,
   isMobile,
   onLinkClick,
+  categories,
 }) => {
   const location = useLocation();
   const currentPath = location.pathname;
@@ -71,7 +73,8 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
   };
 
   // Filter categories and links based on user permissions, roles, and entitlements
-  const categoriesToRender = navigationCategories.filter((category) => isModuleEnabled(category.module));
+  const source = categories || navigationCategories;
+  const categoriesToRender = source.filter((category) => isModuleEnabled(category.module));
 
   const visibleCategories = categoriesToRender
     .map((category) => ({

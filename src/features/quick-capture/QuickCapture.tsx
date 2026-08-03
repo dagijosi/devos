@@ -48,11 +48,11 @@ export function QuickCapture({ onClose, onCreated }: Props) {
         if (!projectId) { toast.error('Tasks require an active project'); setSaving(false); return; }
         await database.addProjectTask(projectId, title.trim(), priority, dueDate || undefined);
       } else if (type === 'note') {
-        await database.createNote({ title: title.trim(), content: description });
+        await database.createNote({ title: title.trim(), content: description, project_id: projectId || null });
       } else if (type === 'bug') {
         await database.createBug({ title: title.trim(), problem: description, project_id: projectId || null });
       } else if (type === 'snippet') {
-        await database.createSnippet({ title: title.trim(), code: description, language: 'text' });
+        await database.createSnippet({ title: title.trim(), code: description, language: 'text', project_id: projectId || null });
       }
       toast.success(`${TYPE_CONFIG[type].label} created`);
       onCreated?.();

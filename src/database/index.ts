@@ -155,6 +155,7 @@ function toWorkflow(row: Row): any {
     tags: typeof row.tags === 'string' ? JSON.parse(row.tags as string) : row.tags ?? [],
     favorite: Boolean(row.favorite),
     category: String(row.category ?? 'custom'),
+    project_id: row.project_id != null ? Number(row.project_id) : null,
     last_run_at: row.last_run_at ? String(row.last_run_at) : null,
     last_run_status: row.last_run_status ? String(row.last_run_status) : null,
     created_at: String(row.created_at ?? ''),
@@ -265,6 +266,7 @@ class LocalDatabase {
         name: bind?.[0] ?? '', description: bind?.[1] ?? '',
         tags: bind?.[2] ?? '[]', technology: bind?.[3] ?? '[]',
         repository_url: bind?.[4] ?? '', local_path: bind?.[5] ?? '',
+        enabled_modules: bind?.[6] ?? null,
         status: 'active', favorite: 0, pinned: 0,
         scripts: '{}', environment: '{}', last_opened: null,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
@@ -274,13 +276,14 @@ class LocalDatabase {
     }
     if (sql.startsWith('UPDATE PROJECTS SET NAME = ?')) {
       const rows = lsGet<Row>('_db_projects');
-      const id = bind?.[11];
+      const id = bind?.[12];
       const found = rows.find((r) => r.id === id);
       if (found) {
         found.name = bind?.[0]; found.description = bind?.[1]; found.status = bind?.[2];
         found.tags = bind?.[3]; found.technology = bind?.[4]; found.favorite = bind?.[5];
         found.pinned = bind?.[6]; found.repository_url = bind?.[7]; found.local_path = bind?.[8];
-        found.scripts = bind?.[9]; found.environment = bind?.[10]; found.updated_at = new Date().toISOString();
+        found.scripts = bind?.[9]; found.environment = bind?.[10]; found.enabled_modules = bind?.[11];
+        found.updated_at = new Date().toISOString();
       }
       lsSet('_db_projects', rows);
       return;
@@ -480,15 +483,15 @@ class LocalDatabase {
     // Workflows
     if (sql.startsWith('INSERT INTO WORKFLOWS')) {
       const rows = lsGet<Row>('_db_workflows');
-      rows.push({ id: nextId(rows as { id?: number }[]), name: bind?.[0], description: bind?.[1] ?? '', steps: bind?.[2] ?? '[]', tags: bind?.[3] ?? '[]', favorite: bind?.[4] ?? 0, category: bind?.[5] ?? 'custom', last_run_at: null, last_run_status: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+      rows.push({ id: nextId(rows as { id?: number }[]), name: bind?.[0], description: bind?.[1] ?? '', steps: bind?.[2] ?? '[]', tags: bind?.[3] ?? '[]', favorite: bind?.[4] ?? 0, category: bind?.[5] ?? 'custom', project_id: bind?.[6] ?? null, last_run_at: null, last_run_status: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
       lsSet('_db_workflows', rows);
       return;
     }
     if (sql.startsWith('UPDATE WORKFLOWS SET NAME = ?')) {
       const rows = lsGet<Row>('_db_workflows');
-      const id = bind?.[6];
+      const id = bind?.[7];
       const found = rows.find((r) => r.id === id);
-      if (found) { found.name = bind?.[0]; found.description = bind?.[1]; found.steps = bind?.[2]; found.tags = bind?.[3]; found.favorite = bind?.[4]; found.category = bind?.[5]; found.updated_at = new Date().toISOString(); }
+      if (found) { found.name = bind?.[0]; found.description = bind?.[1]; found.steps = bind?.[2]; found.tags = bind?.[3]; found.favorite = bind?.[4]; found.category = bind?.[5]; found.project_id = bind?.[6]; found.updated_at = new Date().toISOString(); }
       lsSet('_db_workflows', rows);
       return;
     }
@@ -538,14 +541,14 @@ class LocalDatabase {
     // AI conversations
     if (sql.startsWith('INSERT INTO AI_CONVERSATIONS')) {
       const rows = lsGet<Row>('_db_ai_conversations');
-      rows.push({ id: nextId(rows as { id?: number }[]), title: bind?.[0] ?? 'New Conversation', provider: bind?.[1] ?? '', model: bind?.[2] ?? '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+      rows.push({ id: nextId(rows as { id?: number }[]), title: bind?.[0] ?? 'New Conversation', provider: bind?.[1] ?? '', model: bind?.[2] ?? '', project_id: bind?.[3] ?? null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
       lsSet('_db_ai_conversations', rows);
       return;
     }
     if (sql.startsWith('UPDATE AI_CONVERSATIONS SET TITLE = ?')) {
       const rows = lsGet<Row>('_db_ai_conversations');
-      const found = rows.find((r) => r.id === bind?.[3]);
-      if (found) { found.title = bind?.[0]; found.provider = bind?.[1]; found.model = bind?.[2]; found.updated_at = new Date().toISOString(); }
+      const found = rows.find((r) => r.id === bind?.[4]);
+      if (found) { found.title = bind?.[0]; found.provider = bind?.[1]; found.model = bind?.[2]; found.project_id = bind?.[3]; found.updated_at = new Date().toISOString(); }
       lsSet('_db_ai_conversations', rows);
       return;
     }
@@ -825,6 +828,12 @@ class LocalDatabase {
       const found = lsGet<Row>('_db_workflows').find((r) => r.id === bind?.[0]);
       return (found ? [found] : []) as T[];
     }
+    if (sql.startsWith('SELECT * FROM WORKFLOWS WHERE PROJECT_ID = ?')) {
+      return sortBy(lsGet<Row>('_db_workflows').filter((r) => r.project_id === bind?.[0]), 'updated_at') as T[];
+    }
+    if (sql.startsWith('SELECT * FROM WORKFLOWS WHERE PROJECT_ID IS NULL')) {
+      return sortBy(lsGet<Row>('_db_workflows').filter((r) => r.project_id === null || r.project_id === undefined), 'updated_at') as T[];
+    }
     if (sql.startsWith('SELECT * FROM WORKFLOWS WHERE NAME LIKE ?')) {
       const q = String(bind?.[0] ?? '').replace(/%/g, '').toLowerCase();
       return lsGet<Row>('_db_workflows').filter((r) => String(r.name).toLowerCase().includes(q) || String(r.description).toLowerCase().includes(q)) as T[];
@@ -983,6 +992,7 @@ function toProject(row: Row): Project {
     local_path: String(row.local_path ?? ''),
     scripts: typeof row.scripts === 'string' ? (() => { try { return JSON.parse(row.scripts as string); } catch { return {}; } })() : row.scripts ?? {},
     environment: typeof row.environment === 'string' ? (() => { try { return JSON.parse(row.environment as string); } catch { return {}; } })() : row.environment ?? {},
+    enabled_modules: typeof row.enabled_modules === 'string' && row.enabled_modules ? (() => { try { return JSON.parse(row.enabled_modules as string); } catch { return undefined; } })() : undefined,
     last_opened: row.last_opened ? String(row.last_opened) : null,
     created_at: String(row.created_at ?? ''),
     updated_at: String(row.updated_at ?? ''),
@@ -1084,13 +1094,14 @@ export const database = {
     return rows.length ? toProject(rows[0]) : null;
   },
 
-  async createProject(data: { name: string; description?: string; tags?: string; technology?: string; repository_url?: string; local_path?: string }): Promise<Project | null> {
+  async createProject(data: { name: string; description?: string; tags?: string; technology?: string; repository_url?: string; local_path?: string; enabled_modules?: string }): Promise<Project | null> {
     const inst = await getDatabase();
     if (!inst) return null;
     await inst.execute(PROJECT_QUERIES.insert, [
       data.name, data.description ?? '',
       data.tags ?? '[]', data.technology ?? '[]',
       data.repository_url ?? '', data.local_path ?? '',
+      data.enabled_modules ?? null,
     ]);
     // Use last_insert_rowid() for SQLite, fallback to id DESC for LocalDatabase
     try {
@@ -1115,6 +1126,7 @@ export const database = {
       merged.favorite ? 1 : 0, merged.pinned ? 1 : 0,
       merged.repository_url, merged.local_path,
       JSON.stringify(merged.scripts), JSON.stringify(merged.environment),
+      merged.enabled_modules ? JSON.stringify(merged.enabled_modules) : null,
       id,
     ]);
   },
@@ -1750,6 +1762,20 @@ export const database = {
     return rows.map(toWorkflow);
   },
 
+  async getWorkflowsByProject(projectId: number): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(WORKFLOW_QUERIES.getByProject, [projectId]);
+    return rows.map(toWorkflow);
+  },
+
+  async getGlobalWorkflows(): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    const rows = await inst.select<Row>(WORKFLOW_QUERIES.getGlobal);
+    return rows.map(toWorkflow);
+  },
+
   async getWorkflow(id: number): Promise<any | null> {
     const inst = await getDatabase();
     if (!inst) return null;
@@ -1757,12 +1783,13 @@ export const database = {
     return rows.length ? toWorkflow(rows[0]) : null;
   },
 
-  async createWorkflow(data: { name: string; description?: string; steps?: string; tags?: string; favorite?: number; category?: string }): Promise<any | null> {
+  async createWorkflow(data: { name: string; description?: string; steps?: string; tags?: string; favorite?: number; category?: string }, projectId?: number | null): Promise<any | null> {
     const inst = await getDatabase();
     if (!inst) return null;
     await inst.execute(WORKFLOW_QUERIES.insert, [
       data.name, data.description ?? '', data.steps ?? '[]',
       data.tags ?? '[]', data.favorite ?? 0, data.category ?? 'custom',
+      projectId ?? null,
     ]);
     const rows = await inst.select<Row>(WORKFLOW_QUERIES.getAll);
     return rows.length ? toWorkflow(rows[rows.length - 1]) : null;
@@ -1777,7 +1804,8 @@ export const database = {
     await inst.execute(WORKFLOW_QUERIES.update, [
       merged.name, merged.description,
       typeof merged.steps === 'string' ? merged.steps : JSON.stringify(merged.steps),
-      JSON.stringify(merged.tags), merged.favorite ? 1 : 0, merged.category, id,
+      JSON.stringify(merged.tags), merged.favorite ? 1 : 0, merged.category,
+      merged.project_id != null ? merged.project_id : null, id,
     ]);
   },
 
@@ -1843,6 +1871,12 @@ export const database = {
     return inst.select(AI_CONVERSATION_QUERIES.getAll);
   },
 
+  async getAiConversationsByProject(projectId: number): Promise<any[]> {
+    const inst = await getDatabase();
+    if (!inst) return [];
+    return inst.select(AI_CONVERSATION_QUERIES.getByProject, [projectId]);
+  },
+
   async getAiConversation(id: number): Promise<any | null> {
     const inst = await getDatabase();
     if (!inst) return null;
@@ -1850,18 +1884,18 @@ export const database = {
     return rows.length ? rows[0] : null;
   },
 
-  async createAiConversation(data: { title?: string; provider?: string; model?: string }): Promise<any | null> {
+  async createAiConversation(data: { title?: string; provider?: string; model?: string }, projectId?: number | null): Promise<any | null> {
     const inst = await getDatabase();
     if (!inst) return null;
-    await inst.execute(AI_CONVERSATION_QUERIES.insert, [data.title ?? 'New Conversation', data.provider ?? '', data.model ?? '']);
+    await inst.execute(AI_CONVERSATION_QUERIES.insert, [data.title ?? 'New Conversation', data.provider ?? '', data.model ?? '', projectId ?? null]);
     const rows = await inst.select(AI_CONVERSATION_QUERIES.getAll);
     return rows.length ? rows[0] : null;
   },
 
-  async updateAiConversation(id: number, data: { title?: string; provider?: string; model?: string }): Promise<void> {
+  async updateAiConversation(id: number, data: { title?: string; provider?: string; model?: string; project_id?: number | null }): Promise<void> {
     const inst = await getDatabase();
     if (!inst) return;
-    await inst.execute(AI_CONVERSATION_QUERIES.update, [data.title, data.provider, data.model, id]);
+    await inst.execute(AI_CONVERSATION_QUERIES.update, [data.title, data.provider, data.model, data.project_id ?? null, id]);
   },
 
   async deleteAiConversation(id: number): Promise<void> {

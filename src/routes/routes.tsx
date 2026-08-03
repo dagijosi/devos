@@ -1,13 +1,12 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useActiveProjectStore } from '../stores/activeProject.store';
-import { CATCH_ALL, DASHBOARD, SETTING, PROFILE, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, KNOWLEDGE, UTILITIES, WORKFLOWS, AI, BACKUP, CLIPBOARD, SNIPPETS, TASKS, TERMINAL, GIT_CLIENT, ENV_MANAGER, DEPENDENCIES, TELEGRAM, INSIGHTS } from './types/routeConstants';
+import { HOME, DASHBOARD, SETTING, PROFILE, PROJECTS, PROJECT_DETAIL, PROJECT_FORM, PROJECT_EDIT, LIBRARY, UTILITIES, WORKFLOWS, AI, BACKUP, CLIPBOARD, SNIPPETS, TASKS, TERMINAL, GIT_CLIENT, ENV_MANAGER, DEPENDENCIES, TELEGRAM, INSIGHTS, KNOWLEDGE, CATCH_ALL } from './types/routeConstants';
 import { createRoute } from './types/createRoute';
 import { AppLayout } from '../components/layout/AppLayout';
 
-const DashboardPage = React.lazy(() =>
-  import('../features/dashboard/pages/DashboardPage').then((m) => ({ default: m.DashboardPage }))
-);
+// ── Workspace pages ───────────────────────────────────────────────
+const HomePage = React.lazy(() => import('../pages/HomePage').then((m) => ({ default: m.HomePage })));
 
 const SettingsPage = React.lazy(() =>
   import('../features/settings/pages/SettingsPage').then((m) => ({ default: m.SettingsPage }))
@@ -19,10 +18,6 @@ const ProfilePage = React.lazy(() =>
 
 const ProjectsPage = React.lazy(() =>
   import('../features/projects/pages/ProjectsPage').then((m) => ({ default: m.ProjectsPage }))
-);
-
-const ProjectDetailPage = React.lazy(() =>
-  import('../features/projects/pages/ProjectDetailPage').then((m) => ({ default: m.ProjectDetailPage }))
 );
 
 const ProjectFormPage = React.lazy(() =>
@@ -53,14 +48,6 @@ const ClipboardPage = React.lazy(() =>
   import('../features/clipboard/ClipboardPage').then((m) => ({ default: m.ClipboardPage }))
 );
 
-const SnippetsPage = React.lazy(() =>
-  import('../features/snippets/SnippetsPage').then((m) => ({ default: m.SnippetsPage }))
-);
-
-const TasksPage = React.lazy(() =>
-  import('../features/tasks/pages/TasksPage').then((m) => ({ default: m.TasksPage }))
-);
-
 const TelegramPage = React.lazy(() =>
   import('../features/telegram/pages/TelegramPage').then((m) => ({ default: m.TelegramPage }))
 );
@@ -69,41 +56,113 @@ const InsightsPage = React.lazy(() =>
   import('../features/insights/pages/InsightsPage').then((m) => ({ default: m.InsightsPage }))
 );
 
+// ── Project hub ───────────────────────────────────────────────────
+const ProjectLayout = React.lazy(() =>
+  import('../features/projects/pages/ProjectLayout').then((m) => ({ default: m.ProjectLayout }))
+);
+
+const ProjectOverviewPage = React.lazy(() =>
+  import('../features/projects/pages/ProjectTabs').then((m) => ({ default: m.ProjectOverviewPage }))
+);
+
+const ProjectTasksPage = React.lazy(() =>
+  import('../features/projects/pages/ProjectTabs').then((m) => ({ default: m.ProjectTasksPage }))
+);
+
+const ProjectKnowledgePage = React.lazy(() =>
+  import('../features/projects/pages/ProjectTabs').then((m) => ({ default: m.ProjectKnowledgePage }))
+);
+
+const ProjectTerminalPage = React.lazy(() =>
+  import('../features/projects/pages/ProjectTabs').then((m) => ({ default: m.ProjectTerminalPage }))
+);
+
+const ProjectGitPage = React.lazy(() =>
+  import('../features/projects/pages/ProjectTabs').then((m) => ({ default: m.ProjectGitPage }))
+);
+
+const ProjectDependenciesPage = React.lazy(() =>
+  import('../features/projects/pages/ProjectTabs').then((m) => ({ default: m.ProjectDependenciesPage }))
+);
+
+const ProjectEnvironmentPage = React.lazy(() =>
+  import('../features/projects/pages/ProjectTabs').then((m) => ({ default: m.ProjectEnvironmentPage }))
+);
+
+const ProjectRunConfigsPage = React.lazy(() =>
+  import('../features/projects/pages/ProjectTabs').then((m) => ({ default: m.ProjectRunConfigsPage }))
+);
+
+const ProjectDeploymentsPage = React.lazy(() =>
+  import('../features/projects/pages/ProjectTabs').then((m) => ({ default: m.ProjectDeploymentsPage }))
+);
+
+const ProjectWorkflowsPage = React.lazy(() =>
+  import('../features/projects/pages/ProjectTabs').then((m) => ({ default: m.ProjectWorkflowsPage }))
+);
+
+const ProjectApisPage = React.lazy(() =>
+  import('../features/projects/pages/ProjectTabs').then((m) => ({ default: m.ProjectApisPage }))
+);
+
+const ProjectSettingsPage = React.lazy(() =>
+  import('../features/projects/pages/ProjectTabs').then((m) => ({ default: m.ProjectSettingsPage }))
+);
+
 const ErrorPage = React.lazy(() => import('../pages/ErrorPage'));
 
-// Deprecated standalone tool routes — redirect to project detail with appropriate tab
-function DeprecatedToolRedirect({ tab }: { tab: string }) {
+// ── Redirects: legacy flat routes → project context or home ─────────
+function ProjectContextRedirect({ tab }: { tab: string }) {
   const ap = useActiveProjectStore((s) => s.activeProject);
   if (ap) {
-    return <Navigate to={`/projects/${ap.id}?tab=${tab}`} replace />;
+    return <Navigate to={`/projects/${ap.id}/${tab}`} replace />;
   }
-  return <Navigate to={PROJECTS} replace />;
+  return <Navigate to={HOME} replace />;
 }
 
 const routes = [
-  createRoute('/', () => <Navigate to={DASHBOARD} replace />),
-  createRoute(DASHBOARD, DashboardPage, { layout: AppLayout }),
+  createRoute(HOME, HomePage, { layout: AppLayout }),
+  // Deprecated global dashboard — home is the new entry point
+  createRoute(DASHBOARD, () => <Navigate to={HOME} replace />),
   createRoute(SETTING, SettingsPage, { layout: AppLayout }),
   createRoute(PROFILE, ProfilePage, { layout: AppLayout }),
   createRoute(PROJECTS, ProjectsPage, { layout: AppLayout }),
-  createRoute(PROJECT_DETAIL, ProjectDetailPage, { layout: AppLayout }),
   createRoute(PROJECT_FORM, ProjectFormPage, { layout: AppLayout }),
   createRoute(PROJECT_EDIT, ProjectFormPage, { layout: AppLayout }),
-  createRoute(KNOWLEDGE, LibraryPage, { layout: AppLayout }),
+  // Project Hub — nested routes, URL is the source of truth
+  createRoute(PROJECT_DETAIL, ProjectLayout, {
+    layout: AppLayout,
+    children: [
+      createRoute({ index: true, Component: ProjectOverviewPage }),
+      createRoute('tasks', ProjectTasksPage),
+      createRoute('knowledge', ProjectKnowledgePage),
+      createRoute('terminal', ProjectTerminalPage),
+      createRoute('git', ProjectGitPage),
+      createRoute('dependencies', ProjectDependenciesPage),
+      createRoute('environment', ProjectEnvironmentPage),
+      createRoute('run-configs', ProjectRunConfigsPage),
+      createRoute('deployments', ProjectDeploymentsPage),
+      createRoute('workflows', ProjectWorkflowsPage),
+      createRoute('apis', ProjectApisPage),
+      createRoute('settings', ProjectSettingsPage),
+    ],
+  }),
+  createRoute(LIBRARY, LibraryPage, { layout: AppLayout }),
   createRoute(UTILITIES, UtilitiesPage, { layout: AppLayout }),
   createRoute(WORKFLOWS, WorkflowsPage, { layout: AppLayout }),
   createRoute(AI, AiPage, { layout: AppLayout }),
   createRoute(BACKUP, BackupPage, { layout: AppLayout }),
   createRoute(CLIPBOARD, ClipboardPage, { layout: AppLayout }),
-  createRoute(SNIPPETS, SnippetsPage, { layout: AppLayout }),
-  createRoute(TASKS, TasksPage, { layout: AppLayout }),
   createRoute(TELEGRAM, TelegramPage, { layout: AppLayout }),
   createRoute(INSIGHTS, InsightsPage, { layout: AppLayout }),
-  // Deprecated standalone tool routes - redirect to project context
-  createRoute(TERMINAL, () => <DeprecatedToolRedirect tab="terminal" />),
-  createRoute(GIT_CLIENT, () => <DeprecatedToolRedirect tab="git" />),
-  createRoute(ENV_MANAGER, () => <DeprecatedToolRedirect tab="env" />),
-  createRoute(DEPENDENCIES, () => <DeprecatedToolRedirect tab="dependencies" />),
+  // Deprecated global routes → redirect
+  createRoute(KNOWLEDGE, () => <Navigate to={LIBRARY} replace />),
+  createRoute(SNIPPETS, () => <Navigate to={LIBRARY} replace />),
+  createRoute(TASKS, () => <ProjectContextRedirect tab="tasks" />),
+  createRoute(TERMINAL, () => <ProjectContextRedirect tab="terminal" />),
+  createRoute(GIT_CLIENT, () => <ProjectContextRedirect tab="git" />),
+  createRoute(ENV_MANAGER, () => <ProjectContextRedirect tab="environment" />),
+  createRoute(DEPENDENCIES, () => <ProjectContextRedirect tab="dependencies" />),
   createRoute(CATCH_ALL, ErrorPage),
 ];
 

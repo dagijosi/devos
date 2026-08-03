@@ -29,6 +29,7 @@ export const PROJECTS_TABLE = `CREATE TABLE IF NOT EXISTS projects (
   local_path TEXT DEFAULT '',
   scripts TEXT DEFAULT '{}',
   environment TEXT DEFAULT '{}',
+  enabled_modules TEXT,
   last_opened DATETIME,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -546,6 +547,16 @@ export const WORKFLOW_TRIGGER_MIGRATIONS = [
   `ALTER TABLE workflows ADD COLUMN trigger_enabled INTEGER DEFAULT 1`,
 ];
 
+// ── Project-scoping migrations (Phase 4) ─────────────────────────────────
+// Workflows become project-scoped (NULL = global template)
+export const WORKFLOWS_ADD_PROJECT_ID = `ALTER TABLE workflows ADD COLUMN project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL;`;
+// AI conversations get optional project context
+export const AI_CONVERSATIONS_ADD_PROJECT_ID = `ALTER TABLE ai_conversations ADD COLUMN project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL;`;
+// Optional project-level notification rule overrides
+export const NOTIFICATION_RULES_ADD_PROJECT_ID = `ALTER TABLE notification_rules ADD COLUMN project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL;`;
+// Per-project enabled modules (Phase 5) — which hub sections are shown
+export const PROJECTS_ADD_ENABLED_MODULES = `ALTER TABLE projects ADD COLUMN enabled_modules TEXT;`;
+
 export const ALL_MIGRATIONS = [
   SETTINGS_TABLE,
   NOTIFICATIONS_TABLE,
@@ -583,6 +594,7 @@ export const ALL_MIGRATIONS = [
   PROJECTS_ADD_LOCAL_PATH,
   PROJECTS_ADD_LAST_OPENED,
   PROJECTS_ADD_UPDATED_AT,
+  PROJECTS_ADD_ENABLED_MODULES,
   // Env profiles
   ENV_PROFILES_TABLE,
   // Hosts profiles
@@ -621,6 +633,10 @@ export const ALL_MIGRATIONS = [
   TEAM_SYNC_CONFIG_TABLE,
   // Workflow trigger column migrations
   ...WORKFLOW_TRIGGER_MIGRATIONS,
+  // Project-scoping migrations (Phase 4)
+  WORKFLOWS_ADD_PROJECT_ID,
+  AI_CONVERSATIONS_ADD_PROJECT_ID,
+  NOTIFICATION_RULES_ADD_PROJECT_ID,
 ];
 
 // ── Query constants ────────────────────────────────────────────────────
@@ -681,8 +697,8 @@ export const NOTIFICATION_QUERIES = {
 export const PROJECT_QUERIES = {
   getAll: `SELECT * FROM projects ORDER BY updated_at DESC`,
   getById: `SELECT * FROM projects WHERE id = ?`,
-  insert: `INSERT INTO projects (name, description, tags, technology, repository_url, local_path) VALUES (?, ?, ?, ?, ?, ?)`,
-  update: `UPDATE projects SET name = ?, description = ?, status = ?, tags = ?, technology = ?, favorite = ?, pinned = ?, repository_url = ?, local_path = ?, scripts = ?, environment = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  insert: `INSERT INTO projects (name, description, tags, technology, repository_url, local_path, enabled_modules) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  update: `UPDATE projects SET name = ?, description = ?, status = ?, tags = ?, technology = ?, favorite = ?, pinned = ?, repository_url = ?, local_path = ?, scripts = ?, environment = ?, enabled_modules = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
   updateLastOpened: `UPDATE projects SET last_opened = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
   toggleFavorite: `UPDATE projects SET favorite = CASE WHEN favorite = 1 THEN 0 ELSE 1 END, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
   togglePinned: `UPDATE projects SET pinned = CASE WHEN pinned = 1 THEN 0 ELSE 1 END, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
@@ -761,8 +777,10 @@ export const ATTACHMENT_QUERIES = {
 export const WORKFLOW_QUERIES = {
   getAll: `SELECT * FROM workflows ORDER BY updated_at DESC`,
   getById: `SELECT * FROM workflows WHERE id = ?`,
-  insert: `INSERT INTO workflows (name, description, steps, tags, favorite, category) VALUES (?, ?, ?, ?, ?, ?)`,
-  update: `UPDATE workflows SET name = ?, description = ?, steps = ?, tags = ?, favorite = ?, category = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  getByProject: `SELECT * FROM workflows WHERE project_id = ? ORDER BY updated_at DESC`,
+  getGlobal: `SELECT * FROM workflows WHERE project_id IS NULL ORDER BY updated_at DESC`,
+  insert: `INSERT INTO workflows (name, description, steps, tags, favorite, category, project_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  update: `UPDATE workflows SET name = ?, description = ?, steps = ?, tags = ?, favorite = ?, category = ?, project_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
   updateLastRun: `UPDATE workflows SET last_run_at = CURRENT_TIMESTAMP, last_run_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
   toggleFavorite: `UPDATE workflows SET favorite = CASE WHEN favorite = 1 THEN 0 ELSE 1 END, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
   delete: `DELETE FROM workflows WHERE id = ?`,
@@ -781,8 +799,9 @@ export const WORKFLOW_LOG_QUERIES = {
 export const AI_CONVERSATION_QUERIES = {
   getAll: `SELECT * FROM ai_conversations ORDER BY updated_at DESC`,
   getById: `SELECT * FROM ai_conversations WHERE id = ?`,
-  insert: `INSERT INTO ai_conversations (title, provider, model) VALUES (?, ?, ?)`,
-  update: `UPDATE ai_conversations SET title = ?, provider = ?, model = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  getByProject: `SELECT * FROM ai_conversations WHERE project_id = ? ORDER BY updated_at DESC`,
+  insert: `INSERT INTO ai_conversations (title, provider, model, project_id) VALUES (?, ?, ?, ?)`,
+  update: `UPDATE ai_conversations SET title = ?, provider = ?, model = ?, project_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
   delete: `DELETE FROM ai_conversations WHERE id = ?`,
 };
 

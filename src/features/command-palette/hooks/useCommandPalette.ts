@@ -2,7 +2,9 @@ import { useEffect, useCallback, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../../stores/app.store';
 import { database } from '../../../database';
-import { DASHBOARD, PROJECTS, KNOWLEDGE, UTILITIES, WORKFLOWS, SETTING, SNIPPETS } from '../../../routes/types/routeConstants';
+import { HOME, PROJECTS, LIBRARY, UTILITIES, WORKFLOWS, SETTING } from '../../../routes/types/routeConstants';
+import { useActiveProjectStore } from '../../../stores/activeProject.store';
+import { PROJECT_TAB_ROUTES } from '../../../routes/types/routeConstants';
 import type { Project } from '../../projects/types';
 import type { Note, CodeSnippet } from '../../knowledge/types';
 import allTools from '../../utilities/toolDefinitions';
@@ -41,13 +43,14 @@ export function useCommandPalette() {
   }, []);
 
   const { favoriteTools } = useUtilitiesStore();
+  const activeProject = useActiveProjectStore((s) => s.activeProject);
 
   const TOP_TOOL_IDS = ['json-formatter', 'base64', 'jwt-decoder', 'regex-tester', 'api-tester', 'timestamp-converter', 'telegram-connector'];
 
   const baseCommands: Command[] = [
-    { id: 'go-dashboard', label: 'Go to Dashboard', description: 'Navigate to the dashboard', category: 'Navigation', action: () => navigate(DASHBOARD) },
+    { id: 'go-home', label: 'Go to Home', description: 'Navigate to the home screen', category: 'Navigation', action: () => navigate(HOME) },
     { id: 'go-projects', label: 'Go to Projects', description: 'View and manage projects', category: 'Navigation', action: () => navigate(PROJECTS) },
-    { id: 'go-knowledge', label: 'Go to Knowledge', description: 'Browse documentation and guides', category: 'Navigation', action: () => navigate(KNOWLEDGE) },
+    { id: 'go-knowledge', label: 'Go to Knowledge', description: 'Browse library, notes and snippets', category: 'Navigation', action: () => navigate(LIBRARY) },
     { id: 'go-utilities', label: 'Go to Utilities', description: 'Access developer utilities', category: 'Navigation', action: () => navigate(UTILITIES) },
     { id: 'go-workflows', label: 'Go to Workflows', description: 'Manage automation workflows', category: 'Navigation', action: () => navigate(WORKFLOWS) },
     { id: 'go-settings', label: 'Open Settings', description: 'Configure application settings', category: 'Navigation', action: () => navigate(SETTING) },
@@ -84,12 +87,24 @@ export function useCommandPalette() {
     action: () => navigate(`${PROJECTS}/${p.id}`),
   }));
 
+  const projectSectionCommands: Command[] = useMemo(() => {
+    if (!activeProject) return [];
+    return Object.entries(PROJECT_TAB_ROUTES)
+      .map(([tab, route]) => ({
+        id: `project-section-${tab}`,
+        label: `Go to ${activeProject.name} → ${tab}`,
+        description: `Open project ${tab} section`,
+        category: 'Projects',
+        action: () => navigate(route.replace(':id', String(activeProject.id))),
+      }));
+  }, [navigate, activeProject]);
+
   const noteCommands: Command[] = notes.map((n) => ({
     id: `note-${n.id}`,
     label: n.title,
     description: n.type === 'bug' ? 'Bug Report' : n.type === 'doc' ? 'Document' : 'Note',
     category: 'Knowledge',
-    action: () => navigate(`${KNOWLEDGE}?item=${n.id}`),
+    action: () => navigate(`${LIBRARY}?item=${n.id}`),
   }));
 
   const snippetCommands: Command[] = snippets.map((s) => ({
@@ -97,10 +112,10 @@ export function useCommandPalette() {
     label: s.title,
     description: `Snippet • ${s.language || 'code'}`,
     category: 'Snippets',
-    action: () => navigate(`${SNIPPETS}?item=${s.id}`),
+    action: () => navigate(`${LIBRARY}?item=${s.id}`),
   }));
 
-  const commands = [...baseCommands, ...toolCommands, ...projectCommands, ...noteCommands, ...snippetCommands];
+  const commands = [...baseCommands, ...toolCommands, ...projectCommands, ...projectSectionCommands, ...noteCommands, ...snippetCommands];
 
   const filteredCommands = query
     ? commands.filter(

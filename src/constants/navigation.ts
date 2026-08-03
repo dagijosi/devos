@@ -6,22 +6,29 @@ import {
   FaPlay,
   FaCog,
   FaSave,
-  FaCode,
   FaClipboard,
   FaTelegram,
   FaRobot,
   FaLightbulb,
+  FaHome,
+  FaTasks,
+  FaTerminal,
+  FaGitAlt,
+  FaCube,
+  FaKey,
+  FaCloudUploadAlt,
+  FaRocket,
+  FaLink,
 } from "react-icons/fa";
 import {
-  DASHBOARD,
+  HOME,
   PROJECTS,
-  KNOWLEDGE,
+  LIBRARY,
   UTILITIES,
   WORKFLOWS,
   BACKUP,
   SETTING,
   CLIPBOARD,
-  SNIPPETS,
   TELEGRAM,
   INSIGHTS,
 } from "../routes/types/routeConstants";
@@ -42,13 +49,14 @@ export interface NavCategory {
   module?: string;
 }
 
-export const navigationCategories: NavCategory[] = [
+// ── Mode A: Workspace (no project selected) ─────────────────────────
+export const workspaceNavigationCategories: NavCategory[] = [
   {
     name: "Workspace",
     links: [
-      { name: "Dashboard", href: DASHBOARD, icon: FaChartBar },
-      { name: "Projects", href: PROJECTS, icon: FaFolder },
-      { name: "Library", href: KNOWLEDGE, icon: FaBook },
+      { name: "Home", href: HOME, icon: FaHome },
+      { name: "All Projects", href: PROJECTS, icon: FaFolder },
+      { name: "Library", href: LIBRARY, icon: FaBook },
       { name: "Insights", href: INSIGHTS, icon: FaLightbulb },
     ],
   },
@@ -63,11 +71,83 @@ export const navigationCategories: NavCategory[] = [
     name: "Tools",
     links: [
       { name: "Utilities", href: UTILITIES, icon: FaWrench },
-      { name: "Snippets", href: SNIPPETS, icon: FaCode },
       { name: "Clipboard", href: CLIPBOARD, icon: FaClipboard },
       { name: "Workflows", href: WORKFLOWS, icon: FaPlay },
       { name: "Backup", href: BACKUP, icon: FaSave },
-      { name: "Settings", href: SETTING, icon: FaCog },
     ],
   },
+  {
+    name: "System",
+    links: [{ name: "Settings", href: SETTING, icon: FaCog }],
+  },
 ];
+
+// ── Mode B: Project Hub (project-scoped nav, concrete hrefs) ────────
+const PROJECT_NAV_MODULES = new Set([
+  'tasks', 'knowledge', 'terminal', 'git', 'dependencies', 'environment',
+  'run-configs', 'deployments', 'workflows', 'apis',
+]);
+
+export function projectNavigationCategories(
+  id: string | number,
+  projectName?: string,
+  enabledModules?: string[] | null
+): NavCategory[] {
+  const base = `/projects/${id}`;
+  const p = (seg: string) => `${base}/${seg}`;
+  const moduleSet = enabledModules ? new Set(enabledModules) : null;
+
+  const filterLinks = (links: NavLink[]): NavLink[] =>
+    links.filter((l) => {
+      if (!l.href) return true;
+      const seg = l.href.slice(base.length + 1);
+      if (!PROJECT_NAV_MODULES.has(seg)) return true;
+      return moduleSet ? moduleSet.has(seg) : true;
+    });
+
+  const categories: NavCategory[] = [
+    {
+      name: projectName || "Project",
+      links: [
+        { name: "Back to Home", href: HOME, icon: FaHome },
+        { name: "Dashboard", href: base, icon: FaChartBar },
+      ],
+    },
+    {
+      name: "Work",
+      links: [
+        { name: "Tasks", href: p("tasks"), icon: FaTasks },
+        { name: "Knowledge", href: p("knowledge"), icon: FaBook },
+      ],
+    },
+    {
+      name: "Code",
+      links: [
+        { name: "Terminal", href: p("terminal"), icon: FaTerminal },
+        { name: "Git", href: p("git"), icon: FaGitAlt },
+        { name: "Dependencies", href: p("dependencies"), icon: FaCube },
+        { name: "Environment", href: p("environment"), icon: FaKey },
+      ],
+    },
+    {
+      name: "Ship",
+      links: [
+        { name: "Run", href: p("run-configs"), icon: FaPlay },
+        { name: "Deployments", href: p("deployments"), icon: FaCloudUploadAlt },
+        { name: "Workflows", href: p("workflows"), icon: FaRocket },
+        { name: "APIs", href: p("apis"), icon: FaLink },
+      ],
+    },
+    {
+      name: "Settings",
+      links: [{ name: "Settings", href: p("settings"), icon: FaCog }],
+    },
+  ];
+
+  return categories
+    .map((c) => ({ ...c, links: filterLinks(c.links) }))
+    .filter((c) => c.links.length > 0);
+}
+
+// Backward-compatible alias (global mode)
+export const navigationCategories = workspaceNavigationCategories;

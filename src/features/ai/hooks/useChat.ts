@@ -3,6 +3,7 @@ import { streamChat } from '../services/provider';
 import { buildContext, SYSTEM_PROMPT } from '../services/knowledge';
 import { useAiStore } from '../store/ai.store';
 import { database } from '../../../database';
+import { getProjectContext } from '../../projects/utils/projectContext';
 
 export interface DisplayMessage {
   id: string;
@@ -43,7 +44,7 @@ export function useChat() {
         title: text.slice(0, 50),
         provider: config.provider,
         model: config.model,
-      });
+      }, getProjectContext()?.id ?? null);
       if (conv) {
         cid = conv.id;
         setConversationId(cid);
