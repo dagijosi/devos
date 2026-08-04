@@ -76,6 +76,29 @@ export async function openVSCode(path: string): Promise<ActionResult> {
   return { success: false, message: 'Shell not available in this environment' };
 }
 
+export interface EditorTarget {
+  program: string;
+  isScript: boolean;
+}
+
+export async function openEditor(path: string, editor: EditorTarget): Promise<ActionResult> {
+  if (!path) return { success: false, message: 'No path configured' };
+  const normalized = normalizePath(path);
+  if (!normalized) return { success: false, message: `Path is empty after normalization (was: "${path}")` };
+  const shell = await tryShellModule();
+  if (!shell?.Command) return { success: false, message: 'Shell not available in this environment' };
+  try {
+    if (isWindows() && editor.isScript) {
+      await shell.Command.create('cmd', ['/c', 'start', '', editor.program, normalized]).execute();
+    } else {
+      await shell.Command.create(editor.program, [normalized]).execute();
+    }
+    return { success: true, message: 'Opening editor...' };
+  } catch {
+    return { success: false, message: 'Failed to launch editor' };
+  }
+}
+
 export async function openTerminal(path: string): Promise<ActionResult> {
   if (!path) return { success: false, message: 'No path configured' };
   const normalized = normalizePath(path);

@@ -1,59 +1,37 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, useLocation, Outlet, Navigate } from 'react-router-dom';
-import { Link } from 'react-router-dom';
-import { FaStar, FaRegStar, FaEye, FaTasks, FaBook, FaRocket, FaCog, FaFolder, FaTerminal, FaGitAlt, FaCube, FaKey, FaPlay, FaCloudUploadAlt, FaLink } from 'react-icons/fa';
+import { useParams, useLocation, Outlet, Navigate, Link } from 'react-router-dom';
+import { FaStar, FaRegStar } from 'react-icons/fa';
 import { useProjects } from '../hooks/useProjects';
 import { useActiveProjectStore } from '../../../stores/activeProject.store';
 import { useFileWatcher } from '../../file-watcher/useFileWatcher';
 import type { Project } from '../types';
-import { PROJECTS } from '../../../routes/types/routeConstants';
-import { PROJECT_TAB_ROUTES } from '../../../routes/types/routeConstants';
+import { HOME, PROJECTS, PROJECT_TAB_ROUTES } from '../../../routes/types/routeConstants';
 import { setProjectContext } from '../utils/projectContext';
+import { ProjectIcon } from '../components/ProjectIcon';
 
-interface TabGroup {
-  label: string;
-  tabs: { id: string; label: string; icon: React.ElementType }[];
-}
-
-const TAB_GROUPS: TabGroup[] = [
-  {
-    label: 'Overview',
-    tabs: [{ id: 'overview', label: 'Overview', icon: FaEye }],
-  },
-  {
-    label: 'Work',
-    tabs: [
-      { id: 'tasks', label: 'Tasks', icon: FaTasks },
-      { id: 'knowledge', label: 'Knowledge', icon: FaBook },
-    ],
-  },
-  {
-    label: 'Code',
-    tabs: [
-      { id: 'terminal', label: 'Terminal', icon: FaTerminal },
-      { id: 'git', label: 'Git', icon: FaGitAlt },
-      { id: 'dependencies', label: 'Dependencies', icon: FaCube },
-      { id: 'environment', label: 'Environment', icon: FaKey },
-    ],
-  },
-  {
-    label: 'Ship',
-    tabs: [
-      { id: 'run-configs', label: 'Run', icon: FaPlay },
-      { id: 'deployments', label: 'Deployments', icon: FaCloudUploadAlt },
-      { id: 'workflows', label: 'Workflows', icon: FaRocket },
-      { id: 'apis', label: 'APIs', icon: FaLink },
-    ],
-  },
-  {
-    label: 'Settings',
-    tabs: [{ id: 'settings', label: 'Settings', icon: FaCog }],
-  },
+const TABS: { id: string; label: string }[] = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'tasks', label: 'Tasks' },
+  { id: 'knowledge', label: 'Knowledge' },
+  { id: 'terminal', label: 'Terminal' },
+  { id: 'git', label: 'Git' },
+  { id: 'dependencies', label: 'Dependencies' },
+  { id: 'environment', label: 'Environment' },
+  { id: 'run-configs', label: 'Run' },
+  { id: 'deployments', label: 'Deployments' },
+  { id: 'workflows', label: 'Workflows' },
+  { id: 'apis', label: 'APIs' },
+  { id: 'settings', label: 'Settings' },
 ];
+
+const statusDot = {
+  active: 'bg-emerald-400',
+  completed: 'bg-sky-400',
+  archived: 'bg-zinc-400',
+};
 
 export function ProjectLayout() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const location = useLocation();
   const { getProject, toggleFavorite, updateLastOpened } = useProjects();
   const setActiveProject = useActiveProjectStore((s) => s.setActiveProject);
@@ -83,16 +61,17 @@ export function ProjectLayout() {
 
   if (loading) {
     return (
-      <div className="space-y-5">
-        <div className="h-8 w-24 bg-theme-border/10 rounded animate-pulse" />
-        <div className="h-48 bg-theme-surface border border-theme-border/30 rounded-2xl animate-pulse p-6">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-theme-border/20" />
-            <div className="flex-1 space-y-2">
-              <div className="h-5 bg-theme-border/20 rounded w-1/3" />
-              <div className="h-4 bg-theme-border/20 rounded w-1/2" />
-            </div>
+      <div className="space-y-5 animate-pulse">
+        <div className="h-3 w-32 bg-theme-border/10 rounded" />
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-theme-border/20" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-48 bg-theme-border/20 rounded" />
+            <div className="h-3 w-64 bg-theme-border/10 rounded" />
           </div>
+        </div>
+        <div className="flex gap-1.5 flex-wrap">
+          {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-7 w-16 bg-theme-border/10 rounded-lg" />)}
         </div>
       </div>
     );
@@ -107,65 +86,72 @@ export function ProjectLayout() {
   const activeTab = activeSegment === '' ? 'overview' : activeSegment;
 
   const moduleSet = project.enabled_modules ? new Set(project.enabled_modules) : null;
-  const visibleGroups = TAB_GROUPS
-    .map((group) => ({
-      ...group,
-      tabs: group.tabs.filter((t) => {
-        if (t.id === 'overview' || t.id === 'settings') return true;
-        return moduleSet ? moduleSet.has(t.id) : true;
-      }),
-    }))
-    .filter((g) => g.tabs.length > 0);
+  const visibleTabs = TABS.filter((t) => {
+    if (t.id === 'overview' || t.id === 'settings') return true;
+    return moduleSet ? moduleSet.has(t.id) : true;
+  });
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <button onClick={() => navigate('/')} className="p-2 rounded-lg hover:bg-theme-surface/50 text-theme-text/50 hover:text-theme-text transition-colors" title="Back to Home">
-          <FaFolder className="w-4 h-4" />
-        </button>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <Link to={`/projects`} className="text-xs text-theme-text/40 hover:text-theme-icon transition-colors">
-              All Projects
-            </Link>
-            <span className="text-theme-text/20">/</span>
-            <h1 className="text-lg font-bold text-theme-text truncate">{project.name}</h1>
-            {watching && <span className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium text-green-400 bg-green-400/10 rounded"><span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" /> watching</span>}
-            <button onClick={() => toggleFavorite(project.id)}
-              className="p-1 rounded-lg hover:bg-yellow-400/10 transition-colors">
-              {project.favorite ? <FaStar className="w-4 h-4 text-yellow-400" /> : <FaRegStar className="w-4 h-4 text-theme-text/30" />}
-            </button>
-          </div>
-          {project.description && <p className="text-xs text-theme-text/40 truncate">{project.description}</p>}
-        </div>
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 text-xs text-theme-text/40">
+        <Link to={HOME} className="hover:text-theme-text transition-colors">Home</Link>
+        <span className="text-theme-text/20">/</span>
+        <Link to={PROJECTS} className="hover:text-theme-text transition-colors">All Projects</Link>
+        <span className="text-theme-text/20">/</span>
+        <span className="text-theme-text/70 font-medium truncate">{project.name}</span>
       </div>
 
-      {/* Grouped tab bar → real nested routes */}
-      <div className="flex flex-wrap gap-x-6 gap-y-1 pb-0.5 border-b border-theme-border/10">
-        {visibleGroups.map((group) => (
-          <div key={group.label} className="flex items-center gap-0.5">
-            <span className="text-[10px] font-medium text-theme-text/30 uppercase tracking-wider mr-1 shrink-0">{group.label}</span>
-            {group.tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              const href = (PROJECT_TAB_ROUTES[tab.id] || PROJECT_TAB_ROUTES.overview).replace(':id', String(project.id));
-              return (
-                <Link
-                  key={tab.id}
-                  to={href}
-                  className={`flex items-center gap-1.5 px-2.5 py-2 text-xs font-medium whitespace-nowrap border-b-2 transition-all ${
-                    isActive
-                      ? 'text-theme-icon border-theme-icon'
-                      : 'text-theme-text/40 border-transparent hover:text-theme-text/70 hover:border-theme-text/20'
-                  }`}
-                >
-                  <Icon className="w-3 h-3" />
-                  {tab.label}
-                </Link>
-              );
-            })}
+      {/* Title row */}
+      <div className="flex items-center gap-3.5">
+        <ProjectIcon
+          icon={project.icon}
+          color={project.color}
+          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+          iconClassName="w-[18px] h-[18px]"
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl font-semibold text-theme-text leading-tight truncate">{project.name}</h1>
+            <span className={`w-1.5 h-1.5 rounded-full ${statusDot[project.status]}`} title={project.status} />
+            {watching && <span className="text-[10px] text-green-400/80">● watching</span>}
           </div>
-        ))}
+          {project.description && (
+            <p className="text-xs text-theme-text/40 mt-0.5 truncate">{project.description}</p>
+          )}
+        </div>
+        <button
+          onClick={() => toggleFavorite(project.id)}
+          aria-label={project.favorite ? 'Remove from favorites' : 'Add to favorites'}
+          className={`p-2 -m-2 rounded-lg transition-colors ${
+            project.favorite
+              ? 'text-yellow-400 hover:bg-yellow-400/10'
+              : 'text-theme-text/30 hover:bg-yellow-400/10 hover:text-yellow-400'
+          }`}
+        >
+          {project.favorite ? <FaStar className="w-4 h-4" /> : <FaRegStar className="w-4 h-4" />}
+        </button>
+      </div>
+
+      {/* Tab chips */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {visibleTabs.map((tab) => {
+          const isActive = activeTab === tab.id;
+          const href = (PROJECT_TAB_ROUTES[tab.id] || PROJECT_TAB_ROUTES.overview).replace(':id', String(project.id));
+          return (
+            <Link
+              key={tab.id}
+              to={href}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                isActive
+                  ? 'bg-theme-icon/10 text-theme-icon'
+                  : 'bg-theme-surface text-theme-text/40 border border-theme-border/10 hover:border-theme-border/30 hover:text-theme-text/70'
+              }`}
+            >
+              {tab.label}
+            </Link>
+          );
+        })}
       </div>
 
       <div>

@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { FaTerminal as FaTermIcon, FaPlay, FaStop } from 'react-icons/fa';
 import { isTauri } from '../../../../lib/tauri';
+import { useActivityBeacon } from '../../../insights/activitySignal.store';
 
 interface Props {
   localPath?: string;
@@ -19,6 +20,7 @@ const DARK_TERMINAL_THEME = {
 };
 
 export function TerminalTab({ localPath }: Props) {
+  useActivityBeacon(30);
   const containerRef = useRef<HTMLDivElement>(null);
   const [running, setRunning] = useState(false);
   const [showTerminal, setShowTerminal] = useState(false);

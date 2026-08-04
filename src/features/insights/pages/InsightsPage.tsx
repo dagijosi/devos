@@ -56,7 +56,7 @@ function getPreviousRange(range: TimeRange): { from: string; to: string } {
   return { from: fmt(prevFrom), to: fmt(prevTo) };
 }
 
-function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: number; color: string }) {
+function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) {
   return (
     <div className="bg-theme-surface border border-theme-border/20 rounded-2xl p-4 flex items-center gap-4">
       <div className={`w-10 h-10 rounded-xl ${color} flex items-center justify-center`}>
@@ -79,8 +79,8 @@ export function InsightsPage() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [projectStats, setProjectStats] = useState<any[]>([]);
-  const [totalNotes, setTotalNotes] = useState(0);
-  const [totalSnippets, setTotalSnippets] = useState(0);
+  const [notes, setNotes] = useState<any[]>([]);
+  const [snippets, setSnippets] = useState<any[]>([]);
   const [totalBugs, setTotalBugs] = useState(0);
 
   const loadData = useCallback(async () => {
@@ -89,7 +89,7 @@ export function InsightsPage() {
       const { from, to } = getDateRange(range);
       const { from: prevFrom, to: prevTo } = getPreviousRange(range);
       const [
-        acts, prevActs, gs, projs, pstats, notes, snippets, bugs,
+        acts, prevActs, gs, projs, pstats, ns, snips, bugs,
       ] = await Promise.all([
         database.getActivityByRange(from, to),
         database.getActivityByRange(prevFrom, prevTo),
@@ -105,8 +105,8 @@ export function InsightsPage() {
       setGoals(gs);
       setProjects(projs);
       setProjectStats(pstats);
-      setTotalNotes(notes.length);
-      setTotalSnippets(snippets.length);
+      setNotes(ns);
+      setSnippets(snips);
       setTotalBugs(bugs.length);
     } catch (err) {
       console.error('[Insights] Failed to load data:', err);
@@ -130,6 +130,7 @@ export function InsightsPage() {
   const notesCreated = todayActs.filter((a) => a.type === 'note').length;
   const bugsSolved = todayActs.filter((a) => a.type === 'bug').length;
   const commits = todayActs.filter((a) => a.type === 'commit').length;
+  const todayCaptured = todayActs.filter((a) => ['focus', 'commit', 'task'].includes(a.type)).length;
 
   const productivityScore = periodFocus > 0
     ? Math.min(100, Math.round((todayFocus / Math.max(periodFocus / Math.max(new Date().getDate(), 1), 1)) * 100))
@@ -183,12 +184,12 @@ export function InsightsPage() {
     return { label: desc.length > 35 ? desc.slice(0, 35) + '...' : desc, minutes: total };
   }).filter((e) => e.minutes > 0).sort((a, b) => b.minutes - a.minutes);
 
-  // Real trends (compare current period vs previous period)
-  const prevNotes = prevActivities.filter((a) => a.type === 'note').length;
+  // Trends (current vs previous period)
+  const prevNotes = prevActivities.filter((a) => a.type === 'note' || a.type === 'snippet').length;
   const prevBugs = prevActivities.filter((a) => a.type === 'bug').length;
   const prevTasks = prevActivities.filter((a) => a.type === 'task').length;
   const prevCommits = prevActivities.filter((a) => a.type === 'commit').length;
-  const currentNotes = activities.filter((a) => a.type === 'note').length;
+  const currentNotes = activities.filter((a) => a.type === 'note' || a.type === 'snippet').length;
   const currentBugs = activities.filter((a) => a.type === 'bug').length;
   const currentTasks = activities.filter((a) => a.type === 'task').length;
   const currentCommits = activities.filter((a) => a.type === 'commit').length;
@@ -196,21 +197,22 @@ export function InsightsPage() {
   // Achievements data
   const achievements = [
     { label: 'First Project Created', unlocked: projects.length >= 1 },
-    { label: 'First Note Taken', unlocked: totalNotes >= 1 },
-    { label: '10 Notes Written', unlocked: totalNotes >= 10 },
+    { label: 'First Note Taken', unlocked: notes.length >= 1 },
+    { label: '10 Notes Written', unlocked: notes.length >= 10 },
     { label: 'Bug Hunter', unlocked: totalBugs >= 5 },
-    { label: 'Snippet Collector', unlocked: totalSnippets >= 5 },
-    { label: '7-Day Streak', unlocked: activities.filter(a => a.started_at?.startsWith(todayStr)).length >= 5 },
+    { label: 'Snippet Collector', unlocked: snippets.length >= 5 },
+    { label: 'First Focus Session', unlocked: activities.some(a => a.type === 'focus' && (a.duration || 0) > 0) },
+    { label: 'First Commit Tracked', unlocked: activities.some(a => a.type === 'commit') },
     { label: 'Goal Setter', unlocked: goals.length >= 1 },
-    { label: 'Power User', unlocked: projects.length >= 3 && totalNotes >= 5 && totalSnippets >= 3 },
+    { label: 'Power User', unlocked: projects.length >= 3 && notes.length >= 5 && snippets.length >= 3 },
   ];
 
-  // Language usage derived from snippet languages
+  // Language usage from real snippet languages
   const languages = (() => {
     const langMap = new Map<string, number>();
-    activities.filter(a => a.type === 'snippet').forEach(a => {
-      const lang = a.description || 'Unknown';
-      langMap.set(lang, (langMap.get(lang) || 0) + 1);
+    snippets.forEach((s: any) => {
+      const lang = typeof s.language === 'string' ? s.language.trim() : '';
+      if (lang) langMap.set(lang, (langMap.get(lang) || 0) + 1);
     });
     if (langMap.size === 0) return [];
     const total = [...langMap.values()].reduce((s, v) => s + v, 0);
@@ -220,12 +222,12 @@ export function InsightsPage() {
       .slice(0, 6);
   })();
 
-  // Learning progress from notes tag topics
+  // Learning progress from note & snippet tags
   const topics = (() => {
     const topicMap = new Map<string, number>();
-    activities.filter(a => a.type === 'note').forEach(a => {
-      const topic = a.description?.split(' ').slice(0, 3).join(' ') || 'General';
-      topicMap.set(topic, (topicMap.get(topic) || 0) + 1);
+    [...notes, ...snippets].forEach((item: any) => {
+      const tags = Array.isArray(item.tags) ? item.tags : [];
+      tags.forEach((t: string) => topicMap.set(t, (topicMap.get(t) || 0) + 1));
     });
     if (topicMap.size === 0) return [];
     const max = Math.max(...topicMap.values(), 1);
@@ -245,6 +247,12 @@ export function InsightsPage() {
     { label: 'Commits', change: pct(currentCommits, prevCommits) },
   ].filter((t) => t.change !== 0);
 
+  const focusLabel = (mins: number) => {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  };
+
   const handleExport = async (format: string): Promise<string> => {
     switch (format) {
       case 'csv': {
@@ -255,7 +263,7 @@ export function InsightsPage() {
       case 'json': return JSON.stringify({ activities, goals, projectStats }, null, 2);
       case 'md': {
         let md = `# Insights Report\n\n`;
-        md += `## Productivity\n- Score: ${productivityScore}%\n- Focus Time: ${Math.floor(periodFocus / 60)}h ${periodFocus % 60}m\n- Projects: ${projectsWorked}\n- Tasks: ${tasksCompleted}\n\n`;
+        md += `## Productivity\n- Score: ${productivityScore}%\n- Focus Time: ${focusLabel(periodFocus)}\n- Projects: ${projectsWorked}\n- Tasks: ${tasksCompleted}\n\n`;
         md += `## Activity\n| Time | Description | Type |\n|------|-------------|------|\n`;
         activities.slice(0, 20).forEach((a) => { md += `| ${a.started_at?.slice(11, 16)} | ${a.description} | ${a.type} |\n`; });
         return md;
@@ -263,6 +271,13 @@ export function InsightsPage() {
       default: return '';
     }
   };
+
+  const sources = [
+    { label: 'Focus time', source: 'tracked from file changes + terminal/editor', active: todayFocus > 0 },
+    { label: 'Commits', source: 'tracked from git history', active: commits > 0 || currentCommits > 0 },
+    { label: 'Tasks', source: 'tracked on task completion', active: tasksCompleted > 0 || currentTasks > 0 },
+    { label: 'Notes / Bugs', source: 'created in DevOS', active: true },
+  ];
 
   return (
     <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 space-y-6">
@@ -282,8 +297,19 @@ export function InsightsPage() {
         </div>
       </div>
 
+      {/* Tracked sources */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {sources.map((s) => (
+          <span key={s.label} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-theme-surface border border-theme-border/10">
+            <span className={`w-1.5 h-1.5 rounded-full ${s.active ? 'bg-emerald-400' : 'bg-zinc-400'}`} />
+            {s.label}
+            <span className="text-theme-text/35 font-normal">{s.source}</span>
+          </span>
+        ))}
+      </div>
+
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="bg-theme-surface border border-theme-border/20 rounded-2xl p-5 animate-pulse">
               <div className="h-4 bg-theme-background/50 rounded w-1/3 mb-4" />
@@ -293,16 +319,22 @@ export function InsightsPage() {
         </div>
       ) : (
         <>
-          {/* Stats row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard icon={FaProjectDiagram} label="Total Projects" value={projects.length} color="bg-blue-500" />
-            <StatCard icon={FaStickyNote} label="Total Notes" value={totalNotes} color="bg-emerald-500" />
-            <StatCard icon={FaCode} label="Total Snippets" value={totalSnippets} color="bg-amber-500" />
-            <StatCard icon={FaBug} label="Total Bugs" value={totalBugs} color="bg-red-500" />
+          {/* Today (captured) */}
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-theme-text/40 mb-3">Today</h2>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatCard icon={FaCode} label="Focus time" value={focusLabel(todayFocus)} color="bg-violet-500" />
+              <StatCard icon={FaBug} label="Commits" value={commits} color="bg-blue-500" />
+              <StatCard icon={FaStickyNote} label="Tasks done" value={tasksCompleted} color="bg-emerald-500" />
+              <StatCard icon={FaProjectDiagram} label="Notes + bugs" value={notesCreated + bugsSolved} color="bg-amber-500" />
+            </div>
+            {todayCaptured === 0 && (
+              <p className="text-xs text-theme-text/35 mt-3">No tracked activity yet today. Focus time and commits appear once you work (rebuild the app to enable the git tracker).</p>
+            )}
           </div>
 
           {/* Row 2: 3 cols */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <ProductivityOverview
               score={productivityScore}
               focusTime={todayFocus}
@@ -317,13 +349,13 @@ export function InsightsPage() {
           </div>
 
           {/* Row 3: 2 cols */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <CodingActivity weekData={weekDays} maxHours={maxHours} />
             <ProjectHealth projects={projectHealthData} />
           </div>
 
           {/* Row 4: 2 cols */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Timeline events={timelineEvents} />
             <InsightWidget title="Trends" subtitle="Compared to previous period">
               <div className="space-y-2">
@@ -342,15 +374,38 @@ export function InsightsPage() {
           </div>
 
           {/* Row 5: Goals */}
-          <div className="grid grid-cols-1 gap-5">
+          <div className="grid grid-cols-1 gap-4">
             <GoalsWidget goals={goals} onRefresh={loadData} />
           </div>
 
           {/* Row 6: Achievements, Language, Learning */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <Achievements achievements={achievements} />
             <LanguageUsage languages={languages} />
             <LearningProgress topics={topics} />
+          </div>
+
+          {/* Data sources explainer */}
+          <div className="bg-theme-surface border border-theme-border/20 rounded-2xl p-5">
+            <h3 className="text-sm font-semibold text-theme-text mb-3">How Insights gathers data</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
+              <div className="flex items-start gap-2.5 text-xs text-theme-text/60">
+                <FaCode className="w-3.5 h-3.5 text-violet-400 mt-0.5 shrink-0" />
+                <span><span className="font-medium text-theme-text">Focus time</span> — logged automatically while a project is active and its files change or you're using the terminal/editor.</span>
+              </div>
+              <div className="flex items-start gap-2.5 text-xs text-theme-text/60">
+                <FaBug className="w-3.5 h-3.5 text-blue-400 mt-0.5 shrink-0" />
+                <span><span className="font-medium text-theme-text">Commits</span> — pulled from each project's git history (requires the rebuilt app).</span>
+              </div>
+              <div className="flex items-start gap-2.5 text-xs text-theme-text/60">
+                <FaStickyNote className="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0" />
+                <span><span className="font-medium text-theme-text">Tasks</span> — counted when you mark a task done.</span>
+              </div>
+              <div className="flex items-start gap-2.5 text-xs text-theme-text/60">
+                <FaProjectDiagram className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
+                <span><span className="font-medium text-theme-text">Notes / Bugs</span> — counted when you create them in DevOS.</span>
+              </div>
+            </div>
           </div>
         </>
       )}

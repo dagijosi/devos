@@ -1277,7 +1277,12 @@ export const database = {
   async updateProjectTask(id: number, data: any): Promise<void> {
     const inst = await getDatabase();
     if (!inst) return;
+    const existing = (await inst.select(PROJECT_TASK_QUERIES.getAll)).find((t: any) => Number(t.id) === id);
     await inst.execute(PROJECT_TASK_QUERIES.update, [data.title, data.description || '', data.priority, data.status, data.due_date || null, id]);
+    if (existing && data.status === 'done' && existing.status !== 'done') {
+      const pid = existing.project_id ? Number(existing.project_id) : undefined;
+      await this.logActivity({ project_id: pid, type: 'task', description: `Completed: ${existing.title}` }).catch(() => {});
+    }
   },
 
   async deleteProjectTask(id: number): Promise<void> {

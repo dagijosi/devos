@@ -4,6 +4,8 @@ mod watcher;
 mod context_menu;
 mod ipc;
 mod pty;
+mod editors;
+mod git_tracker;
 
 use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
@@ -70,6 +72,7 @@ pub fn run() {
         .build(),
     )
     .manage(pty::PtyState::default())
+    .manage(git_tracker::GitTrackerState::default())
     .invoke_handler(tauri::generate_handler![
       open_terminal,
       read_hosts_file,
@@ -83,6 +86,9 @@ pub fn run() {
       pty::write_pty,
       pty::resize_pty,
       pty::close_pty,
+      editors::detect_editors,
+      git_tracker::start_git_tracking,
+      git_tracker::stop_git_tracking,
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {

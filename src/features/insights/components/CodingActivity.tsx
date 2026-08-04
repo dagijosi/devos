@@ -14,7 +14,7 @@ export function CodingActivity({ weekData, maxHours }: Props) {
   });
 
   return (
-    <InsightWidget title="Coding Activity" subtitle="This week">
+    <InsightWidget title="Coding Activity" subtitle="From focus tracking this week">
       <div className="flex items-end gap-1.5 h-24 pt-2">
         {bars.map((b) => {
           const pct = maxHours > 0 ? (b.hours / maxHours) * 100 : 0;

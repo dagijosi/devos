@@ -6,6 +6,7 @@ import { FaTerminal, FaPlus, FaTimes, FaPlay, FaStop } from 'react-icons/fa';
 import { isTauri as isTauriRuntime } from '../../lib/tauri';
 import { useTheme } from '../../theme-system';
 import { getProjectContext } from '../projects/utils/projectContext';
+import { useActivityBeacon } from '../insights/activitySignal.store';
 
 interface Tab {
   id: string;
@@ -69,6 +70,7 @@ const DARK_TERMINAL_THEME = {
 
 export function TerminalPage() {
   const { currentTheme } = useTheme();
+  useActivityBeacon(30);
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const terminalRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());

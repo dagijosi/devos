@@ -20,7 +20,7 @@ const STATUS_COLORS = {
 
 export function ProjectHealth({ projects }: Props) {
   return (
-    <InsightWidget title="Project Health" subtitle="At a glance">
+    <InsightWidget title="Project Health" subtitle="From last activity">
       <div className="space-y-3">
         {projects.map((p) => {
           const sc = STATUS_COLORS[p.status];

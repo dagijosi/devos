@@ -5,6 +5,8 @@ import { Topbar } from './Topbar';
 import { ClipboardWatcher } from '../../features/clipboard/ClipboardWatcher';
 import { GlobalShortcutListener } from '../../features/global-shortcuts/GlobalShortcutListener';
 import { TrayHandler } from '../../features/system-tray/TrayHandler';
+import { FocusTracker } from '../../features/insights/components/FocusTracker';
+import { GitTracker } from '../../features/insights/components/GitTracker';
 
 export function AppLayout() {
   const location = useLocation();
@@ -30,6 +32,8 @@ export function AppLayout() {
       <ClipboardWatcher />
       <GlobalShortcutListener />
       <TrayHandler />
+      <FocusTracker />
+      <GitTracker />
       <Sidebar
         isOpen={sidebarOpen}
         setIsOpen={setSidebarOpen}
