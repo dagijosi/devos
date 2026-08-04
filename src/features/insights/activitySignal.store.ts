@@ -4,18 +4,24 @@ import { create } from 'zustand';
 interface ActivitySignalState {
   lastActivityAt: number;
   creditUntil: number;
+  capturing: boolean;
+  capturingProject: string | null;
   markActivity: () => void;
   creditWork: (minutes: number) => void;
+  setCapturing: (capturing: boolean, projectName: string | null) => void;
 }
 
 export const useActivitySignal = create<ActivitySignalState>((set, get) => ({
   lastActivityAt: Date.now(),
   creditUntil: 0,
+  capturing: false,
+  capturingProject: null,
   markActivity: () => set({ lastActivityAt: Date.now() }),
   creditWork: (minutes) => {
     const base = Math.max(get().creditUntil, Date.now());
     set({ creditUntil: base + minutes * 60000, lastActivityAt: Date.now() });
   },
+  setCapturing: (capturing, projectName) => set({ capturing, capturingProject: projectName }),
 }));
 
 export function markActivity(): void {

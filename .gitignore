@@ -12,6 +12,8 @@ out/
 # Tauri specific
 src-tauri/target/
 src-tauri/Cargo.lock
+cli/target/
+target/
 
 # Logs
 logs/

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaFolder, FaCode, FaTerminal, FaExternalLinkAlt, FaCheck, FaTimes } from 'react-icons/fa';
 import { useActiveProjectStore } from '../../../stores/activeProject.store';
+import { openVSCode } from '../utils/projectActions';
 import { useProjects } from '../hooks/useProjects';
 import { PROJECT_DETAIL, PROJECTS, TERMINAL } from '../../../routes/types/routeConstants';
 import { setProjectContext } from '../utils/projectContext';
@@ -45,8 +46,7 @@ export function ProjectSwitcher() {
   const handleOpenVsCode = (e: React.MouseEvent, localPath?: string) => {
     e.stopPropagation();
     if (localPath) {
-      const { invoke } = awaitImport();
-      invoke('open_vscode', { path: localPath }).catch(() => {
+      openVSCode(localPath).catch(() => {
         window.open(`vscode://file/${encodeURIComponent(localPath)}`);
       });
     }
@@ -164,17 +164,4 @@ export function ProjectSwitcher() {
       )}
     </div>
   );
-}
-
-function awaitImport() {
-  return {
-    invoke: async (cmd: string, args: Record<string, unknown>) => {
-      try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        return await invoke(cmd, args);
-      } catch {
-        return null;
-      }
-    },
-  };
 }

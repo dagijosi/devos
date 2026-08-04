@@ -4,6 +4,9 @@ use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
 pub struct GitTrackerState {
   pub heads: Mutex<HashMap<String, String>>,
   pub running: Mutex<HashMap<String, bool>>,
@@ -19,11 +22,17 @@ impl Default for GitTrackerState {
 }
 
 fn git(args: &[&str], cwd: &str) -> Option<String> {
-  let out = Command::new("git")
-    .args(args)
-    .current_dir(cwd)
-    .output()
-    .ok()?;
+  #[cfg(target_os = "windows")]
+  let mut cmd = {
+    let mut c = Command::new("git");
+    // CREATE_NO_WINDOW: prevents a console window from flashing on each poll
+    c.creation_flags(0x08000000);
+    c
+  };
+  #[cfg(not(target_os = "windows"))]
+  let mut cmd = Command::new("git");
+
+  let out = cmd.args(args).current_dir(cwd).output().ok()?;
   if !out.status.success() {
     return None;
   }

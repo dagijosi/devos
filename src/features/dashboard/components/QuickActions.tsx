@@ -5,6 +5,7 @@ import { PROJECTS, KNOWLEDGE, WORKFLOWS, TASKS, TELEGRAM } from '../../../routes
 import { useAppStore } from '../../../stores/app.store';
 import { useActiveProjectStore } from '../../../stores/activeProject.store';
 import { QuickCapture } from '../../quick-capture/QuickCapture';
+import { openVSCode } from '../../projects/utils/projectActions';
 
 export function QuickActions() {
   const navigate = useNavigate();
@@ -44,9 +45,7 @@ export function QuickActions() {
               else if (a.action === 'search') toggleCommandPalette();
               else if (a.action === 'terminal') navigate(`/terminal?cwd=${encodeURIComponent(activeProject?.localPath || '')}`);
               else if (a.action === 'vscode') {
-                if (activeProject?.localPath) {
-                  import('@tauri-apps/api/core').then(({ invoke }) => invoke('open_vscode', { path: activeProject.localPath }).catch(() => {}));
-                }
+                if (activeProject?.localPath) openVSCode(activeProject.localPath).catch(() => {});
               }
               else if (a.action === 'telegram') navigate(TELEGRAM);
               else if (a.route) navigate(a.route);

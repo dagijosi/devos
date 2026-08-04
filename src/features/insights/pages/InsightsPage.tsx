@@ -15,6 +15,7 @@ import { Achievements } from '../components/Achievements';
 import { LanguageUsage } from '../components/LanguageUsage';
 import { LearningProgress } from '../components/LearningProgress';
 import { InsightWidget } from '../components/InsightWidget';
+import { useActivitySignal } from '../activitySignal.store';
 import type { TimeRange, Goal, ActivityLog } from '../types';
 
 function getDateRange(range: TimeRange): { from: string; to: string } {
@@ -117,6 +118,18 @@ export function InsightsPage() {
   }, [range]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Live refresh: reload when the window regains focus and every 60s while visible.
+  const capturing = useActivitySignal((s) => s.capturing);
+  const capturingProject = useActivitySignal((s) => s.capturingProject);
+  useEffect(() => {
+    const onFocus = () => { loadData(); };
+    window.addEventListener('focus', onFocus);
+    const t = setInterval(() => {
+      if (document.visibilityState === 'visible') loadData();
+    }, 60000);
+    return () => { window.removeEventListener('focus', onFocus); clearInterval(t); };
+  }, [loadData]);
 
   // ── Derived data ──────────────────────────────────────────────
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -292,6 +305,14 @@ export function InsightsPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+            capturing
+              ? 'bg-emerald-400/10 border-emerald-400/30 text-emerald-300'
+              : 'bg-theme-surface border-theme-border/20 text-theme-text/50'
+          }`} title={capturing ? 'Focus tracking is live' : 'No focus session in progress'}>
+            <span className={`w-1.5 h-1.5 rounded-full ${capturing ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-400'}`} />
+            {capturing ? `Tracking · ${capturingProject || 'project'}` : 'Capture idle'}
+          </div>
           <ExportMenu onExport={handleExport} />
           <TimeRangeFilter value={range} onChange={setRange} />
         </div>

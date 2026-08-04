@@ -29,6 +29,9 @@ export function FocusTracker() {
     let unlistenFs: (() => void) | undefined;
     let cancelled = false;
 
+    useActivitySignal.getState().setCapturing(false, null);
+    let lastCapturing = false;
+
     const setup = async () => {
       try {
         const { invoke } = await import('@tauri-apps/api/core');
@@ -55,6 +58,11 @@ export function FocusTracker() {
       const working = !!activeProject &&
         (now - sig.lastActivityAt < IDLE_MS || now < sig.creditUntil);
 
+      if (working !== lastCapturing) {
+        lastCapturing = working;
+        useActivitySignal.getState().setCapturing(working, activeProject?.name || null);
+      }
+
       if (working) {
         if (!startedAt) startedAt = new Date().toISOString();
         accumulated += 1;
@@ -79,6 +87,7 @@ export function FocusTracker() {
       cancelled = true;
       clearInterval(timer);
       unlistenFs?.();
+      useActivitySignal.getState().setCapturing(false, null);
       if (isTauri && path) {
         import('@tauri-apps/api/core').then(({ invoke }) => invoke('stop_watching', { path }).catch(() => {}));
       }

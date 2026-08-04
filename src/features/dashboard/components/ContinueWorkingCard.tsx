@@ -5,6 +5,7 @@ import { useProjects } from '../../projects/hooks/useProjects';
 import { useTasks } from '../../tasks/useTasks';
 import { PROJECT_DETAIL, TERMINAL } from '../../../routes/types/routeConstants';
 import { setProjectContext } from '../../projects/utils/projectContext';
+import { openVSCode } from '../../projects/utils/projectActions';
 
 export function ContinueWorkingCard() {
   const navigate = useNavigate();
@@ -50,11 +51,9 @@ export function ContinueWorkingCard() {
 
   const handleOpenVsCode = () => {
     if (lastProject.localPath) {
-      try {
-        import('@tauri-apps/api/core').then(({ invoke }) => invoke('open_vscode', { path: lastProject.localPath }));
-      } catch {
+      openVSCode(lastProject.localPath).catch(() => {
         window.open(`vscode://file/${encodeURIComponent(lastProject.localPath)}`);
-      }
+      });
     }
   };
 
